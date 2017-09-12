@@ -1,0 +1,37 @@
+language: rust
+sudo: false
+
+cache:
+  cargo: true
+
+rust:
+  - stable
+  - beta
+  - nightly
+
+env:
+  global:
+    - RUST_BACKTRACE=1
+    - CC="gcc-4.9"
+    - CXX="g++-4.9"
+
+os:
+  - linux
+  - osx
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - rust: nightly
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+
+    packages:
+      - g++-4.9
+      - gcc-4.9
+
+notifications:
+  email: false
