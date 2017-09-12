@@ -7,17 +7,10 @@ pub(crate) mod framework;
 pub mod ops;
 pub mod client;
 
-use tf::OperationDescription;
-use tf::Output;
-use tf::Shape;
+use tf::{OperationDescription, Output, Shape};
 pub type OperationData = tf::Operation;
 pub type TypedTensor<T> = tf::Tensor<T>;
-pub use tf::Graph;
-pub use tf::DataType;
-pub use tf::Session;
-pub use tf::SessionOptions;
-pub use tf::StepWithGraph;
-pub use tf::Status;
+pub use tf::{Graph, DataType, Session, SessionOptions, StepWithGraph, Status, version};
 
 #[derive(Debug)]
 pub enum Error {

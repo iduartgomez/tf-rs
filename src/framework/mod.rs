@@ -1131,7 +1131,17 @@ impl TensorArray {
         unimplemented!()
     }
 
-    pub fn write(&mut self, idx: usize, value: Tensor) -> TensorArray {
+    pub fn write(&mut self, idx: usize, value: Tensor) -> Self {
+        unimplemented!()
+    }
+
+    pub fn from_flow(scope: &Scope, flow: &Tensor) -> Self {
+        unimplemented!()
+    }
+}
+
+impl Into<Ident> for TensorArray {
+    fn into(self) -> Ident {
         unimplemented!()
     }
 }
