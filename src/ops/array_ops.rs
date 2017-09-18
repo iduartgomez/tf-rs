@@ -110,19 +110,22 @@ fn test_gather() {
 
 ///// Reshape /////
 
-pub fn reshape<Tx, S>(
+pub fn reshape<Tx, Ty, S>(
     context: &mut Scope,
     tensor: Tx,
-    shape: &[i32],
+    shape: Ty,
     name: S,
 ) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
+          Ty: Into<Tensor>,
           S: AsRef<Path>
 {
+    /*
     let shape = {
         let dims: &[u64] = &[shape.len() as u64];
         context.constant("", shape, dims)?
     };
+    */
     context.install(Reshape::new(tensor.into(), shape.into(), name)?)
 }
 
@@ -141,10 +144,12 @@ fn test_reshape() {
     let x = context.constant("x", &[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[9]).unwrap();
     let y = context.constant("y", &[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3]).unwrap();
 
-    let op1 = reshape(&mut context, x, &[3, 3], "").unwrap();
+    let shape = context.constant("", &[3, 3], &[2]).unwrap();
+    let op1 = reshape(&mut context, x, shape, "").unwrap();
     let (src_op1, idx1) = context.get_src_op(op1);
 
-    let op2 = reshape(&mut context, y, &[-1], "").unwrap();
+    let shape = context.constant("", &[-1], &[1]).unwrap();
+    let op2 = reshape(&mut context, y, shape, "").unwrap();
     let (src_op2, idx2) = context.get_src_op(op2);
 
     let g = context.unwrap_graph().unwrap();
@@ -156,6 +161,21 @@ fn test_reshape() {
         g.tensor_shape(test_suite!(out: src_op2, idx2)).unwrap(),
         Shape::from(Some(vec![Some(9)]))
     );
+}
+
+
+///// Shape /////
+
+pub fn shape<Tx, S>(
+    context: &mut Scope,
+    tensor: Tx,
+    out_type: Option<DataType>,
+    name: S,
+) -> Result<Tensor, ::Error>
+    where Tx: Into<Tensor>,
+          S: AsRef<Path>
+{
+    unimplemented!()
 }
 
 

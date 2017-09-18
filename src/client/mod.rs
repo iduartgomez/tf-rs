@@ -1,9 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use tf::{Session, SessionOptions, StepWithGraph};
-
-use super::{DataType, Graph};
+use super::{DataType, Graph, Session, SessionOptions, StepWithGraph};
 use super::framework::*;
 
 /// A ClientSession object lets the caller drive the evaluation of the TensorFlow graph

@@ -753,3 +753,21 @@ fn test_sub() {
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32]});
 }
+
+
+/////
+
+pub fn unsorted_segment_sum<Tx, Ty, Tz, S>(
+    context: &mut Scope,
+    data: Tx,
+    segment_ids: Ty,
+    num_segments: Tz,
+    name: S,
+) -> Result<Tensor, ::Error>
+    where Tx: Into<Tensor>,
+          Ty: Into<Tensor>,
+          Tz: Into<Tensor>,
+          S: AsRef<Path>
+{
+    unimplemented!()
+}

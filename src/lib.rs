@@ -10,7 +10,7 @@ pub mod client;
 use tf::{OperationDescription, Output, Shape};
 pub type OperationData = tf::Operation;
 pub type TypedTensor<T> = tf::Tensor<T>;
-pub use tf::{Graph, DataType, Session, SessionOptions, StepWithGraph, Status, version};
+use tf::{Graph, DataType, Session, SessionOptions, StepWithGraph, Status};
 
 #[derive(Debug)]
 pub enum Error {
@@ -37,5 +37,6 @@ impl std::convert::From<std::ffi::NulError> for Error {
 pub mod prelude {
     pub use super::framework::{Constant, Ident, Scope, Operation, Tensor, TensorContent,
                                TensorArray, Variable};
-    pub use super::{Error, OperationData, Status, TypedTensor};
+    pub use super::{OperationData, TypedTensor};
+    pub use tf::{DataType, Status};
 }
