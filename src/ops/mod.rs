@@ -255,6 +255,9 @@ pub use self::array_ops::*;
 pub(crate) mod control_flow_ops;
 pub use self::control_flow_ops::*;
 
+pub(crate) mod init_ops;
+pub use self::init_ops::*;
+
 pub(crate) mod math_ops;
 pub use self::math_ops::*;
 
