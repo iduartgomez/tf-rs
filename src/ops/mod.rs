@@ -14,10 +14,30 @@ impl Float for f32 {}
 impl Float for f64 {}
 
 #[doc(hidden)]
-pub trait ShapeSize: TensorType {}
+pub trait ShapeSize: TensorType + Copy {
+    fn as_i64(self) -> i64;
+    fn as_u64(self) -> u64;
+}
 
-impl ShapeSize for i32 {}
-impl ShapeSize for i64 {}
+impl ShapeSize for i32 {
+    fn as_i64(self) -> i64 {
+        self as i64
+    }
+
+    fn as_u64(self) -> u64 {
+        self as u64
+    }
+}
+
+impl ShapeSize for i64 {
+    fn as_i64(self) -> i64 {
+        self
+    }
+
+    fn as_u64(self) -> u64 {
+        self as u64
+    }
+}
 
 ////// Macros //////
 

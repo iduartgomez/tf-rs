@@ -3,15 +3,16 @@ use super::*;
 
 ///// Concat /////
 
-pub fn concat<S>(
+pub fn concat<S, TeS>(
     context: &mut Scope,
     values: Vec<Tensor>,
-    axis: u64,
+    axis: TeS,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where S: AsRef<Path>
+    where S: AsRef<Path>,
+          TeS: ShapeSize
 {
-    let axis = context.constant("", &[axis as i32], &[])?;
+    let axis = context.constant("", &[axis], &[] as &[i32])?;
     context.install(Concat::new(values, axis.into(), name)?)
 }
 
@@ -122,7 +123,7 @@ pub fn reshape<Tx, Ty, S>(
 {
     /*
     let shape = {
-        let dims: &[u64] = &[shape.len() as u64];
+        let dims: &[i64] = &[shape.len() as i64];
         context.constant("", shape, dims)?
     };
     */
@@ -209,18 +210,21 @@ fn test_size() {
 
 ///// Squeeze /////
 
-pub fn squeeze<Tx, S>(
+pub fn squeeze<TeS, Tx, S>(
     context: &mut Scope,
     tensor: Tx,
-    axis: Option<&[i64]>,
+    axis: Option<&[TeS]>,
     name: S,
 ) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
-          S: AsRef<Path>
+          S: AsRef<Path>,
+          TeS: ShapeSize
 {
+    let dims: Vec<i64>; 
     let mut squeeze = Squeeze::new(tensor.into(), name)?;
     if let Some(axis) = axis {
-        squeeze = squeeze.squeeze_dims(axis);
+        dims = shape_as_i64(axis);
+        squeeze = squeeze.squeeze_dims(&dims);
     }
     context.install(squeeze)
 }

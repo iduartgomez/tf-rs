@@ -11,10 +11,7 @@ use tf::TensorType;
 
 use super::{DataType, Graph, OperationData, OperationDescription, Output, Shape, Status,
             TypedTensor};
-use super::ops::control_flow_ops;
-use super::ops::control_flow_ops::ControlFlow;
-use super::ops::init_ops;
-use super::ops::array_ops;
+use super::ops::*;
 
 // Macros:
 
@@ -458,20 +455,22 @@ impl Scope {
     /// reuse during variable creation.
     ///
     /// Reuse is set during `variable_scope` creation.
-    pub fn get_variable<S>(
+    pub fn get_variable<S, TeS>(
         &mut self,
         name: S,
         dtype: DataType,
-        shape: Option<&[u64]>,
+        shape: Option<&[TeS]>,
     ) -> Result<Variable, ::Error>
-        where S: AsRef<Path>
+        where S: AsRef<Path>,
+              TeS: ShapeSize
     {
-        fn get_initial_value(
+        fn get_initial_value<T: ShapeSize>(
             g: &mut Graph,
             dtype: DataType,
             n: &str,
-            shape: &[u64],
+            shape: &[T],
         ) -> Result<OperationData, Status> {
+            let shape: &[u64] = &shape_as_u64(shape);
             match dtype {
                 DataType::Bool => array_ops::constant(g, n, TypedTensor::<bool>::new(shape), &[]),
                 DataType::Double => array_ops::constant(g, n, TypedTensor::<f64>::new(shape), &[]),
@@ -745,14 +744,15 @@ impl Scope {
         }
     }
 
-    pub fn constant<T, S>(
+    pub fn constant<TeS, T, S>(
         &mut self,
         name: S,
         value: &[T],
-        shape: &[u64],
+        shape: &[TeS],
     ) -> Result<Constant, ::Error>
         where S: AsRef<Path>,
-              T: TensorType
+              T: TensorType,
+              TeS: ShapeSize
     {
         self.allow_writes();
         let graph = &mut *self.graph.borrow_mut();
@@ -760,6 +760,8 @@ impl Scope {
 
         let full_name = self.resolve_tensor_name(Some(name.as_ref()), IdType::Constant, false)?;
         let ident = Ident::new();
+
+        let shape: &[u64] = &shape_as_u64(shape);
 
         let data_origin = {
             let cd = &self.scopes.borrow().control_dependencies;
@@ -1164,8 +1166,9 @@ pub struct Tensor {
 
 impl Tensor {
     /// Performs an assign operation for this tensor.
-    pub fn with_value<T>(context: &mut Scope, values: &[T], shape: Option<&[u64]>) -> Tensor
-        where T: TensorType
+    pub fn with_value<T, TeS>(context: &mut Scope, values: &[T], shape: Option<&[TeS]>) -> Tensor
+        where T: TensorType,
+              TeS: ShapeSize
     {
         unimplemented!()
     }
@@ -1219,8 +1222,9 @@ pub struct Constant {
 }
 
 impl Constant {
-    pub fn new<T>(context: &mut Scope, value: &[T], shape: &[u64]) -> Constant
-        where T: TensorType
+    pub fn new<T, TeS>(context: &mut Scope, value: &[T], shape: &[TeS]) -> Constant
+        where T: TensorType,
+              TeS: ShapeSize
     {
         let name = context.resolve_tensor_name(None, IdType::Constant, false).unwrap();
         context.constant(name, value, shape).unwrap()
@@ -1269,8 +1273,9 @@ pub struct Variable {
 }
 
 impl Variable {
-    pub fn new<T>(context: &mut Scope, initial_value: &[T], shape: &[u64]) -> Variable
-        where T: TensorType
+    pub fn new<T, TeS>(context: &mut Scope, initial_value: &[T], shape: &[TeS]) -> Variable
+        where T: TensorType,
+              TeS: ShapeSize
     {
         let name = context.resolve_tensor_name(None, IdType::Variable, false).unwrap();
         unimplemented!()
@@ -1566,8 +1571,16 @@ pub trait Operation<'a>
     }
 }
 
-pub(crate) fn shape_from_dims(dims: &[u64]) -> Shape {
-    Shape::from(Some(dims.iter().map(|x| Some(*x as i64)).collect::<Vec<_>>()),)
+pub(crate) fn shape_from_dims<T: ShapeSize>(dims: &[T]) -> Shape {
+    Shape::from(Some(dims.iter().map(|x| Some(x.as_i64())).collect::<Vec<_>>()),)
+}
+
+pub(crate) fn shape_as_u64<T: ShapeSize>(dims: &[T]) -> Vec<u64> {
+    dims.iter().map(|x| x.as_u64()).collect()
+}
+
+pub(crate) fn shape_as_i64<T: ShapeSize>(dims: &[T]) -> Vec<i64> {
+    dims.iter().map(|x| x.as_i64()).collect()
 }
 
 pub(crate) fn add_control_input<I, T>(op: &mut OperationDescription, control_inputs: I)

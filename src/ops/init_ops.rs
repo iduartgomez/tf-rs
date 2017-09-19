@@ -1,13 +1,14 @@
 use super::*;
 
-pub fn constant_initializer<T>(
+pub fn constant_initializer<TeS, T>(
     context: &mut Scope,
     value: T,
-    shape: &[u64],
+    shape: &[TeS],
 ) -> Result<Constant, ::Error>
-    where T: TensorType
+    where T: TensorType,
+          TeS: ShapeSize
 {
-    let total = shape.iter().fold(1, |acc, &x| acc * x) as usize;
+    let total = shape.iter().fold(1_i64, |acc, &x| acc * x.as_i64()) as usize;
     let values = vec![value; total];
     context.constant("", &values, shape)
 }
@@ -25,21 +26,21 @@ fn test_constant_initializer_explicit() {
     test_suite!(results; assert: {[0;Int32] == [3_i32, 3, 3, 3, 3, 3, 3, 3]});
 }
 
-pub fn random_normal_initializer<F, S>(
+pub fn random_normal_initializer<TeS, F>(
     context: &mut Scope,
     mean: F,
     stddev: F,
     seed: Option<i32>,
-    shape: &[S],
+    shape: &[TeS],
 ) -> Result<Tensor, ::Error>
     where F: Float,
-          S: ShapeSize
+          TeS: ShapeSize
 {
     let scope = &mut context.name_scope("random_normal");
 
-    let shape_tensor = scope.constant("", shape, &[shape.len() as u64])?;
-    let mean_tensor = scope.constant("mean", &[mean], &[])?;
-    let stddev_tensor = scope.constant("name", &[stddev], &[])?;
+    let shape_tensor = scope.constant("", shape, &[shape.len() as i64])?;
+    let mean_tensor = scope.constant("mean", &[mean], &[] as &[i64])?;
+    let stddev_tensor = scope.constant("name", &[stddev], &[] as &[i64])?;
 
     let rnd = {
         let (seed, seed2) = scope.get_seed(seed);

@@ -4,12 +4,7 @@ use super::*;
 
 ///// Add /////
 
-pub fn add<Tx, Ty, S>(
-    context: &mut Scope,
-    x: Tx,
-    y: Ty,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn add<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
@@ -43,11 +38,7 @@ fn test_add() {
 
 ///// AddN /////
 
-pub fn add_n<S>(
-    context: &mut Scope,
-    values: Vec<Tensor>,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn add_n<S>(context: &mut Scope, values: Vec<Tensor>, name: S) -> Result<Tensor, ::Error>
     where S: AsRef<Path>
 {
     context.install(AddN::new(values, name)?)
@@ -151,12 +142,7 @@ fn test_cast() {
 
 ///// Division /////
 
-pub fn divide<Tx, Ty, S>(
-    context: &mut Scope,
-    x: Tx,
-    y: Ty,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn divide<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
@@ -186,12 +172,7 @@ fn test_divide() {
 
 ///// Equal /////
 
-pub fn equal<Tx, Ty, S>(
-    context: &mut Scope,
-    x: Tx,
-    y: Ty,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn equal<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
@@ -255,12 +236,7 @@ fn test_exp() {
 
 ///// Greater /////
 
-pub fn greater<Tx, Ty, S>(
-    context: &mut Scope,
-    x: Tx,
-    y: Ty,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn greater<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
@@ -294,12 +270,7 @@ fn test_greater() {
 
 ///// Multiply /////
 
-pub fn multiply<Tx, Ty, S>(
-    context: &mut Scope,
-    x: Tx,
-    y: Ty,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn multiply<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
@@ -329,12 +300,7 @@ fn test_multiply() {
 
 ///// Less /////
 
-pub fn less<Tx, Ty, S>(
-    context: &mut Scope,
-    x: Tx,
-    y: Ty,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn less<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
@@ -398,11 +364,7 @@ fn test_log() {
 
 ///// Logical Not /////
 
-pub fn logical_not<Tx, S>(
-    context: &mut Scope,
-    tensor: Tx,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn logical_not<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           S: AsRef<Path>
 {
@@ -449,7 +411,7 @@ pub fn reduce_all<Tx, S>(
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
     }
-    let dims: &[u64] = &[axis.len() as u64];
+    let dims = &[axis.len() as i64];
     let reduce = context.constant(name.as_ref(), axis, dims)?;
     context.install(All::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
 }
@@ -510,15 +472,16 @@ fn test_reduce_all() {
 
 ///// Reduce LogSumExp /////
 
-pub fn reduce_logsumexp<Tx, S>(
+pub fn reduce_logsumexp<TeS, Tx, S>(
     context: &mut Scope,
     input: Tx,
-    axis: &[i32],
+    axis: &[TeS],
     keep_dims: bool,
     name: S,
 ) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
-          S: AsRef<Path>
+          S: AsRef<Path>,
+          TeS: ShapeSize
 {
     let name = if name_cmp!(name, "") {
         Path::new("ReduceLogSumExp")
@@ -538,14 +501,15 @@ pub fn reduce_logsumexp<Tx, S>(
     let exp = exp(scope, sub, "")?;
     let reduce_sum = reduce_sum(scope, exp, axis, true, "")?;
     let log = log(scope, reduce_sum, "")?;
+
+    let dims: Vec<i64>;
     let mut result = add(scope, log, my_max, "")?;
     if !keep_dims {
-        let i64_cast: Vec<i64>;
         let axis = if axis.len() == 0 {
             None
         } else {
-            i64_cast = axis.iter().map(|x| *x as i64).collect();
-            Some(i64_cast.as_slice())
+            dims = shape_as_i64(axis);
+            Some(dims.as_slice())
         };
         result = squeeze(scope, result, axis, "")?;
     }
@@ -572,20 +536,21 @@ fn test_reduce_logsumexp() {
 
 ///// Reduce Sum /////
 
-pub fn reduce_sum<Tx, S>(
+pub fn reduce_sum<TeS, Tx, S>(
     context: &mut Scope,
     tensor: Tx,
-    axis: &[i32],
+    axis: &[TeS],
     keep_dims: bool,
     name: S,
 ) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
-          S: AsRef<Path>
+          S: AsRef<Path>,
+          TeS: ShapeSize
 {
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
     }
-    let dims: &[u64] = &[axis.len() as u64];
+    let dims = &[axis.len() as i64];
     let reduce = context.constant(name.as_ref(), axis, dims)?;
     context.install(Sum::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
 }
@@ -635,20 +600,21 @@ fn test_reduce_sum() {
 
 ///// Reduce Max /////
 
-pub fn reduce_max<Tx, S>(
+pub fn reduce_max<TeS, Tx, S>(
     context: &mut Scope,
     tensor: Tx,
-    axis: &[i32],
+    axis: &[TeS],
     keep_dims: bool,
     name: S,
 ) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
-          S: AsRef<Path>
+          S: AsRef<Path>,
+          TeS: ShapeSize
 {
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
     }
-    let dims: &[u64] = &[axis.len() as u64];
+    let dims = &[axis.len() as i64];
     let reduce = context.constant(name.as_ref(), axis, dims)?;
     context.install(Max::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
 }
@@ -698,11 +664,7 @@ fn test_reduce_max() {
 
 ///// Stop Gradient /////
 
-pub fn stop_gradient<Tx, S>(
-    context: &mut Scope,
-    tensor: Tx,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn stop_gradient<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           S: AsRef<Path>
 {
@@ -722,12 +684,7 @@ add_new_op!(StopGradient,
 
 ///// Sub /////
 
-pub fn sub<Tx, Ty, S>(
-    context: &mut Scope,
-    x: Tx,
-    y: Ty,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn sub<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
