@@ -607,7 +607,6 @@ impl Scope {
         &mut self,
         name: S,
         initializer: T,
-        shape: Option<&[u64]>,
     ) -> Result<Variable, ::Error>
         where S: AsRef<Path>,
               T: Into<Ident>
@@ -641,17 +640,13 @@ impl Scope {
                 let registry = &mut *self.registry.borrow_mut();
 
                 let initializer = registry.get(&initializer.into()).unwrap();
-                if let Some(shape) = shape {
-                    rank_info = shape_from_dims(shape);
-                } else {
-                    rank_info = graph
-                        .tensor_shape(
-                            Output {
-                                operation: initializer.data_origin.0.clone(),
-                                index: initializer.data_origin.1,
-                            },
-                        )?;
-                };
+                rank_info = graph
+                    .tensor_shape(
+                        Output {
+                            operation: initializer.data_origin.0.clone(),
+                            index: initializer.data_origin.1,
+                        },
+                    )?;
                 dtype = initializer.dtype;
 
                 // variable op, not initialized!
@@ -948,7 +943,7 @@ impl Scope {
         unimplemented!()
     }
 
-    pub fn get_seed(&self) -> (i32, i32) {
+    pub fn get_seed(&self, op_seed: Option<i32>) -> (i32, i32) {
         unimplemented!()
     }
 

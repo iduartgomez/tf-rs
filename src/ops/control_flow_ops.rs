@@ -1306,6 +1306,7 @@ mod test {
         test_suite!(r; assert: {[0;Int32] == [40_i32], [1;Int32] == [40_i32]});
     }
 
+    #[ignore]
     #[test]
     fn test_while_loop() {
         let mut context = Scope::new();

@@ -7,6 +7,18 @@ use tf::TensorType;
 use super::{DataType, Graph, TypedTensor, OperationData, Output, Shape, Status};
 pub use super::framework::*;
 
+#[doc(hidden)]
+pub trait Float: TensorType {}
+
+impl Float for f32 {}
+impl Float for f64 {}
+
+#[doc(hidden)]
+pub trait ShapeSize: TensorType {}
+
+impl ShapeSize for i32 {}
+impl ShapeSize for i64 {}
+
 ////// Macros //////
 
 macro_rules! generate_name {
