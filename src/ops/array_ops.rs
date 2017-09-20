@@ -1,5 +1,7 @@
 //! Array Operations.
 use super::*;
+#[allow(unused_imports)]
+use tf::Shape as TensorShape;
 
 ///// Concat /////
 
@@ -61,11 +63,11 @@ fn test_concat() {
     let g = context.unwrap_graph().unwrap();
     assert_eq!(
         g.tensor_shape(test_suite!(out: src_op1, idx1)).unwrap(),
-        Shape::from(Some(vec![Some(4), Some(3)]))
+        TensorShape::from(Some(vec![Some(4), Some(3)]))
     );
     assert_eq!(
         g.tensor_shape(test_suite!(out: src_op2, idx2)).unwrap(),
-        Shape::from(Some(vec![Some(2), Some(6)]))
+        TensorShape::from(Some(vec![Some(2), Some(6)]))
     );
 }
 
@@ -156,11 +158,11 @@ fn test_reshape() {
     let g = context.unwrap_graph().unwrap();
     assert_eq!(
         g.tensor_shape(test_suite!(out: src_op1, idx1)).unwrap(),
-        Shape::from(Some(vec![Some(3), Some(3)]))
+        TensorShape::from(Some(vec![Some(3), Some(3)]))
     );
     assert_eq!(
         g.tensor_shape(test_suite!(out: src_op2, idx2)).unwrap(),
-        Shape::from(Some(vec![Some(9)]))
+        TensorShape::from(Some(vec![Some(9)]))
     );
 }
 
@@ -176,7 +178,64 @@ pub fn shape<Tx, S>(
     where Tx: Into<Tensor>,
           S: AsRef<Path>
 {
-    unimplemented!()
+    let out_type = if let Some(val) = out_type {
+        vec![val]
+    } else {
+        vec![]
+    };
+    context.install(Shape::new(tensor.into(), &out_type, name)?)
+}
+
+/// Returns the shape of a tensor.
+/// 
+/// This operation returns a 1-D integer tensor representing the shape of `input`.
+add_new_op!(Shape,
+    constructor: [
+        fn new<S: AsRef<Path>>(tensor: Tensor, output_type: &'a [DataType], name: S) 
+            -> Result<Shape<'a>, ::Error> 
+        {
+            let out;
+            let attributes = if let Some(dtype) = output_type.get(0) {
+                match *dtype {
+                    DataType::Int64 => out = DataType::Int64,
+                    DataType::Int32 => out = DataType::Int32,
+                    _ => return Err(::Error::Stub),
+                }
+                vec![("out_type", false, Attribute::Type(output_type))]
+            } else if output_type.len() > 0 {
+                return Err(::Error::Stub);
+            } else {
+                out = DataType::Int32;
+                Vec::with_capacity(0)
+            };
+
+            Ok(
+                Shape {
+                    ident: Ident::new(),
+                    elements: vec![tensor],
+                    name: generate_name!(is_none: name),
+                    input_lists: Vec::with_capacity(0),
+                    attributes,
+                    output_type: out,
+                },
+            )
+        }
+    ],
+    digest: [DEFAULT_DIGEST: ShapeOp, DTYPE_ATTR],
+    extra_funcs: [], 
+    extra_attr: [ output_type: DataType ],
+    output: [Tensor],
+);
+
+#[test]
+#[cfg(test)]
+fn test_shape() {
+    let mut context = Scope::new();
+    let x = context.constant("x", &[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3]).unwrap();
+
+    let op = shape(&mut context, x, Some(DataType::Int64), "").unwrap();
+    let results = test_suite!(run_op: [op]; context, input: {});
+    test_suite!(results; assert: {[0;Int64] == [3, 3]});
 }
 
 
@@ -220,7 +279,7 @@ pub fn squeeze<TeS, Tx, S>(
           S: AsRef<Path>,
           TeS: ShapeSize
 {
-    let dims: Vec<i64>; 
+    let dims: Vec<i64>;
     let mut squeeze = Squeeze::new(tensor.into(), name)?;
     if let Some(axis) = axis {
         dims = shape_as_i64(axis);

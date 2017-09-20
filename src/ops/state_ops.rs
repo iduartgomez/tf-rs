@@ -41,8 +41,8 @@ add_new_op!(Assign,
 #[cfg(test)]
 fn test_assign() {
     let mut context = Scope::new();
-    let x = context.get_variable("x", DataType::Int32, Some(&[])).unwrap();
-    let y = context.constant("y", &[2_i32], &[]).unwrap();
+    let x = context.get_variable("x", Some(DataType::Int32), Some(&[] as &[i32])).unwrap();
+    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
     let op = assign(&mut context, x, y, true, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32]});
@@ -88,9 +88,9 @@ add_new_op!(AssignAdd,
 #[cfg(test)]
 fn test_assign_add() {
     let mut context = Scope::new();
-    let x = context.get_variable("x", DataType::Int32, Some(&[1])).unwrap();
+    let x = context.get_variable("x", Some(DataType::Int32), Some(&[1])).unwrap();
     let y = context.constant("y", &[3_i32], &[1]).unwrap();
-    let op = assign_add(&mut context, x, y, false, "").unwrap();
+    let op = assign_add(&mut context, x, y, true, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [3_i32]});
 }

@@ -1,4 +1,5 @@
 use super::*;
+use tf::Shape;
 
 pub fn constant_initializer<TeS, T>(
     context: &mut Scope,
@@ -19,7 +20,7 @@ fn test_constant_initializer_explicit() {
     let mut context = Scope::new();
 
     let init = constant_initializer(&mut context, 3_i32, &[2, 2, 2]).unwrap();
-    let var = context.get_variable_with_initializer("", init).unwrap();
+    let var = context.get_variable_with_initializer("", init, true).unwrap();
 
     let results = test_suite!(run_op: [var]; context, input: {});
     test_suite!(results; assert_len: {[0;Int32] == 8});
@@ -109,7 +110,7 @@ fn test_random_normal_initializer() {
     let mut context = Scope::new();
 
     let init = random_normal_initializer(&mut context, 0.0_f32, 1.0, None, &[2, 2]).unwrap();
-    let var = context.get_variable_with_initializer("", init).unwrap();
+    let var = context.get_variable_with_initializer("", init, true).unwrap();
 
     let results = test_suite!(run_op: [var]; context, input: {});
     test_suite!(results; assert_len: {[0;Float] == 4});

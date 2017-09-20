@@ -4,38 +4,36 @@ use std::path::{Path, PathBuf};
 
 use tf::TensorType;
 
-use super::{DataType, Graph, TypedTensor, OperationData, Output, Shape, Status};
+use super::{DataType, Graph, OperationData, Output, Status, TypedTensor};
 pub use super::framework::*;
+pub(crate) use self::dtype_traits::*;
 
-#[doc(hidden)]
-pub trait Float: TensorType {}
+pub(crate) mod dtype_traits {
+    use tf::TensorType;
 
-impl Float for f32 {}
-impl Float for f64 {}
-
-#[doc(hidden)]
-pub trait ShapeSize: TensorType + Copy {
-    fn as_i64(self) -> i64;
-    fn as_u64(self) -> u64;
-}
-
-impl ShapeSize for i32 {
-    fn as_i64(self) -> i64 {
-        self as i64
+    pub trait Float: TensorType {
+        fn as_float(self) -> f32;
+        fn as_double(self) -> f64;
     }
 
-    fn as_u64(self) -> u64 {
-        self as u64
-    }
-}
+    impl Float for f32 {
+        fn as_float(self) -> f32 {
+            self
+        }
 
-impl ShapeSize for i64 {
-    fn as_i64(self) -> i64 {
-        self
+        fn as_double(self) -> f64 {
+            self as f64
+        }
     }
 
-    fn as_u64(self) -> u64 {
-        self as u64
+    impl Float for f64 {
+        fn as_float(self) -> f32 {
+            self as f32
+        }
+
+        fn as_double(self) -> f64 {
+            self
+        }
     }
 }
 

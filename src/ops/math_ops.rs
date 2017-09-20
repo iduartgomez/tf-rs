@@ -28,8 +28,8 @@ add_new_op!(Add,
 #[cfg(test)]
 fn test_add() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[2_i32], &[]).unwrap();
-    let y = context.constant("y", &[2_i32], &[]).unwrap();
+    let x = context.constant("x", &[2_i32], &[] as &[i32]).unwrap();
+    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
     let op = add(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [4_i32]});
@@ -76,8 +76,8 @@ add_new_op!(AddN,
 #[cfg(test)]
 fn test_add_n() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[2_i32], &[]).unwrap();
-    let y = context.constant("y", &[2_i32], &[]).unwrap();
+    let x = context.constant("x", &[2_i32], &[] as &[i32]).unwrap();
+    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
     let op = add_n(&mut context, vec![x.into(), y.into()], "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [4_i32]});
@@ -162,8 +162,8 @@ add_new_op!(Div,
 #[cfg(test)]
 fn test_divide() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[4_i32], &[]).unwrap();
-    let y = context.constant("y", &[2_i32], &[]).unwrap();
+    let x = context.constant("x", &[4_i32], &[] as &[i32]).unwrap();
+    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
     let op = divide(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32]});
@@ -227,7 +227,7 @@ add_new_op!(Exp,
 #[cfg(test)]
 fn test_exp() {
     let mut context = Scope::new();
-    let e = context.constant("e", &[1_f64], &[]).unwrap();
+    let e = context.constant("e", &[1_f64], &[] as &[i32]).unwrap();
     let op = exp(&mut context, e, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Double] == [::std::f64::consts::E]});
@@ -290,8 +290,8 @@ add_new_op!(Mul,
 #[cfg(test)]
 fn test_multiply() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[4_i32], &[]).unwrap();
-    let y = context.constant("y", &[2_i32], &[]).unwrap();
+    let x = context.constant("x", &[4_i32], &[] as &[i32]).unwrap();
+    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
     let op = multiply(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [8_i32]});
@@ -355,7 +355,7 @@ add_new_op!(Log,
 #[cfg(test)]
 fn test_log() {
     let mut context = Scope::new();
-    let e = context.constant("e", &[::std::f64::consts::E], &[]).unwrap();
+    let e = context.constant("e", &[::std::f64::consts::E], &[] as &[i32]).unwrap();
     let op = log(&mut context, e, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Double] == [1.]});
@@ -704,8 +704,8 @@ add_new_op!(Sub,
 #[cfg(test)]
 fn test_sub() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[4_i32], &[]).unwrap();
-    let y = context.constant("y", &[2_i32], &[]).unwrap();
+    let x = context.constant("x", &[4_i32], &[] as &[i32]).unwrap();
+    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
     let op = sub(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32]});

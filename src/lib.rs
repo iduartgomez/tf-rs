@@ -6,6 +6,7 @@ mod macros;
 pub(crate) mod framework;
 pub mod ops;
 pub mod client;
+pub mod train;
 
 use tf::{OperationDescription, Output, Shape};
 pub type OperationData = tf::Operation;
@@ -19,7 +20,7 @@ pub enum Error {
     /// ffi::NulError
     NulError,
     Stub,
-    StubMsg(String),
+    Msg(String),
 }
 
 impl std::convert::From<Status> for Error {
