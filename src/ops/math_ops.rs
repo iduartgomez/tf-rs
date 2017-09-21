@@ -396,6 +396,54 @@ fn test_logical_not() {
 }
 
 
+///// Pow /////
+
+/// Computes the power of one value to another.
+///
+/// Given a tensor `x` and a tensor `y`, this operation computes \\(x^y\\) for
+/// corresponding elements in `x` and `y`. For example:
+///
+/// ```python
+/// # tensor 'x' is [[2, 2]], [3, 3]]
+/// # tensor 'y' is [[8, 16], [2, 3]]
+/// tf.pow(x, y) ==> [[256, 65536], [9, 27]]
+/// ```
+///
+/// Args:
+///     x: A `Tensor`. Must be one of the following types: `half`, `float32`, `float64`, `int32`, `int64`, `complex64`, `complex128`.
+///     y: A `Tensor`. Must have the same type as `x`.
+///     name: A name for the operation (optional).
+///
+/// Returns:
+///     A `Tensor`. Has the same type as `x`.
+pub fn pow<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+    where Tx: Into<Tensor>,
+          Ty: Into<Tensor>,
+          S: AsRef<Path>
+{
+    context.install(Pow::new(x.into(), y.into(), name)?)
+}
+
+add_new_op!(Pow,
+    constructor: [add_new_op!(BIN CONSTRUCTOR: Pow, Init: []);],
+    digest: [DEFAULT_DIGEST: Pow, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+#[test]
+#[cfg(test)]
+fn test_pow() {
+    let mut context = Scope::new();
+    let x = context.constant("x", &[2_i32], &[] as &[i32]).unwrap();
+    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
+    let op = pow(&mut context, x, y, "").unwrap();
+    let results = test_suite!(run_op: [op]; context, input: {});
+    test_suite!(results; assert: {[0;Int32] == [4_i32]});
+}
+
+
 ///// Reduce All /////
 
 pub fn reduce_all<Tx, S>(
@@ -659,6 +707,49 @@ fn test_reduce_max() {
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert_len: {[0;Int32] == 1});
     test_suite!(results; assert: {[0;Int32] == [4]});
+}
+
+
+///// Minimum /////
+
+/// Returns the min of x and y (i.e. x < y ? x : y) element-wise.
+///
+/// *NOTE*: `Minimum` supports broadcasting. More about broadcasting
+/// [here](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+///
+/// Args:
+///     x: A `Tensor`. Must be one of the following types: `half`, `float32`, `float64`, `int32`, `int64`.
+///     y: A `Tensor`. Must have the same type as `x`.
+///     name: A name for the operation (optional).
+///
+/// Returns:
+///     A `Tensor`. Has the same type as `x`.
+pub fn minimum<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+    where Tx: Into<Tensor>,
+          Ty: Into<Tensor>,
+          S: AsRef<Path>
+{
+    context.install(Minimum::new(x.into(), y.into(), name)?)
+}
+
+add_new_op!(Minimum,
+    constructor: [add_new_op!(BIN CONSTRUCTOR: Minimum, Init: []);],
+    digest: [DEFAULT_DIGEST: Minimum, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+#[test]
+#[cfg(test)]
+fn test_minimum() {
+    let mut context = Scope::new();
+    let x = context.constant("x", &[4_i32, 3], &[2] as &[i32]).unwrap();
+    let y = context.constant("y", &[2_i32, 6], &[2] as &[i32]).unwrap();
+
+    let op = minimum(&mut context, x, y, "").unwrap();
+    let results = test_suite!(run_op: [op]; context, input: {});
+    test_suite!(results; assert: {[0;Int32] == [4_i32, 6]});
 }
 
 

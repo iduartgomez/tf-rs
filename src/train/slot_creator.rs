@@ -20,6 +20,7 @@
 
 use super::*;
 use super::ops::array_ops;
+use super::ops::init_ops;
 
 /// Create a slot initialized to the given value.
 ///
@@ -41,7 +42,8 @@ pub(crate) fn create_slot<S>(
     name: S,
     _colocate_with_primary: bool,
 ) -> Result<Variable, ::Error>
-    where S: AsRef<str>
+where
+    S: AsRef<str>,
 {
     use super::DefinedShape;
 
@@ -50,7 +52,7 @@ pub(crate) fn create_slot<S>(
     // optimizer can be shared when reuse is True. Meanwhile when reuse is False
     // and the same name has been previously used, the scope name will add '_N'
     // as suffix for unique identifications.
-    let validate_shape = scope.get_shape(val).is_fully_defined();
+    let validate_shape = val.get_shape(scope).is_fully_defined();
     let primary_op_name = format!("{}/{}", primary.get_name(scope), name.as_ref());
     let scope = &mut scope.variable_scope("", Some(primary_op_name.as_str()), None)?;
     scope.get_variable_with_initializer("", val, validate_shape)
@@ -60,17 +62,41 @@ pub(crate) fn create_zeros_slot<S>(
     scope: &mut Scope,
     primary: Tensor,
     name: S,
-    _colocate_with_primary: bool,
+    colocate_with_primary: bool,
 ) -> Result<Variable, ::Error>
-    where S: AsRef<str>
+where
+    S: AsRef<str>,
 {
-    let slot_shape = scope.get_shape(primary);
     /*
-    let slot_shape = if slot_shape.is_fully_defined() {
-        slot_shape
-    } else {
-        array_ops::shape(primary)
-    };
+    slot_shape = primary.get_shape()
+    slot_shape = (slot_shape if slot_shape.is_fully_defined()
+                    else array_ops.shape(primary.initialized_value()))
+    if slot_shape.is_fully_defined():
+        initializer = init_ops.zeros_initializer(dtype)
+        return create_slot_with_initializer(
+            primary, initializer, slot_shape, dtype, name,
+            colocate_with_primary=colocate_with_primary)
     */
-    unimplemented!()
+    let slot_shape = array_ops::shape(scope, primary, Some(primary.dtype), "").unwrap();
+    let slot_shape_arr = slot_shape.get_shape(scope);
+    if slot_shape_arr.is_fully_defined() {
+        let initializer = init_ops::zeros_initializer(
+            scope,
+            &shape_as_i64(slot_shape_arr.definition_i64().as_ref().unwrap()),
+        )?;
+        create_slot(
+            scope,
+            primary,
+            initializer.into(),
+            name,
+            colocate_with_primary,
+        )
+    } else {
+        /*
+        val = array_ops.zeros(slot_shape, dtype=dtype)
+        return create_slot(primary, val, name,
+                        colocate_with_primary=colocate_with_primary)
+        */
+        unimplemented!()
+    }
 }

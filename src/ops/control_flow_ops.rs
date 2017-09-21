@@ -6,8 +6,10 @@ use super::*;
 
 type CondSubGraph<'a> = Box<FnMut(&mut Scope) -> Result<Vec<Tensor>, ::Error> + 'a>;
 type WhileCondGraph<'a> = Box<FnMut(&mut Scope, &mut [Tensor]) -> Result<Tensor, ::Error> + 'a>;
-type WhileBodyGraph<'a> =
-    Box<FnMut(&mut Scope, &mut [Tensor]) -> Result<Vec<Tensor>, ::Error> + 'a>;
+type WhileBodyGraph<'a> = Box<
+    FnMut(&mut Scope, &mut [Tensor]) -> Result<Vec<Tensor>, ::Error>
+        + 'a,
+>;
 
 
 #[derive(Debug, Clone)]
@@ -89,15 +91,13 @@ impl<'a> Assert<'a> {
         if condition.dtype != DataType::Bool {
             return Err(::Error::Stub);
         }
-        Ok(
-            Assert {
-                ident: Ident::new(),
-                elements: [condition],
-                name: generate_name!(is_none: name),
-                attributes: vec![],
-                input_lists: vec![(1, data)],
-            },
-        )
+        Ok(Assert {
+            ident: Ident::new(),
+            elements: [condition],
+            name: generate_name!(is_none: name),
+            attributes: vec![],
+            input_lists: vec![(1, data)],
+        })
     }
 
     /// Default is [3], must be an slice of len == 1.
@@ -128,9 +128,10 @@ pub fn assert_eq<'a, Tx, Ty, S>(
     summarize: Option<&'a [i64]>,
     name: S,
 ) -> Result<Assert<'a>, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     let x = x.into();
     let y = y.into();
@@ -165,9 +166,10 @@ pub fn assert_greater<'a, Tx, Ty, S>(
     summarize: Option<&'a [i64]>,
     name: S,
 ) -> Result<Assert<'a>, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     let x = x.into();
     let y = y.into();
@@ -211,15 +213,16 @@ pub fn cond<S>(
     false_fn: CondSubGraph,
     name: S,
 ) -> Result<Vec<Tensor>, ::Error>
-    where S: AsRef<Path>
+where
+    S: AsRef<Path>,
 {
     if pred.dtype != DataType::Bool {
         return Err(::Error::Stub);
     }
-    if context.get_shape(pred) != Shape::from(Some(vec![])) {
+    if pred.get_shape(context) != Shape::from(Some(vec![])) {
         let msg = format!(
             "tf: expected shape `[]` for pred Tensor on `cond` op call, found shape: `{:?}`",
-            context.get_shape(pred)
+            pred.get_shape(context)
         );
         return Err(::Error::Msg(msg));
     }
@@ -376,9 +379,10 @@ pub fn switch<Tx, Ty, S>(
     pred: Ty,
     name: S,
 ) -> Result<(Tensor, Tensor), ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     // returns (output_false, outpur_true)
     context.install(Switch::new(data.into(), pred.into(), name)?)
@@ -488,9 +492,10 @@ pub fn ref_switch<Tx, Ty, S>(
     pred: Ty,
     name: S,
 ) -> Result<(Tensor, Tensor), ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(RefSwitch::new(data.into(), pred.into(), name)?)
 }
@@ -596,7 +601,8 @@ pub fn merge<S>(
     values: Vec<Tensor>,
     name: S,
 ) -> Result<(Tensor, Tensor), ::Error>
-    where S: AsRef<Path>
+where
+    S: AsRef<Path>,
 {
     context.install(Merge::new(values, name)?)
 }
@@ -733,7 +739,8 @@ pub fn ref_merge<S>(
     values: Vec<Tensor>,
     name: S,
 ) -> Result<(Tensor, Tensor), ::Error>
-    where S: AsRef<Path>
+where
+    S: AsRef<Path>,
 {
     context.install(RefMerge::new(values, name)?)
 }
@@ -878,7 +885,8 @@ pub fn while_loop<'a, S>(
     loop_vars: &mut [Tensor],
     name: S,
 ) -> Result<Vec<Tensor>, ::Error>
-    where S: AsRef<Path>
+where
+    S: AsRef<Path>,
 {
     use self::WhileContextInterface;
 
@@ -999,19 +1007,15 @@ impl WhileContextInterface for Scope {
         while_context!(mut self).pivot = Some(loop_cond(self, c, "LoopCond")?);
         let switch_vars = loop_vars
             .iter()
-            .map(
-                |x| {
-                    let pivot = while_context!(self).pivot.unwrap();
-                    switch_ref_or_tensor(self, *x, pivot)
-                },
-            )
+            .map(|x| {
+                let pivot = while_context!(self).pivot.unwrap();
+                switch_ref_or_tensor(self, *x, pivot)
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         // Build the graph for the body.
-        let mut vars_for_body = switch_vars
-            .iter()
-            .map(|&(_, x)| self.identity("", x))
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut vars_for_body =
+            switch_vars.iter().map(|&(_, x)| self.identity("", x)).collect::<Result<Vec<_>, _>>()?;
         while_context!(mut self).pivot_for_body = Some(vars_for_body[0]);
         let body_result = body(self, &mut vars_for_body)?;
 
@@ -1085,10 +1089,10 @@ fn loop_cond<S: AsRef<Path>>(
     if pred.dtype != DataType::Bool {
         return Err(::Error::Stub);
     }
-    if context.get_shape(pred) != Shape::from(Some(vec![])) {
+    if pred.get_shape(context) != Shape::from(Some(vec![])) {
         let msg = format!(
             "tf: expected shape `[]` for pred Tensor on `cond` op call, found shape: `{:?}`",
-            context.get_shape(pred)
+            pred.get_shape(context)
         );
         return Err(::Error::Msg(msg));
     }
@@ -1114,7 +1118,8 @@ add_new_op!(LoopCond,
 /// it may be changed in the child frame. At most `parallel_iterations`
 /// iterations are run in parallel in the child frame.
 fn enter<S>(scope: &mut Scope, data: Tensor, frame_name: &str, name: S) -> Result<Tensor, ::Error>
-    where S: AsRef<Path>
+where
+    S: AsRef<Path>,
 {
     if data.is_ref() {
         let fname = &[frame_name];
@@ -1181,7 +1186,8 @@ add_new_op!(RefEnter,
 ///
 /// Exit makes its input `data` available to the parent frame.
 fn exit<S>(scope: &mut Scope, data: Tensor, name: S) -> Result<Tensor, ::Error>
-    where S: AsRef<Path>
+where
+    S: AsRef<Path>,
 {
     if data.is_ref() {
         scope.install(RefExit::new(data, name)?)
@@ -1222,14 +1228,56 @@ add_new_op!(RefNextIteration,
     output: [Tensor],
 );
 
+pub struct Group(Ident);
+
+impl Group {
+    pub fn new<Id, S>(scope: &mut Scope, ops: &[Id], name: S) -> Result<Group, ::Error>
+    where
+        Id: GetIdent,
+        S: AsRef<str>,
+    {
+        let graph = &mut *scope.graph.borrow_mut();
+        let registry = &*scope.registry.borrow();
+        let mut ctrl_ops = Vec::with_capacity(ops.len());
+        for x in ops {
+            let ident: Ident = x.get_ident();
+            let r = &registry[&ident].data_origin.0;
+            ctrl_ops.push(r);
+        }
+
+        const op: IdType = IdType::Operation("Group");
+        let name = scope.resolve_tensor_name(Some(Path::new(name.as_ref())), op, false)?;
+        let finished = no_op_(graph, name.to_str().unwrap(), ctrl_ops)?;
+
+        let ident = Ident::new();
+        let ops_reg = &mut *scope.ops.borrow_mut();
+        ops_reg.insert(ident, finished.clone());
+
+        Ok(Group(ident))
+    }
+}
+
+impl Into<Ident> for Group {
+    fn into(self) -> Ident {
+        self.0
+    }
+}
+
+impl GetIdent for Group {
+    fn get_ident(&self) -> Ident {
+        self.0
+    }
+}
+
 ///// Lower level support ops /////
 pub(crate) fn no_op_<I, T>(
     graph: &mut Graph,
     name: &str,
     control_inputs: I,
 ) -> Result<OperationData, Status>
-    where I: IntoIterator<Item = T>,
-          T: ::std::ops::Deref<Target = OperationData>
+where
+    I: IntoIterator<Item = T>,
+    T: ::std::ops::Deref<Target = OperationData>,
 {
     let mut noop = graph.new_operation("NoOp", name)?;
     super::add_control_input(&mut noop, control_inputs);
@@ -1330,23 +1378,19 @@ mod test {
         let mut context = Scope::new();
         let x = context.constant("", &[0_i32], &[] as &[i32]).unwrap();
 
-        let pred = Box::new(
-            move |mut scope: &mut Scope, loop_vars: &mut [Tensor]| {
-                let y = scope.constant("", &[10_i32], &[] as &[i32]).unwrap();
-                let x = loop_vars[0];
-                less(&mut scope, x, y, "")
-            },
-        );
+        let pred = Box::new(move |mut scope: &mut Scope, loop_vars: &mut [Tensor]| {
+            let y = scope.constant("", &[10_i32], &[] as &[i32]).unwrap();
+            let x = loop_vars[0];
+            less(&mut scope, x, y, "")
+        });
 
-        let body = Box::new(
-            move |mut scope: &mut Scope,
-                  loop_vars: &mut [Tensor]|
-                  -> Result<Vec<Tensor>, ::Error> {
-                let y = scope.constant("", &[1_i32], &[] as &[i32]).unwrap();
-                let x = loop_vars[0];
-                Ok(vec![add(scope, x, y, "")?])
-            },
-        );
+        let body = Box::new(move |mut scope: &mut Scope,
+              loop_vars: &mut [Tensor]|
+              -> Result<Vec<Tensor>, ::Error> {
+            let y = scope.constant("", &[1_i32], &[] as &[i32]).unwrap();
+            let x = loop_vars[0];
+            Ok(vec![add(scope, x, y, "")?])
+        });
 
         let op = while_loop(&mut context, pred, body, &mut [x.into()], "").unwrap()[0];
         let r = test_suite!(run_op: [op]; context, input: {});

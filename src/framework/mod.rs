@@ -84,9 +84,8 @@ pub(crate) fn add_control_input<I, T>(op: &mut OperationDescription, control_inp
     }
 }
 
-#[doc(hidden)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 /// This is a token to identify computation elements in the graph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Ident(uuid::Uuid);
 
 impl Ident {
@@ -94,6 +93,12 @@ impl Ident {
         Ident(uuid::Uuid::new_v4())
     }
 }
+
+/// Get the identity token of an object.
+pub trait GetIdent {
+    fn get_ident(&self) -> Ident;
+}
+
 
 #[derive(Debug, Clone)]
 pub(crate) struct TensorData {
@@ -121,13 +126,29 @@ pub(crate) struct ControlOp {
     pub kind: ControlOpKind,
 }
 
+impl Hash for ControlOp {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.ident.hash(state);
+    }
+}
+
+impl PartialEq for ControlOp {
+    fn eq(&self, other: &Self) -> bool {
+        self.ident == other.ident
+    }
+}
+
+impl Eq for ControlOp {}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum ControlOpKind {
     VarInitializer,
-    Group,
+    Ops,
     Other,
 }
 
+
+/// Tensor
 #[derive(Debug, Clone, Copy)]
 pub struct Tensor {
     pub(crate) ident: Ident,
@@ -180,6 +201,12 @@ impl Tensor {
     }
 }
 
+impl GetIdent for Tensor {
+    fn get_ident(&self) -> Ident {
+        self.ident
+    }
+}
+
 impl PartialEq for Tensor {
     fn eq(&self, other: &Self) -> bool {
         self.ident == other.ident
@@ -206,6 +233,8 @@ impl<'a> Into<Ident> for &'a Tensor {
     }
 }
 
+
+/// Constant
 #[derive(Debug, Clone, Copy)]
 pub struct Constant {
     ident: Ident,
@@ -225,6 +254,11 @@ impl Constant {
         let registry = &*context.registry.borrow();
         let (ref op, _) = registry[&self.ident].data_origin;
         op.name().unwrap()
+    }
+
+    pub fn get_shape(&self, shape: &Scope) -> Shape {
+        let registry = &*shape.registry.borrow();
+        registry[&self.ident].shape.clone()
     }
 }
 
@@ -260,10 +294,11 @@ impl<'a> Into<Ident> for &'a Constant {
 }
 
 
+/// Variable
 #[derive(Debug, Clone, Copy)]
 pub struct Variable {
     ident: Ident,
-    dtype: DataType,
+    pub(crate) dtype: DataType,
     initializer: Ident,
     /// index of the output source operation
     idx: i32,
@@ -288,8 +323,15 @@ impl Variable {
         unimplemented!()
     }
 
-    pub(crate) fn get_ident(&self) -> &Ident {
-        &self.ident
+    pub fn get_shape(&self, shape: &Scope) -> Shape {
+        let registry = &*shape.registry.borrow();
+        registry[&self.ident].shape.clone()
+    }
+}
+
+impl GetIdent for Variable {
+    fn get_ident(&self) -> Ident {
+        self.ident
     }
 }
 
@@ -298,6 +340,14 @@ impl Hash for Variable {
         self.ident.hash(state);
     }
 }
+
+impl PartialEq for Variable {
+    fn eq(&self, other: &Self) -> bool {
+        self.ident == other.ident
+    }
+}
+
+impl Eq for Variable {}
 
 impl Into<Tensor> for Variable {
     fn into(self) -> Tensor {
@@ -484,9 +534,6 @@ impl TensorContent {
     unwrap_tfinput!(Int64, unwrap_i64, i64);
     unwrap_tfinput!(Bool, unwrap_bool, bool);
 }
-
-
-
 
 /// Enumerates possible operation attributes.
 #[derive(Debug, Clone)]

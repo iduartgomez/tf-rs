@@ -6,8 +6,9 @@ pub fn constant_initializer<TeS, T>(
     value: T,
     shape: &[TeS],
 ) -> Result<Constant, ::Error>
-    where T: TensorType,
-          TeS: ShapeSize
+where
+    T: TensorType,
+    TeS: ShapeSize,
 {
     let total = shape.iter().fold(1_i64, |acc, &x| acc * x.as_i64()) as usize;
     let values = vec![value; total];
@@ -34,8 +35,9 @@ pub fn random_normal_initializer<TeS, F>(
     seed: Option<i32>,
     shape: &[TeS],
 ) -> Result<Tensor, ::Error>
-    where F: Float,
-          TeS: ShapeSize
+where
+    F: Float,
+    TeS: ShapeSize,
 {
     let scope = &mut context.name_scope("random_normal");
 
@@ -116,6 +118,13 @@ fn test_random_normal_initializer() {
     test_suite!(results; assert_len: {[0;Float] == 4});
 }
 
+/// Initializer that generates tensors initialized to 0.
+pub fn zeros_initializer<TeS>(context: &mut Scope, shape: &[TeS]) -> Result<Constant, ::Error>
+where
+    TeS: ShapeSize,
+{
+    unimplemented!()
+}
 
 ///// Lower level support ops /////
 
@@ -129,7 +138,8 @@ pub(crate) fn variable_<'a, I>(
     shape: &Shape,
     control_inputs: I,
 ) -> Result<OperationData, Status>
-    where I: IntoIterator<Item = &'a OperationData>
+where
+    I: IntoIterator<Item = &'a OperationData>,
 {
     let mut var = graph.new_operation("VariableV2", name)?;
     var.set_attr_type("dtype", dtype)?;
@@ -148,17 +158,13 @@ pub(crate) fn assign_(
 ) -> Result<OperationData, Status> {
     let mut var = graph.new_operation("Assign", name)?;
     var.set_attr_bool("validate_shape", validate_shape)?;
-    var.add_input(
-        Output {
-            operation: reference,
-            index: 0,
-        },
-    );
-    var.add_input(
-        Output {
-            operation: data.0,
-            index: data.1,
-        },
-    );
+    var.add_input(Output {
+        operation: reference,
+        index: 0,
+    });
+    var.add_input(Output {
+        operation: data.0,
+        index: data.1,
+    });
     var.finish()
 }

@@ -3,6 +3,8 @@ use tf::TensorType;
 
 pub trait DefinedShape {
     fn is_fully_defined(&self) -> bool;
+    fn definition_u64(&self) -> Option<Vec<u64>>;
+    fn definition_i64(&self) -> Option<Vec<i64>>;
 }
 
 impl DefinedShape for Shape {
@@ -17,6 +19,56 @@ impl DefinedShape for Shape {
         } else {
             false
         }
+    }
+
+    fn definition_u64(&self) -> Option<Vec<u64>> {
+        let mut def = vec![];
+        if let Some(dim_num) = self.dims() {
+            for dim in 0..dim_num {
+                if let Some(n) = self[dim] {
+                    def.push(n as u64);
+                } else {
+                    return None;
+                }
+            }
+            Some(def)
+        } else {
+            None
+        }
+    }
+
+    fn definition_i64(&self) -> Option<Vec<i64>> {
+        let mut def = vec![];
+        if let Some(dim_num) = self.dims() {
+            for dim in 0..dim_num {
+                if let Some(n) = self[dim] {
+                    def.push(n);
+                } else {
+                    return None;
+                }
+            }
+            Some(def)
+        } else {
+            None
+        }
+    }
+}
+
+pub trait IntoShape {
+    fn into_shape(&self) -> Shape;
+}
+
+impl<'a, TeS> IntoShape for &'a [TeS] 
+    where TeS: ShapeSize
+{
+    fn into_shape(&self) -> Shape {
+        Shape::from(Some(self.iter().map(|x| Some(x.as_i64())).collect()))
+    }
+}
+
+impl IntoShape for Shape {
+    fn into_shape(&self) -> Shape {
+        self.clone()
     }
 }
 

@@ -97,7 +97,7 @@ impl<'g> ClientSession<'g> {
                 if init.kind == ControlOpKind::VarInitializer {
                     any_init = true;
                     init_steep.add_target(&init.finished);
-                } else if init.kind == ControlOpKind::Group {
+                } else if init.kind == ControlOpKind::Ops {
                     steep.add_target(&init.finished);
                 }
             }
