@@ -32,7 +32,7 @@ add_new_op!(ConcatV2,
 
             Ok(
                 Concat {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     input_lists: vec![(0, values)],
                     elements: vec![axis],
                     name: generate_name!(is_none: name),
@@ -211,7 +211,7 @@ add_new_op!(Shape,
 
             Ok(
                 Shape {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     elements: vec![tensor],
                     name: generate_name!(is_none: name),
                     input_lists: Vec::with_capacity(0),

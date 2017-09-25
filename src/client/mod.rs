@@ -8,8 +8,8 @@ use super::framework::*;
 /// constructed with the Rust API.
 #[derive(Debug)]
 pub struct ClientSession<'g> {
-    fetch: Vec<Ident>,
-    feed: Vec<(Ident, Vec<TensorContent>)>,
+    fetch: Vec<NodeIdent>,
+    feed: Vec<(NodeIdent, Vec<TensorContent>)>,
     context: &'g mut Scope,
     reinit_vars: bool,
     initialized: bool,
@@ -41,7 +41,7 @@ impl<'g> ClientSession<'g> {
     /// Output to fetch from the given operation.
     pub fn fetch<I, V>(&mut self, fetches: I) -> &mut Self
         where I: IntoIterator<Item = V>,
-              V: Into<Ident>
+              V: Into<NodeIdent>
     {
         for t in fetches.into_iter() {
             self.fetch.push(t.into());
@@ -51,7 +51,7 @@ impl<'g> ClientSession<'g> {
 
     /// Input to feed to a graph node.
     pub fn feed<In, I, Id>(&mut self, inputs: I) -> &mut Self
-        where Id: Into<Ident>,
+        where Id: Into<NodeIdent>,
               I: IntoIterator<Item = (Id, Vec<TensorContent>)>
     {
         for (id, inputs) in inputs.into_iter() {

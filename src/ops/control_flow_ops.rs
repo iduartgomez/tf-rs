@@ -75,7 +75,7 @@ impl PartialEq for ControlFlow {
 
 #[derive(Debug, Clone)]
 pub struct Assert<'a> {
-    ident: Ident,
+    ident: NodeIdent,
     elements: [Tensor; 1],
     name: Option<PathBuf>,
     attributes: Vec<(&'a str, bool, Attribute<'a>)>,
@@ -92,7 +92,7 @@ impl<'a> Assert<'a> {
             return Err(::Error::Stub);
         }
         Ok(Assert {
-            ident: Ident::new(),
+            ident: NodeIdent::new(),
             elements: [condition],
             name: generate_name!(is_none: name),
             attributes: vec![],
@@ -113,7 +113,7 @@ impl<'a> Operation<'a> for Assert<'a> {
     add_new_op!(CORE_FN: Assert);
 
     fn digest(self, context: &mut Scope, op: OperationData) -> Result<Self::Outputs, ::Error> {
-        add_new_op!(REGISTER_SELF: (self, context, op); Assert, NONE);
+        add_new_op!(REGISTER_AS_OP: (self, context, op); Assert);
         Ok(())
     }
 }
@@ -291,9 +291,9 @@ pub(crate) struct CondContext {
     /// 0 or 1 representing this branch
     pub branch: u8,
     /// Values considered to have been already seen in this context.
-    pub values: HashSet<Ident>,
+    pub values: HashSet<NodeIdent>,
     /// Values referenced by but external to this context.
-    pub external_values: HashMap<Ident, Tensor>,
+    pub external_values: HashMap<NodeIdent, Tensor>,
     pub new_switch: bool,
 }
 
@@ -415,7 +415,7 @@ add_new_op!(Switch,
                     )?
             };
         
-            let ident0 = Ident::new();
+            let ident0 = NodeIdent::new();
             let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
             let tensor0 = Tensor {
                 ident: ident0,
@@ -424,7 +424,7 @@ add_new_op!(Switch,
                 idx: 0,
             };
 
-            let ident1 = Ident::new();
+            let ident1 = NodeIdent::new();
             let full_name1 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
             let tensor1 = Tensor {
                 ident: ident1,
@@ -527,7 +527,7 @@ add_new_op!(RefSwitch,
                     )?
             };
         
-            let ident0 = Ident::new();
+            let ident0 = NodeIdent::new();
             let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
             let tensor0 = Tensor {
                 ident: ident0,
@@ -536,7 +536,7 @@ add_new_op!(RefSwitch,
                 idx: 0,
             };
 
-            let ident1 = Ident::new();
+            let ident1 = NodeIdent::new();
             let full_name1 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
             let tensor1 = Tensor {
                 ident: ident1,
@@ -626,7 +626,7 @@ add_new_op!(Merge,
 
             Ok(
                 Merge {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     name: generate_name!(is_none: name),
                     attributes: Vec::with_capacity(0),
                     elements: vec![],
@@ -646,7 +646,7 @@ add_new_op!(Merge,
         {
             let idtype = IdType::Operation("Merge");
             
-            let ident0 = Ident::new();
+            let ident0 = NodeIdent::new();
             let dtype0 = add_new_op!(DTYPE_ATTR self);
             let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
             let shape0 = {
@@ -665,7 +665,7 @@ add_new_op!(Merge,
                 idx: 0,
             };
 
-            let ident1 = Ident::new();
+            let ident1 = NodeIdent::new();
             let full_name1 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
             let shape1 = {
                 let g = context.graph.borrow();
@@ -764,7 +764,7 @@ add_new_op!(RefMerge,
 
             Ok(
                 RefMerge {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     name: generate_name!(is_none: name),
                     attributes: Vec::with_capacity(0),
                     elements: vec![],
@@ -784,7 +784,7 @@ add_new_op!(RefMerge,
         {
             let idtype = IdType::Operation("RefMerge");
             
-            let ident0 = Ident::new();
+            let ident0 = NodeIdent::new();
             let dtype0 = add_new_op!(DTYPE_ATTR self);
             let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
             let shape0 = {
@@ -803,7 +803,7 @@ add_new_op!(RefMerge,
                 idx: 0,
             };
 
-            let ident1 = Ident::new();
+            let ident1 = NodeIdent::new();
             let full_name1 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
             let shape1 = {
                 let g = context.graph.borrow();
@@ -904,9 +904,9 @@ where
 pub(crate) struct WhileContext {
     pub name: String,
     /// Values considered to have been already seen in this context.
-    pub values: HashSet<Ident>,
+    pub values: HashSet<NodeIdent>,
     /// Values referenced by but external to this context.
-    pub external_values: HashMap<Ident, Tensor>,
+    pub external_values: HashMap<NodeIdent, Tensor>,
     /// The boolean tensor for loop termination condition.
     pub pivot: Option<Tensor>,
     /// We use this node to control constants created by the pred lambda.
@@ -1228,7 +1228,8 @@ add_new_op!(RefNextIteration,
     output: [Tensor],
 );
 
-pub struct Group(Ident);
+#[derive(Debug)]
+pub struct Group(NodeIdent);
 
 impl Group {
     pub fn new<Id, S>(scope: &mut Scope, ops: &[Id], name: S) -> Result<Group, ::Error>
@@ -1240,16 +1241,16 @@ impl Group {
         let registry = &*scope.registry.borrow();
         let mut ctrl_ops = Vec::with_capacity(ops.len());
         for x in ops {
-            let ident: Ident = x.get_ident();
+            let ident: NodeIdent = x.get_ident();
             let r = &registry[&ident].data_origin.0;
             ctrl_ops.push(r);
         }
 
-        const op: IdType = IdType::Operation("Group");
-        let name = scope.resolve_tensor_name(Some(Path::new(name.as_ref())), op, false)?;
+        const OP: IdType = IdType::Operation("Group");
+        let name = scope.resolve_tensor_name(Some(Path::new(name.as_ref())), OP, false)?;
         let finished = no_op_(graph, name.to_str().unwrap(), ctrl_ops)?;
 
-        let ident = Ident::new();
+        let ident = NodeIdent::new();
         let ops_reg = &mut *scope.ops.borrow_mut();
         ops_reg.insert(ident, finished.clone());
 
@@ -1257,14 +1258,14 @@ impl Group {
     }
 }
 
-impl Into<Ident> for Group {
-    fn into(self) -> Ident {
+impl Into<NodeIdent> for Group {
+    fn into(self) -> NodeIdent {
         self.0
     }
 }
 
 impl GetIdent for Group {
-    fn get_ident(&self) -> Ident {
+    fn get_ident(&self) -> NodeIdent {
         self.0
     }
 }
@@ -1309,7 +1310,7 @@ mod test {
         let x = context.constant("x", &[2_i32], &[] as &[i32] as &[i32]).unwrap();
         let y = context.constant("y", &[2_i32], &[] as &[i32] as &[i32]).unwrap();
         let assert = assert_eq(&mut context, x, y, None, None, "").unwrap();
-        context.install(assert.clone()).unwrap();
+        //context.install(assert.clone()).unwrap();
         let results = test_suite!(run_op: [assert]; context, input: {});
     }
 
@@ -1320,7 +1321,7 @@ mod test {
         let x = context.constant("x", &[3_i32], &[] as &[i32]).unwrap();
         let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
         let assert = assert_greater(&mut context, x, y, None, None, "").unwrap();
-        context.install(assert.clone()).unwrap();
+        //context.install(assert.clone()).unwrap();
         let results = test_suite!(run_op: [assert]; context, input: {});
     }
 

@@ -56,7 +56,7 @@ add_new_op!(AddN,
 
             Ok(
                 AddN {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     name: generate_name!(is_none: name),
                     attributes: Vec::with_capacity(0),
                     elements: vec![],
@@ -114,7 +114,7 @@ add_new_op!(Cast,
             }
             Ok(
                 Cast {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     elements: vec![x],
                     name: generate_name!(is_none: name),
                     attributes: vec![("DstT", false, dst_type.into())],
@@ -474,7 +474,7 @@ add_new_op!(All,
             }
             Ok(
                 All {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     elements: vec![input, axis],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
@@ -612,7 +612,7 @@ add_new_op!(Sum,
             }
             Ok(
                 Sum {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     elements: vec![input, axis],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
@@ -676,7 +676,7 @@ add_new_op!(Max,
             }
             Ok(
                 Max {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     elements: vec![input, axis],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
@@ -749,7 +749,7 @@ fn test_minimum() {
 
     let op = minimum(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
-    test_suite!(results; assert: {[0;Int32] == [4_i32, 6]});
+    test_suite!(results; assert: {[0;Int32] == [2_i32, 3]});
 }
 
 

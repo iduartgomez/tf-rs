@@ -11,7 +11,7 @@ pub mod train;
 use tf::{OperationDescription, Output, Shape};
 pub type OperationData = tf::Operation;
 pub type TypedTensor<T> = tf::Tensor<T>;
-use tf::{Graph, DataType, Session, SessionOptions, StepWithGraph, Status};
+use tf::{DataType, Graph, Session, SessionOptions, Status, StepWithGraph};
 
 #[derive(Debug)]
 pub enum Error {
@@ -36,8 +36,11 @@ impl std::convert::From<std::ffi::NulError> for Error {
 }
 
 pub mod prelude {
-    pub use super::framework::{Constant, Ident, Scope, Operation, Tensor, TensorContent,
-                               TensorArray, Variable};
+    pub use super::framework::{Constant, NodeIdent, Operation, Scope, Tensor, TensorArray,
+                               TensorContent, Variable};
     pub use super::{OperationData, TypedTensor};
     pub use tf::{DataType, Status};
+
+    pub use super::train;
+    pub use super::ops;
 }

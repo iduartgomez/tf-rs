@@ -58,14 +58,20 @@ macro_rules! generate_name {
 
 macro_rules! impl_into_ident {
     ($name:ident) => {
-        impl<'a> Into<Ident> for $name<'a> {
-            fn into(self) -> Ident {
+        impl<'a> Into<NodeIdent> for $name<'a> {
+            fn into(self) -> NodeIdent {
                 self.ident
             }
         }
         
-        impl<'a> Into<Ident> for &'a $name<'a> {
-            fn into(self) -> Ident {
+        impl<'a> Into<NodeIdent> for &'a $name<'a> {
+            fn into(self) -> NodeIdent {
+                self.ident
+            }
+        }
+
+        impl<'a> GetIdent for $name<'a> {
+            fn get_ident(&self) -> NodeIdent {
                 self.ident
             }
         }
@@ -96,7 +102,7 @@ macro_rules! add_new_op {
     ) => {
         #[derive(Debug, Clone)]
         struct $name<'a> {
-            ident: Ident,
+            ident: NodeIdent,
             elements: Vec<Tensor>,
             name: Option<PathBuf>,
             /// attr_name, is_list, attr_value
@@ -115,6 +121,7 @@ macro_rules! add_new_op {
             add_new_op!(CORE_FN: $name);
             add_new_op!($($digest)*);
         }
+
         impl_into_ident!($name);
     };
     // Generic constructor for unary ops.
@@ -122,7 +129,7 @@ macro_rules! add_new_op {
         fn new<S: AsRef<Path>>(x: Tensor, name: S) -> Result<$name<'a>, ::Error> {
             Ok(
                 $name {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     elements: vec![x],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
@@ -137,7 +144,7 @@ macro_rules! add_new_op {
         fn new<S: AsRef<Path>>(x: Tensor, y: Tensor, name: S) -> Result<$name<'a>, ::Error> {
             Ok(
                 $name {
-                    ident: Ident::new(),
+                    ident: NodeIdent::new(),
                     elements: vec![x, y],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
@@ -157,7 +164,7 @@ macro_rules! add_new_op {
             op: OperationData,
         ) -> Result<Self::Outputs, ::Error> {
             let (ident, idtype, dtype) = add_new_op!(
-                REGISTER_SELF: (self, context, op); $name, $infer_dtype);
+                REGISTER_TENSOR: (self, context, op); $name, $infer_dtype);
             let tensor = Tensor {
                 ident,
                 idtype,
@@ -180,8 +187,8 @@ macro_rules! add_new_op {
     };
     (DIGEST: $($digest:tt)*) => { $($digest)* };
 
-    (REGISTER_SELF: ($SELF:ident, $context:ident, $op:ident); $name:tt, $infer_dtype:tt) => {{
-        let ident = Ident::new();
+    (REGISTER_TENSOR: ($SELF:ident, $context:ident, $op:ident); $name:tt, $infer_dtype:tt) => {{
+        let ident = NodeIdent::new();
         let dtype = add_new_op!($infer_dtype $SELF);
         let idtype = IdType::Operation(stringify!($name));
         let full_name = $context.resolve_tensor_name($SELF.get_op_name(), idtype, false)?;
@@ -210,6 +217,17 @@ macro_rules! add_new_op {
         }
         (ident, idtype, dtype)
     }};
+
+    (REGISTER_AS_OP: ($SELF:ident, $context:ident, $op:ident); $name:tt) => {{
+        let idtype = IdType::Operation(stringify!($name));
+        let full_name = $context.resolve_tensor_name($SELF.get_op_name(), idtype, false)?;
+        {
+            let reg = &mut *$context.ops.borrow_mut();
+            $context.own_scope.ops.push((full_name.clone(), $SELF.ident));
+            reg.insert($SELF.ident, $op);
+        }
+    }};
+
     // extra funcs:
     (CORE_FN: $op_name:tt) => {
         fn get_op_type_name(&self) -> &'static str {
@@ -307,8 +325,8 @@ impl<'a> Operation<'a> for AvgUpdatingOp {
     type Outputs = ();
 }
 
-impl Into<Ident> for AvgUpdatingOp {
-    fn into(self) -> Ident {
+impl Into<NodeIdent> for AvgUpdatingOp {
+    fn into(self) -> NodeIdent {
         unimplemented!()
     }
 }

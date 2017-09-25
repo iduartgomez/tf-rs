@@ -44,7 +44,7 @@ pub(crate) use self::tensor_shape::*;
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.
 pub trait Operation<'a>
-    where Self: Sized + Into<Ident>
+    where Self: Sized + Into<NodeIdent>
 {
     type Outputs;
 
@@ -86,17 +86,23 @@ pub(crate) fn add_control_input<I, T>(op: &mut OperationDescription, control_inp
 
 /// This is a token to identify computation elements in the graph.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Ident(uuid::Uuid);
+pub struct NodeIdent(uuid::Uuid);
 
-impl Ident {
-    pub(crate) fn new() -> Ident {
-        Ident(uuid::Uuid::new_v4())
+impl NodeIdent {
+    pub(crate) fn new() -> NodeIdent {
+        NodeIdent(uuid::Uuid::new_v4())
+    }
+}
+
+impl GetIdent for NodeIdent {
+    fn get_ident(&self) -> NodeIdent {
+        self.clone()
     }
 }
 
 /// Get the identity token of an object.
 pub trait GetIdent {
-    fn get_ident(&self) -> Ident;
+    fn get_ident(&self) -> NodeIdent;
 }
 
 
@@ -121,7 +127,7 @@ pub(crate) enum IdType {
 
 #[derive(Debug, Clone)]
 pub(crate) struct ControlOp {
-    pub ident: Ident,
+    pub ident: NodeIdent,
     pub finished: OperationData,
     pub kind: ControlOpKind,
 }
@@ -151,7 +157,7 @@ pub(crate) enum ControlOpKind {
 /// Tensor
 #[derive(Debug, Clone, Copy)]
 pub struct Tensor {
-    pub(crate) ident: Ident,
+    pub(crate) ident: NodeIdent,
     pub(crate) idtype: IdType,
     pub(crate) dtype: DataType,
     /// Index of this tensor in the source operation output.
@@ -202,7 +208,7 @@ impl Tensor {
 }
 
 impl GetIdent for Tensor {
-    fn get_ident(&self) -> Ident {
+    fn get_ident(&self) -> NodeIdent {
         self.ident
     }
 }
@@ -221,14 +227,14 @@ impl Hash for Tensor {
     }
 }
 
-impl Into<Ident> for Tensor {
-    fn into(self) -> Ident {
+impl Into<NodeIdent> for Tensor {
+    fn into(self) -> NodeIdent {
         self.ident
     }
 }
 
-impl<'a> Into<Ident> for &'a Tensor {
-    fn into(self) -> Ident {
+impl<'a> Into<NodeIdent> for &'a Tensor {
+    fn into(self) -> NodeIdent {
         self.ident
     }
 }
@@ -237,7 +243,7 @@ impl<'a> Into<Ident> for &'a Tensor {
 /// Constant
 #[derive(Debug, Clone, Copy)]
 pub struct Constant {
-    ident: Ident,
+    ident: NodeIdent,
     dtype: DataType,
 }
 
@@ -281,14 +287,14 @@ impl Hash for Constant {
     }
 }
 
-impl Into<Ident> for Constant {
-    fn into(self) -> Ident {
+impl Into<NodeIdent> for Constant {
+    fn into(self) -> NodeIdent {
         self.ident
     }
 }
 
-impl<'a> Into<Ident> for &'a Constant {
-    fn into(self) -> Ident {
+impl<'a> Into<NodeIdent> for &'a Constant {
+    fn into(self) -> NodeIdent {
         self.ident
     }
 }
@@ -297,9 +303,9 @@ impl<'a> Into<Ident> for &'a Constant {
 /// Variable
 #[derive(Debug, Clone, Copy)]
 pub struct Variable {
-    ident: Ident,
+    ident: NodeIdent,
     pub(crate) dtype: DataType,
-    initializer: Ident,
+    initializer: NodeIdent,
     /// index of the output source operation
     idx: i32,
 }
@@ -330,7 +336,7 @@ impl Variable {
 }
 
 impl GetIdent for Variable {
-    fn get_ident(&self) -> Ident {
+    fn get_ident(&self) -> NodeIdent {
         self.ident
     }
 }
@@ -361,14 +367,14 @@ impl Into<Tensor> for Variable {
     }
 }
 
-impl Into<Ident> for Variable {
-    fn into(self) -> Ident {
+impl Into<NodeIdent> for Variable {
+    fn into(self) -> NodeIdent {
         self.ident
     }
 }
 
-impl<'a> Into<Ident> for &'a Variable {
-    fn into(self) -> Ident {
+impl<'a> Into<NodeIdent> for &'a Variable {
+    fn into(self) -> NodeIdent {
         self.ident
     }
 }
@@ -393,8 +399,8 @@ impl TensorArray {
     }
 }
 
-impl Into<Ident> for TensorArray {
-    fn into(self) -> Ident {
+impl Into<NodeIdent> for TensorArray {
+    fn into(self) -> NodeIdent {
         unimplemented!()
     }
 }

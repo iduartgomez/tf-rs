@@ -40,7 +40,7 @@ use ops::state_ops;
 #[derive(Debug, Clone)]
 pub struct ExponentialMovingAverage {
     averages: HashMap<Tensor, Variable>,
-    decay: f32,
+    decay: Tensor,
     num_updates: Option<Tensor>,
     zero_debias: bool,
     name: String,
@@ -67,24 +67,26 @@ impl ExponentialMovingAverage {
     ///     with tensors.
     ///   name: String. Optional prefix name to use for the name of ops added in
     ///     `apply()`.
-    pub fn new(
-        context: &mut Scope,
-        decay: f32,
-        num_updates: Option<i32>,
+    pub fn new<Tx, Ty>(
+        decay: Tx,
+        num_updates: Option<Ty>,
         zero_debias: bool,
-        name: String,
-    ) -> ExponentialMovingAverage {
+        name: &str,
+    ) -> ExponentialMovingAverage 
+        where Tx: Into<Tensor>,
+              Ty: Into<Tensor>
+    {
         let num_updates = if let Some(num_updates) = num_updates {
-            Some(context.constant("", &[num_updates], &[] as &[i32]).unwrap().into(),)
+            Some(num_updates.into())
         } else {
             None
         };
         ExponentialMovingAverage {
             averages: HashMap::new(),
-            decay,
+            decay: decay.into(),
             num_updates,
             zero_debias,
-            name,
+            name: name.to_owned(),
         }
     }
 
@@ -118,7 +120,7 @@ impl ExponentialMovingAverage {
     ///   ValueError: If the moving average of one of the variables is already
     ///     being computed.
     pub fn apply(&mut self, context: &mut Scope, var_list: &[Tensor]) -> Result<Group, ::Error> {
-        let mut zero_debias_true: HashSet<Ident> = HashSet::new(); // set of vars to set to `zero_debias=True`
+        let mut zero_debias_true: HashSet<NodeIdent> = HashSet::new(); // set of vars to set to `zero_debias=True`
         for var in var_list {
             match var.dtype {
                 DataType::Float | DataType::Double => {}
@@ -147,7 +149,7 @@ impl ExponentialMovingAverage {
         }
 
         let scope = &mut context.name_scope(&self.name);
-        let mut decay: Tensor = scope.constant("decay", &[self.decay], &[] as &[i32])?.into();
+        let mut decay: Tensor = self.decay;
         if let Some(mut num_updates) = self.num_updates {
             num_updates = math_ops::cast(scope, num_updates, DataType::Float, "num_updates")?;
             let c0 = scope.constant("", &[1.0_f32], &[] as &[i32])?;
@@ -155,7 +157,7 @@ impl ExponentialMovingAverage {
             let s0 = math_ops::add(scope, c0, num_updates, "")?;
             let s1 = math_ops::add(scope, c1, num_updates, "")?;
             let n = math_ops::divide(scope, s0, s1, "")?;
-            decay = math_ops::minimum(scope, decay, n, "")?;
+            decay = math_ops::minimum(scope, self.decay, n, "")?;
         }
         let mut updates = vec![];
         for var in var_list {
