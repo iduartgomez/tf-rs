@@ -1228,7 +1228,7 @@ add_new_op!(RefNextIteration,
     output: [Tensor],
 );
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Group(NodeIdent);
 
 impl Group {
