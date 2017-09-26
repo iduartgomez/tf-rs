@@ -39,7 +39,7 @@ where
     F: Float,
     TeS: ShapeSize,
 {
-    let scope = &mut context.name_scope("random_normal");
+    let scope = &mut context.name_scope("random_normal", None);
 
     let shape_tensor = scope.constant("", shape, &[shape.len() as i64])?;
     let mean_tensor = scope.constant("mean", &[mean], &[] as &[i64])?;

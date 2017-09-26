@@ -166,10 +166,20 @@ pub struct Tensor {
 
 impl Tensor {
     /// Performs an assign operation for this tensor.
-    pub fn with_value<TeS, T>(context: &mut Scope, values: &[T], shape: &[TeS]) -> Tensor
+    pub fn new<TeS, T>(context: &mut Scope, values: &[T], shape: &[TeS]) -> Tensor
         where T: TensorType,
               TeS: ShapeSize
     {
+        unimplemented!()
+    }
+
+    pub fn get_initializer(&self, context: &Scope) -> Result<Tensor, ::Error> {
+        if !self.is_ref() {
+            return Err(::Error::Stub);
+        }
+        let registry = &*context.registry.borrow();
+        let tensor_data = &registry[&self.ident];
+
         unimplemented!()
     }
 
@@ -177,10 +187,6 @@ impl Tensor {
         let registry = &*context.registry.borrow();
         let (ref op, _) = registry[&self.ident].data_origin;
         op.name().unwrap()
-    }
-
-    pub fn write(&mut self, context: &mut Scope, tensor: Tensor) -> Result<(), ::Error> {
-        unimplemented!()
     }
 
     pub fn get_shape(&self, context: &Scope) -> Shape {
@@ -196,13 +202,7 @@ impl Tensor {
         }
     }
 
-    pub fn get_initializer(&self, context: &Scope) -> Result<Tensor, ::Error> {
-        if !self.is_ref() {
-            return Err(::Error::Stub);
-        }
-        let registry = &*context.registry.borrow();
-        let tensor_data = &registry[&self.ident];
-
+    pub fn write(&mut self, context: &mut Scope, tensor: Tensor) -> Result<(), ::Error> {
         unimplemented!()
     }
 }
@@ -325,13 +325,13 @@ impl Variable {
         op.name().unwrap()
     }
 
-    pub fn from_tensor(self, context: &Scope) -> Result<Tensor, ::Error> {
-        unimplemented!()
-    }
-
     pub fn get_shape(&self, shape: &Scope) -> Shape {
         let registry = &*shape.registry.borrow();
         registry[&self.ident].shape.clone()
+    }
+
+    pub fn from_tensor(self, context: &Scope) -> Result<Tensor, ::Error> {
+        unimplemented!()
     }
 }
 
@@ -600,30 +600,3 @@ attr_from_ty!(Float, f32);
 attr_from_ty!(Bool, bool);
 attr_from_ty!(Type, DataType);
 attr_from_ty!(Shape, Shape);
-
-#[cfg(test)]
-mod test {
-    #![allow(unused_imports)]
-    use super::*;
-
-    #[ignore]
-    #[test]
-    fn scope_management() {
-        let mut root = Scope::new();
-        /*
-        let scopes =
-            context.get_variable("glob_01", DataType::Double, Some(&[1, 1, 1])).unwrap();
-        let foo_01;
-        {
-            let mut foo = context.variable_scope("foo", None);
-            foo_01 = foo.get_variable("foo_01", DataType::Int32, Some(&[2, 2])).unwrap();
-        }
-        */
-        {
-            let foo = &mut root.name_scope("foo");
-            {
-                let bar = &mut foo.name_scope("bar");
-            }
-        }
-    }
-}

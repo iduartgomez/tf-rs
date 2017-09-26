@@ -5,9 +5,10 @@ use super::*;
 ///// Add /////
 
 pub fn add<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Add::new(x.into(), y.into(), name)?)
 }
@@ -39,7 +40,8 @@ fn test_add() {
 ///// AddN /////
 
 pub fn add_n<S>(context: &mut Scope, values: Vec<Tensor>, name: S) -> Result<Tensor, ::Error>
-    where S: AsRef<Path>
+where
+    S: AsRef<Path>,
 {
     context.install(AddN::new(values, name)?)
 }
@@ -92,15 +94,17 @@ pub fn cast<Tx, S>(
     ty: DataType,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Cast::new(tensor.into(), &[ty], name)?)
 }
 
 pub fn to_float<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Cast::new(tensor.into(), &[DataType::Float], name)?)
 }
@@ -140,12 +144,57 @@ fn test_cast() {
     test_suite!(results; assert: {[0;Double] == [0_f64, 1.]});
 }
 
+
+///// Conj /////
+
+///  Returns the complex conjugate of a complex number.
+///
+///  Given a tensor `input` of complex numbers, this operation returns a tensor of
+///  complex numbers that are the complex conjugate of each element in `input`. The
+///  complex numbers in `input` must be of the form \\(a + bj\\), where *a* is the
+///  real part and *b* is the imaginary part.
+///
+///  The complex conjugate returned by this operation is of the form \\(a - bj\\).
+///
+///  For example:
+///
+///      # tensor 'input' is [-2.25 + 4.75j, 3.25 + 5.75j]
+///      tf.conj(input) ==> [-2.25 - 4.75j, 3.25 - 5.75j]
+///
+///  If `x` is real, it is returned unchanged.
+///
+///  Args:
+///    x: `Tensor` to conjugate.  Must have numeric type.
+///    name: A name for the operation (optional).
+///
+///  Returns:
+///    A `Tensor` that is the conjugate of `x` (with the same type).
+///
+///    Error: If `x` is not a numeric tensor.
+pub fn conj<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor, ::Error>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+{
+    let x = x.into();
+    if x.dtype.is_complex() {
+        let scope = &mut context.name_scope(name.as_ref(), Some("Conj".as_ref()));
+        unimplemented!()
+    } else if x.dtype.is_floating() || x.dtype.is_integer() {
+        Ok(x)
+    } else {
+        Err(::Error::Msg(format!("Expected numeric tensor, got dtype {:?}", x.dtype)),)
+    }
+}
+
+
 ///// Division /////
 
 pub fn divide<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Div::new(x.into(), y.into(), name)?)
 }
@@ -173,9 +222,10 @@ fn test_divide() {
 ///// Equal /////
 
 pub fn equal<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Equal::new(x.into(), y.into(), name)?)
 }
@@ -207,8 +257,9 @@ fn test_equal() {
 ///// Exp /////
 
 pub fn exp<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Exp::new(x.into(), name)?)
 }
@@ -237,9 +288,10 @@ fn test_exp() {
 ///// Greater /////
 
 pub fn greater<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Greater::new(x.into(), y.into(), name)?)
 }
@@ -268,12 +320,207 @@ fn test_greater() {
 }
 
 
+///// MatMul /////
+
+///   Multiplies matrix `a` by matrix `b`, producing `a` * `b`.
+///
+///   The inputs must be matrices (or tensors of rank > 2, representing batches of
+///   matrices), with matching inner dimensions, possibly after transposition.
+///
+///   Both matrices must be of the same type. The supported types are:
+///   `float16`, `float32`, `float64`, `int32`, `complex64`, `complex128`.
+///
+///   Either matrix can be transposed or adjointed (conjugated and transposed) on
+///   the fly by setting one of the corresponding flag to `True`. These are `False`
+///   by default.
+///
+///   If one or both of the matrices contain a lot of zeros, a more efficient
+///   multiplication algorithm can be used by setting the corresponding
+///   `a_is_sparse` or `b_is_sparse` flag to `True`. These are `False` by default.
+///   This optimization is only available for plain matrices (rank-2 tensors) with
+///   datatypes `bfloat16` or `float32`.
+///
+///   For example:
+///
+///   ```python
+///   # 2-D tensor `a`
+///   a = tf.constant([1, 2, 3, 4, 5, 6], shape=[2, 3]) => [[1. 2. 3.]
+///                                                         [4. 5. 6.]]
+///   # 2-D tensor `b`
+///   b = tf.constant([7, 8, 9, 10, 11, 12], shape=[3, 2]) => [[7. 8.]
+///                                                            [9. 10.]
+///                                                            [11. 12.]]
+///   c = tf.matmul(a, b) => [[58 64]
+///                           [139 154]]
+///
+///
+///   # 3-D tensor `a`
+///   a = tf.constant(np.arange(1, 13, dtype=np.int32),
+///                   shape=[2, 2, 3])                  => [[[ 1.  2.  3.]
+///                                                          [ 4.  5.  6.]],
+///                                                         [[ 7.  8.  9.]
+///                                                          [10. 11. 12.]]]
+///
+///   # 3-D tensor `b`
+///   b = tf.constant(np.arange(13, 25, dtype=np.int32),
+///                   shape=[2, 3, 2])                   => [[[13. 14.]
+///                                                           [15. 16.]
+///                                                           [17. 18.]],
+///                                                          [[19. 20.]
+///                                                           [21. 22.]
+///                                                           [23. 24.]]]
+///   c = tf.matmul(a, b) => [[[ 94 100]
+///                            [229 244]],
+///                           [[508 532]
+///                            [697 730]]]
+///   ```
+///
+///   Args:
+///     a: `Tensor` of type `float16`, `float32`, `float64`, `int32`, `complex64`,
+///       `complex128` and rank > 1.
+///     b: `Tensor` with same type and rank as `a`.
+///     transpose_a: If `True`, `a` is transposed before multiplication.
+///     transpose_b: If `True`, `b` is transposed before multiplication.
+///     adjoint_a: If `True`, `a` is conjugated and transposed before
+///       multiplication.
+///     adjoint_b: If `True`, `b` is conjugated and transposed before
+///       multiplication.
+///     a_is_sparse: If `True`, `a` is treated as a sparse matrix.
+///     b_is_sparse: If `True`, `b` is treated as a sparse matrix.
+///     name: Name for the operation (optional).
+///
+///   Returns:
+///     A `Tensor` of the same type as `a` and `b` where each inner-most matrix is
+///     the product of the corresponding matrices in `a` and `b`, e.g. if all
+///     transpose or adjoint attributes are `False`:
+///
+///     `output`[..., i, j] = sum_k (`a`[..., i, k] * `b`[..., k, j]),
+///     for all indices i, j.
+///
+///     Note: This is matrix product, not element-wise product.
+///
+///     Error: If transpose_a and adjoint_a, or transpose_b and adjoint_b
+///       are both set to True.
+pub fn matmul<Tx, Ty, S>(
+    context: &mut Scope,
+    a: Tx,
+    b: Ty,
+    mut transpose_a: bool,
+    mut transpose_b: bool,
+    mut adjoint_a: bool,
+    mut adjoint_b: bool,
+    a_is_sparse: bool,
+    b_is_sparse: bool,
+    name: S,
+) -> Result<Tensor, ::Error>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
+{
+    let scope = &mut context.name_scope(name.as_ref(), Some("MatMul".as_ref()));
+    if transpose_a && adjoint_a {
+        return Err(::Error::Msg("Only one of transpose_a and adjoint_a can be True.".to_owned(),),);
+    }
+    if transpose_b && adjoint_b {
+        return Err(::Error::Msg("Only one of transpose_b and adjoint_b can be True.".to_owned(),),);
+    }
+
+    let mut a = a.into();
+    let mut b = b.into();
+    let a_shape = a.get_shape(scope);
+    let b_shape = b.get_shape(scope);
+    if (!a_is_sparse && !b_is_sparse) &&
+       ((a_shape.dims().is_none() || a_shape.dims().unwrap() > 2) &&
+        (b_shape.dims().is_none() || b_shape.dims().unwrap() > 2)) {
+        // BatchMatmul does not support transpose, so we conjugate the matrix and
+        // use adjoint instead. Conj() is a noop for real matrices.
+        if transpose_a {
+            a = conj(scope, a, "")?;
+            adjoint_a = true;
+        }
+        if transpose_b {
+            a = conj(scope, b, "")?;
+            adjoint_b = true;
+        }
+    }
+
+    // Neither matmul nor sparse_matmul support adjoint, so we conjugate
+    // the matrix and use transpose instead. Conj() is a noop for real matrices.
+    if adjoint_a {
+        a = conj(scope, a, "")?;
+        transpose_a = true;
+    }
+    if adjoint_b {
+        b = conj(scope, b, "")?;
+        transpose_b = true;
+    }
+
+    let sparse_matmul_a = match a.dtype {
+        DataType::BFloat16 |
+        DataType::Float => true,
+        _ => false,
+    };
+    let sparse_matmul_b = match b.dtype {
+        DataType::BFloat16 |
+        DataType::Float => true,
+        _ => false,
+    };
+    let mut use_sparse_matmul = sparse_matmul_a && sparse_matmul_b && (a_is_sparse || b_is_sparse);
+
+    if [a.dtype, b.dtype].iter().find(|x| DataType::BFloat16 == **x).is_some() {
+        // matmul currently doesn't handle bfloat16 inputs.
+        use_sparse_matmul = true;
+    }
+    if use_sparse_matmul {
+        //sparse_matmul(scope, a, b, transpose_a, transpose_b, a_is_sparse, b_is_sparse, "");
+        unimplemented!()
+    } else {
+        if a.dtype != b.dtype {
+            return Err(::Error::Msg("Matrix a and matrix b must be of the same type.".to_owned()),);
+        }
+        scope.install(MatMul::new(a, b, "")?.transpose_a(&[transpose_a]).transpose_b(&[transpose_b]))
+    }
+}
+
+/// Multiply the matrix "a" by the matrix "b".
+///
+/// The inputs must be two-dimensional matrices and the inner dimension of
+/// "a" (after being transposed if transpose_a is true) must match the
+/// outer dimension of "b" (after being transposed if transposed_b is
+/// true).
+///
+/// *Note*: The default kernel implementation for MatMul on GPUs uses
+/// cublas.
+///
+/// transpose_a: If true, "a" is transposed before multiplication.
+/// transpose_b: If true, "b" is transposed before multiplication.
+add_new_op!(MatMul,
+    constructor: [add_new_op!(BIN CONSTRUCTOR: MatMul, Init: []);],
+    digest: [DEFAULT_DIGEST: MatMul, INPUT0],
+    extra_funcs: [
+        fn transpose_a(mut self, val: &'a [bool]) -> Self {
+            self.attributes.push(("transpose_a", false, Attribute::Bool(val)));
+            self
+        }
+
+        fn transpose_b(mut self, val: &'a [bool]) -> Self {
+            self.attributes.push(("transpose_b", false, Attribute::Bool(val)));
+            self
+        }
+    ], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
 ///// Multiply /////
 
 pub fn multiply<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Mul::new(x.into(), y.into(), name)?)
 }
@@ -301,9 +548,10 @@ fn test_multiply() {
 ///// Less /////
 
 pub fn less<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Less::new(x.into(), y.into(), name)?)
 }
@@ -335,8 +583,9 @@ fn test_less() {
 ///// Log /////
 
 pub fn log<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Log::new(x.into(), name)?)
 }
@@ -365,8 +614,9 @@ fn test_log() {
 ///// Logical Not /////
 
 pub fn logical_not<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     let tensor = tensor.into();
     if tensor.dtype != DataType::Bool {
@@ -417,9 +667,10 @@ fn test_logical_not() {
 /// Returns:
 ///     A `Tensor`. Has the same type as `x`.
 pub fn pow<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Pow::new(x.into(), y.into(), name)?)
 }
@@ -453,8 +704,9 @@ pub fn reduce_all<Tx, S>(
     keep_dims: bool,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
@@ -527,16 +779,12 @@ pub fn reduce_logsumexp<TeS, Tx, S>(
     keep_dims: bool,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>,
-          TeS: ShapeSize
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+    TeS: ShapeSize,
 {
-    let name = if name_cmp!(name, "") {
-        Path::new("ReduceLogSumExp")
-    } else {
-        name.as_ref()
-    };
-    let scope = &mut context.name_scope(name);
+    let scope = &mut context.name_scope(name.as_ref(), Some("ReduceLogSumExp".as_ref()));
     let input = input.into();
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
@@ -591,9 +839,10 @@ pub fn reduce_sum<TeS, Tx, S>(
     keep_dims: bool,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>,
-          TeS: ShapeSize
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+    TeS: ShapeSize,
 {
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
@@ -655,9 +904,10 @@ pub fn reduce_max<TeS, Tx, S>(
     keep_dims: bool,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>,
-          TeS: ShapeSize
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+    TeS: ShapeSize,
 {
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
@@ -725,9 +975,10 @@ fn test_reduce_max() {
 /// Returns:
 ///     A `Tensor`. Has the same type as `x`.
 pub fn minimum<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Minimum::new(x.into(), y.into(), name)?)
 }
@@ -756,8 +1007,9 @@ fn test_minimum() {
 ///// Stop Gradient /////
 
 pub fn stop_gradient<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(StopGradient::new(tensor.into(), name)?)
 }
@@ -776,9 +1028,10 @@ add_new_op!(StopGradient,
 ///// Sub /////
 
 pub fn sub<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Sub::new(x.into(), y.into(), name)?)
 }
@@ -812,10 +1065,11 @@ pub fn unsorted_segment_sum<Tx, Ty, Tz, S>(
     num_segments: Tz,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          Tz: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    Tz: Into<Tensor>,
+    S: AsRef<Path>,
 {
     unimplemented!()
 }

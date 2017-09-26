@@ -72,9 +72,10 @@ impl ExponentialMovingAverage {
         num_updates: Option<Ty>,
         zero_debias: bool,
         name: &str,
-    ) -> ExponentialMovingAverage 
-        where Tx: Into<Tensor>,
-              Ty: Into<Tensor>
+    ) -> ExponentialMovingAverage
+    where
+        Tx: Into<Tensor>,
+        Ty: Into<Tensor>,
     {
         let num_updates = if let Some(num_updates) = num_updates {
             Some(num_updates.into())
@@ -148,7 +149,7 @@ impl ExponentialMovingAverage {
             self.averages.insert(*var, avg);
         }
 
-        let scope = &mut context.name_scope(&self.name);
+        let scope = &mut context.name_scope(self.name.as_str(), None);
         let mut decay: Tensor = self.decay;
         if let Some(mut num_updates) = self.num_updates {
             num_updates = math_ops::cast(scope, num_updates, DataType::Float, "num_updates")?;
@@ -317,9 +318,9 @@ fn assign_moving_average(
     name: Option<&str>,
 ) -> Result<Tensor, ::Error> {
     let scope = &mut if let Some(name) = name {
-                         scope.name_scope(name)
+                         scope.name_scope(name, None)
                      } else {
-                         scope.name_scope("AssignMovingAvg")
+                         scope.name_scope("", Some("AssignMovingAvg"))
                      };
     // TODO: colocate_with(variable)
     let decay = {

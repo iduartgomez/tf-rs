@@ -142,13 +142,7 @@ where
         vec![x, y]
     };
 
-    let name = if name_cmp!(name, "") {
-        Path::new("assert_equal")
-    } else {
-        name.as_ref()
-    };
-
-    let scope = &mut context.name_scope(name);
+    let scope = &mut context.name_scope(name.as_ref(), Some("assert_equal".as_ref()));
     let eq = equal(scope, x, y, "")?;
     let cond = reduce_all(scope, eq, &[], false, "")?;
     let mut assert = Assert::new(cond, data, "")?;
@@ -179,14 +173,8 @@ where
     } else {
         vec![x, y]
     };
-
-    let name = if name_cmp!(name, "") {
-        Path::new("assert_equal")
-    } else {
-        name.as_ref()
-    };
-
-    let scope = &mut context.name_scope(name);
+    
+    let scope = &mut context.name_scope(name.as_ref(), Some("assert_greater".as_ref()));
     let eq = greater(scope, x, y, "")?;
     let cond = reduce_all(scope, eq, &[], false, "")?;
     let mut assert = Assert::new(cond, data, "")?;
@@ -227,13 +215,7 @@ where
         return Err(::Error::Msg(msg));
     }
 
-    let name = if name_cmp!(name, "") {
-        Path::new("cond")
-    } else {
-        name.as_ref()
-    };
-
-    let scope = &mut context.name_scope(name);
+    let scope = &mut context.name_scope(name.as_ref(), Some("Cond".as_ref()));
     // Add the switch to the graph.
     let (p_0, p_1) = switch(scope, pred, pred, "")?;
 
@@ -247,7 +229,7 @@ where
 
     // Build the graph for the true branch in a new context.
     let (_orig_res_t, res_t) = {
-        let name = name.join("true_branch").to_str().unwrap().to_owned();
+        let name = scope.own_scope.name.join("true_branch").to_str().unwrap().to_owned();
         let mut context_t =
             scope.cond_scope(CondContext::new(pred, pivot_1, 1, name), "true_branch");
         context_t.build_cond_branch(true_fn)?
@@ -255,7 +237,7 @@ where
 
     // Build the graph for the false branch in a new context.
     let (_orig_res_f, res_f) = {
-        let name = name.join("false_branch").to_str().unwrap().to_owned();
+        let name = scope.own_scope.name.join("false_branch").to_str().unwrap().to_owned();
         let mut context_f =
             scope.cond_scope(CondContext::new(pred, pivot_0, 0, name), "false_branch");
         context_f.build_cond_branch(false_fn)?
