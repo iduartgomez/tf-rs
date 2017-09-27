@@ -38,6 +38,8 @@ pub fn sparse_softmax_cross_entropy_with_logits<C, Tx, Ty>(context: &mut C,
 }
 */
 
+///// BiasAdd /////
+
 ///  Adds `bias` to `value`.
 ///
 ///  This is (mostly) a special case of `tf.add` where `bias` is restricted to 1-D.
@@ -94,6 +96,8 @@ add_new_op!(BiasAdd,
 );
 
 
+///// Relu /////
+
 ///  Computes rectified linear: `max(features, 0)`.
 ///
 ///  Args:
@@ -110,12 +114,58 @@ where
     scope.install(Relu::new(features.into(), name)?)
 }
 
-
 add_new_op!(Relu, 
     constructor: [
         add_new_op!(UNARY CONSTRUCTOR: Relu, Init: []);
     ],
     digest: [DEFAULT_DIGEST: Relu, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
+///// Softmax /////
+
+///  Computes softmax activations.
+///
+///  For each batch `i` and class `j` we have
+///
+///      softmax = exp(logits) / reduce_sum(exp(logits), dim)
+///
+///  Args:
+///    logits: A non-empty `Tensor`. Must be one of the following types: `half`,
+///      `float32`, `float64`.
+///    dim: The dimension softmax would be performed on. The default is -1 which
+///      indicates the last dimension.
+///    name: A name for the operation (optional).
+///
+///  Returns:
+///    A `Tensor`. Has the same type as `logits`. Same shape as `logits`.
+///  Raises:
+///    InvalidArgumentError: if `logits` is empty or `dim` is beyond the last
+///      dimension of `logits`.
+pub fn softmax<L, S, TeS>(
+    scope: &mut Scope,
+    logits: L,
+    dim: TeS,
+    name: S,
+) -> Result<Tensor, ::Error>
+where
+    L: Into<Tensor>,
+    S: AsRef<Path>,
+    TeS: ShapeSize,
+{
+    scope.install(Softmax::new(logits.into(), name)?);
+
+    unimplemented!()
+}
+
+add_new_op!(Softmax, 
+    constructor: [
+        add_new_op!(UNARY CONSTRUCTOR: Softmax, Init: []);
+    ],
+    digest: [DEFAULT_DIGEST: Softmax, INPUT0],
     extra_funcs: [], 
     extra_attr: [],
     output: [Tensor],

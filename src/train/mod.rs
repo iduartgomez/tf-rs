@@ -7,8 +7,7 @@ pub use self::moving_averages::*;
 mod slot_creator;
 use self::slot_creator::*;
 
-mod nn;
-pub use self::nn::*;
+pub mod nn;
 
 fn validate_convnet_data_dormat(data_format: &str) -> Result<&'static str, ::Error> {
     match data_format {

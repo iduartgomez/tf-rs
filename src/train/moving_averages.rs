@@ -394,7 +394,6 @@ fn _zero_debias(
         state_ops::assign_sub(scope, biased_var, mul, false, &scope_name)?
     };
     let update_local_step = {
-
         state_ops::assign_add(scope, local_step, one, false, "")?
     };
 

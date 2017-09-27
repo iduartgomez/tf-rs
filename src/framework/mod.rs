@@ -48,31 +48,19 @@ pub trait Operation<'a>
 {
     type Outputs;
 
-    fn get_op_type_name(&self) -> &'static str {
-        unimplemented!()
-    }
+    fn get_op_type_name(&self) -> &'static str;
     /// Return the full qualified path name for this op, including scopes, if any.
-    fn get_op_name(&self) -> Option<&Path> {
-        unimplemented!()
-    }
-    fn fetch_inputs(&self) -> &[Tensor] {
-        unimplemented!()
-    }
+    fn get_op_name(&self) -> Option<&Path>;
+    fn fetch_inputs(&self) -> &[Tensor];
     /// List arguments are checked first, they include their position info in part of the return tuple.
     ///
     /// If there are any they are inserted during the operation construction when appropiate.
-    fn fetch_input_lists(&self) -> &[(usize, Vec<Tensor>)] {
-        unimplemented!()
-    }
+    fn fetch_input_lists(&self) -> &[(usize, Vec<Tensor>)];
     /// Get the attributes for this operation. Used while 'digesting' it.
-    fn fetch_attributes<'s>(&'s self) -> &'s [(&str, bool, Attribute<'a>)] {
-        unimplemented!()
-    }
+    fn fetch_attributes<'s>(&'s self) -> &'s [(&str, bool, Attribute<'a>)];
     #[doc(hidden)]
     /// Consumes self and returns output. Used when installing the op into the context.
-    fn digest(self, context: &mut Scope, op: OperationData) -> Result<Self::Outputs, ::Error> {
-        unimplemented!()
-    }
+    fn digest(self, context: &mut Scope, op: OperationData) -> Result<Self::Outputs, ::Error>;
 }
 
 pub(crate) fn add_control_input<I, T>(op: &mut OperationDescription, control_inputs: I)

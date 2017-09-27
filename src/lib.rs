@@ -40,6 +40,7 @@ pub mod prelude {
     pub use super::framework::{Constant, NodeIdent, Operation, Scope, Tensor, TensorArray,
                                TensorContent, Variable};
     pub use super::{OperationData, TypedTensor};
+    pub use super::Error as TF_Error;
     pub use tf::{DataType, Status};
 
     pub use super::train;

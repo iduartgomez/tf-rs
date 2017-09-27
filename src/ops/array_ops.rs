@@ -11,8 +11,9 @@ pub fn concat<S, TeS>(
     axis: TeS,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where S: AsRef<Path>,
-          TeS: ShapeSize
+where
+    S: AsRef<Path>,
+    TeS: ShapeSize,
 {
     let axis = context.constant("", &[axis], &[] as &[i32])?;
     context.install(Concat::new(values, axis.into(), name)?)
@@ -72,6 +73,78 @@ fn test_concat() {
 }
 
 
+///// ExpandDims /////
+
+///   Inserts a dimension of 1 into a tensor's shape.
+///
+///   Given a tensor `input`, this operation inserts a dimension of 1 at the
+///   dimension index `axis` of `input`'s shape. The dimension index `axis` starts
+///   at zero; if you specify a negative number for `axis` it is counted backward
+///   from the end.
+///
+///   This operation is useful if you want to add a batch dimension to a single
+///   element. For example, if you have a single image of shape `[height, width,
+///   channels]`, you can make it a batch of 1 image with `expand_dims(image, 0)`,
+///   which will make the shape `[1, height, width, channels]`.
+///
+///   Other examples:
+///
+///   ```python
+///   # 't' is a tensor of shape [2]
+///   shape(expand_dims(t, 0)) ==> [1, 2]
+///   shape(expand_dims(t, 1)) ==> [2, 1]
+///   shape(expand_dims(t, -1)) ==> [2, 1]
+///
+///   # 't2' is a tensor of shape [2, 3, 5]
+///   shape(expand_dims(t2, 0)) ==> [1, 2, 3, 5]
+///   shape(expand_dims(t2, 2)) ==> [2, 3, 1, 5]
+///   shape(expand_dims(t2, 3)) ==> [2, 3, 5, 1]
+///   ```
+///
+///   This operation requires that:
+///
+///   `-1-input.dims() <= dim <= input.dims()`
+///
+///   This operation is related to `squeeze()`, which removes dimensions of
+///   size 1.
+///
+///   Args:
+///     input: A `Tensor`.
+///     axis: 0-D (scalar). Specifies the dimension index at which to
+///       expand the shape of `input`.
+///     name: The name of the output `Tensor`.
+///     dim: 0-D (scalar). Equivalent to `axis`, to be deprecated.
+///
+///   Returns:
+///     A `Tensor` with the same data as `input`, but its shape has an additional
+///     dimension of size 1 added.
+///
+///   Raises:
+///     ValueError: if both `dim` and `axis` are specified.
+pub fn expand_dims<Tx, S, TeS>(
+    context: &mut Scope,
+    tensor: Tx,
+    axis: TeS,
+    name: S,
+) -> Result<Tensor, ::Error>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+    TeS: ShapeSize,
+{
+    let m = context.constant("", &[axis], &[] as &[TeS])?;
+    context.install(ExpandDims::new(tensor.into(), m.into(), name)?)
+}
+
+add_new_op!(ExpandDims,
+    constructor: [add_new_op!(BIN CONSTRUCTOR: ExpandDims, Init: []);],
+    digest: [DEFAULT_DIGEST: ExpandDims, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
 ///// Gather /////
 
 pub fn gather<Tx, Ty, S>(
@@ -80,9 +153,10 @@ pub fn gather<Tx, Ty, S>(
     indices: Ty,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     let indices = indices.into();
     if indices.dtype != DataType::Int32 && indices.dtype != DataType::Int64 {
@@ -119,9 +193,10 @@ pub fn reshape<Tx, Ty, S>(
     shape: Ty,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          Ty: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    Ty: Into<Tensor>,
+    S: AsRef<Path>,
 {
     /*
     let shape = {
@@ -175,8 +250,9 @@ pub fn shape<Tx, S>(
     out_type: Option<DataType>,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     let out_type = if let Some(val) = out_type {
         vec![val]
@@ -187,7 +263,7 @@ pub fn shape<Tx, S>(
 }
 
 /// Returns the shape of a tensor.
-/// 
+///
 /// This operation returns a 1-D integer tensor representing the shape of `input`.
 add_new_op!(Shape,
     constructor: [
@@ -242,8 +318,9 @@ fn test_shape() {
 ///// Size /////
 
 pub fn size<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
 {
     context.install(Size::new(tensor.into(), name)?)
 }
@@ -275,9 +352,10 @@ pub fn squeeze<TeS, Tx, S>(
     axis: Option<&[TeS]>,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>,
-          S: AsRef<Path>,
-          TeS: ShapeSize
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+    TeS: ShapeSize,
 {
     let dims: Vec<i64>;
     let mut squeeze = Squeeze::new(tensor.into(), name)?;
@@ -315,8 +393,9 @@ pub fn where_cond<Tc, S>(
     y: Option<Tensor>,
     name: S,
 ) -> Result<Tensor, ::Error>
-    where Tc: Into<Tensor>,
-          S: AsRef<Path>
+where
+    Tc: Into<Tensor>,
+    S: AsRef<Path>,
 {
     let cond = cond.into();
     if cond.dtype != DataType::Bool {
@@ -350,8 +429,9 @@ pub(crate) fn constant<'a, T, I>(
     value: TypedTensor<T>,
     control_inputs: I,
 ) -> Result<OperationData, Status>
-    where T: TensorType,
-          I: IntoIterator<Item = &'a OperationData>
+where
+    T: TensorType,
+    I: IntoIterator<Item = &'a OperationData>,
 {
     let mut c = graph.new_operation("Const", name)?;
     c.set_attr_tensor("value", value)?;
@@ -366,7 +446,8 @@ pub(crate) fn identity<'a, I>(
     input: (OperationData, i32),
     control_inputs: I,
 ) -> Result<OperationData, Status>
-    where I: IntoIterator<Item = &'a OperationData>
+where
+    I: IntoIterator<Item = &'a OperationData>,
 {
     let mut copy = graph.new_operation("Identity", name)?;
     copy.add_input(

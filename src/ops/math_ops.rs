@@ -960,6 +960,39 @@ fn test_reduce_max() {
 }
 
 
+///// Tanh /////
+
+///  Computes hyperbolic tangent of `x` element-wise.
+///
+///  Args:
+///    x: A Tensor with type `float`, `double`, `int32`,
+///      `complex64`, `int64`, or `qint32`.
+///    name: A name for the operation (optional).
+///
+///  Returns:
+///    A Tensor respectively with the same type as `x` if
+///    `x.dtype != qint32` otherwise the return type is `quint8`.
+pub fn tanh<TeS, Tx, S>(
+    context: &mut Scope,
+    tensor: Tx,
+    name: S,
+) -> Result<Tensor, ::Error>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path> {
+    let scope = &mut context.name_scope(name.as_ref(), Some("Tanh".as_ref()));
+    scope.install(Tanh::new(tensor.into(), name)?)
+}
+
+add_new_op!(Tanh,
+    constructor: [add_new_op!(UNARY CONSTRUCTOR: Tanh, Init: []);],
+    digest: [DEFAULT_DIGEST: Tanh, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
 ///// Minimum /////
 
 /// Returns the min of x and y (i.e. x < y ? x : y) element-wise.
