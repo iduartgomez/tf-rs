@@ -62,11 +62,11 @@ pub fn bias_add<Tx, B, S>(
     bias: B,
     data_format: Option<&str>,
     name: S,
-) -> Result<Tensor, ::Error> 
-    where
+) -> Result<Tensor, ::Error>
+where
     Tx: Into<Tensor>,
     B: Into<Tensor>,
-    S: AsRef<Path>
+    S: AsRef<Path>,
 {
     context.name_scope(name.as_ref(), Some("BiasAdd".as_ref()));
     let value = value.into();
@@ -89,6 +89,34 @@ add_new_op!(BiasAdd,
             self
         }
     ], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
+///  Computes rectified linear: `max(features, 0)`.
+///
+///  Args:
+///    features: A `Tensor`. Must be one of the following types: `float32`, `float64`, `int32`, `int64`, `uint8`, `int16`, `int8`, `uint16`, `half`.
+///    name: A name for the operation (optional).
+///
+///  Returns:
+///    A `Tensor`. Has the same type as `features`.
+pub fn relu<F, S>(scope: &mut Scope, features: F, name: S) -> Result<Tensor, ::Error>
+where
+    F: Into<Tensor>,
+    S: AsRef<Path>,
+{
+    scope.install(Relu::new(features.into(), name)?)
+}
+
+
+add_new_op!(Relu, 
+    constructor: [
+        add_new_op!(UNARY CONSTRUCTOR: Relu, Init: []);
+    ],
+    digest: [DEFAULT_DIGEST: Relu, INPUT0],
+    extra_funcs: [], 
     extra_attr: [],
     output: [Tensor],
 );
