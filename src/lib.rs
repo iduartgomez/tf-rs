@@ -3,10 +3,11 @@ extern crate uuid;
 
 #[macro_use]
 mod macros;
-pub(crate) mod framework;
+#[macro_use]
 pub mod ops;
-pub mod client;
 pub mod train;
+pub mod client;
+pub(crate) mod framework;
 
 use tf::{OperationDescription, Output, Shape};
 pub type OperationData = tf::Operation;

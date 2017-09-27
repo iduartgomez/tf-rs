@@ -7,49 +7,30 @@ pub use self::moving_averages::*;
 mod slot_creator;
 use self::slot_creator::*;
 
+mod nn;
+pub use self::nn::*;
+
+fn validate_convnet_data_dormat(data_format: &str) -> Result<&'static str, ::Error> {
+    match data_format {
+        "NHWC" => Ok("NHWC"),
+        "NCHW" => Ok("NCHW"),
+        _ => Err(::Error::Stub),
+    }
+}
+
+fn _validate_convnet_3d_data_dormat(data_format: &str) -> Result<&'static str, ::Error> {
+    match data_format {
+        "NDHWC" => Ok("NDHWC"),
+        "NCDHW" => Ok("NCDHW"),
+        _ => Err(::Error::Stub),
+    }
+}
 
 /////////////////////////////////
 //   Pre-built train models    //
 /////////////////////////////////
 
 /*
-pub mod nn {
-    use super::*;
-
-    pub fn in_top_k<C, Tx, Ty>(context: &mut C,
-                               predictions: Tx,
-                               targets: Ty,
-                               k: u32)
-                               -> Result<Tensor, ::Error>
-        where Tx: Into<Tensor>,
-              Ty: Into<Tensor>
-    {
-        unimplemented!()
-    }
-
-    pub fn log_softmax<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor, ::Error>
-        where Tx: Into<Tensor>
-    {
-        unimplemented!()
-    }
-
-    pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor, ::Error>
-        where Tx: Into<Tensor>
-    {
-        unimplemented!()
-    }
-
-    pub fn sparse_softmax_cross_entropy_with_logits<C, Tx, Ty>(context: &mut C,
-                                                               tensor: Tx,
-                                                               logits: Ty)
-                                                               -> Result<Tensor, ::Error>
-        where Tx: Into<Tensor>,
-              Ty: Into<Tensor>
-    {
-        unimplemented!()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct Optimizer;
 

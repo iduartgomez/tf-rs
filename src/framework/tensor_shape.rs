@@ -97,9 +97,11 @@ impl ShapeSize for i64 {
     }
 }
 
+/*
 pub fn shape_from_dims<T: ShapeSize>(dims: &[T]) -> Shape {
     Shape::from(Some(dims.iter().map(|x| Some(x.as_i64())).collect::<Vec<_>>()),)
 }
+*/
 
 pub fn shape_as_u64<T: ShapeSize>(dims: &[T]) -> Vec<u64> {
     dims.iter().map(|x| x.as_u64()).collect()
