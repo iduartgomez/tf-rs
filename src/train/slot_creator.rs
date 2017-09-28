@@ -55,7 +55,7 @@ where
     let validate_shape = val.get_shape(scope).is_fully_defined();
     let primary_op_name = format!("{}/{}", primary.get_name(scope), name.as_ref());
     let scope = &mut scope.variable_scope("", Some(primary_op_name.as_str()), None)?;
-    scope.get_variable_with_initializer("", val, validate_shape)
+    scope.get_variable_with_initializer(val, validate_shape, "")
 }
 
 pub(crate) fn create_zeros_slot<S>(

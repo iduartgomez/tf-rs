@@ -455,9 +455,9 @@ impl Scope {
     /// Reuse is set during `variable_scope` creation.
     pub fn get_variable<IS, S>(
         &mut self,
-        name: S,
         dtype: Option<DataType>,
         shape: Option<IS>,
+        name: S,
     ) -> Result<Variable, ::Error>
     where
         S: AsRef<Path>,
@@ -607,9 +607,9 @@ impl Scope {
 
     pub fn get_variable_with_initializer<S, T>(
         &mut self,
-        name: S,
         initializer: T,
         validate_shape: bool,
+        name: S,
     ) -> Result<Variable, ::Error>
     where
         S: AsRef<Path>,
@@ -751,9 +751,9 @@ impl Scope {
 
     pub fn constant<TeS, T, S>(
         &mut self,
-        name: S,
         value: &[T],
         shape: &[TeS],
+        name: S,
     ) -> Result<Constant, ::Error>
     where
         S: AsRef<Path>,
@@ -915,7 +915,7 @@ impl Scope {
     }
 
     /// Returns a copy of the variable, with the same shape and content.
-    pub fn identity<S, Tx>(&mut self, name: S, tensor: Tx) -> Result<Tensor, ::Error>
+    pub fn identity<S, Tx>(&mut self, tensor: Tx, name: S) -> Result<Tensor, ::Error>
     where
         S: AsRef<Path>,
         Tx: GetIdent,

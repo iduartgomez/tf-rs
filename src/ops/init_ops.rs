@@ -12,7 +12,7 @@ where
 {
     let total = shape.iter().fold(1_i64, |acc, &x| acc * x.as_i64()) as usize;
     let values = vec![value; total];
-    context.constant("", &values, shape)
+    context.constant(&values, shape, "")
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn test_constant_initializer_explicit() {
     let mut context = Scope::new();
 
     let init = constant_initializer(&mut context, 3_i32, &[2, 2, 2]).unwrap();
-    let var = context.get_variable_with_initializer("", init, true).unwrap();
+    let var = context.get_variable_with_initializer(init, true, "").unwrap();
 
     let results = test_suite!(run_op: [var]; context, input: {});
     test_suite!(results; assert_len: {[0;Int32] == 8});
@@ -41,9 +41,9 @@ where
 {
     let scope = &mut context.name_scope("random_normal", None);
 
-    let shape_tensor = scope.constant("", shape, &[shape.len() as i64])?;
-    let mean_tensor = scope.constant("mean", &[mean], &[] as &[i64])?;
-    let stddev_tensor = scope.constant("name", &[stddev], &[] as &[i64])?;
+    let shape_tensor = scope.constant(shape, &[shape.len() as i64], "")?;
+    let mean_tensor = scope.constant(&[mean], &[] as &[i64], "mean")?;
+    let stddev_tensor = scope.constant(&[stddev], &[] as &[i64], "name")?;
 
     let rnd = {
         let (seed, seed2) = scope.get_seed(seed);
@@ -106,13 +106,14 @@ add_new_op!(RandomStandardNormal,
     output: [Tensor],
 );
 
+#[ignore]
 #[test]
 #[cfg(test)]
 fn test_random_normal_initializer() {
     let mut context = Scope::new();
 
     let init = random_normal_initializer(&mut context, 0.0_f32, 1.0, None, &[2, 2]).unwrap();
-    let var = context.get_variable_with_initializer("", init, true).unwrap();
+    let var = context.get_variable_with_initializer(init, true, "").unwrap();
 
     let results = test_suite!(run_op: [var]; context, input: {});
     test_suite!(results; assert_len: {[0;Float] == 4});

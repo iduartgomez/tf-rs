@@ -241,7 +241,7 @@ impl Constant {
               TeS: ShapeSize
     {
         let name = context.resolve_tensor_name(None, IdType::Constant, false).unwrap();
-        context.constant(name, value, shape).unwrap()
+        context.constant(value, shape, name).unwrap()
     }
 
     pub fn get_name(&self, context: &Scope) -> String {
@@ -318,7 +318,7 @@ impl Variable {
         registry[&self.ident].shape.clone()
     }
 
-    pub fn from_tensor(self, context: &Scope) -> Result<Tensor, ::Error> {
+    pub fn from_tensor(tensor: Tensor, context: &Scope) -> Result<Variable, ::Error> {
         unimplemented!()
     }
 }

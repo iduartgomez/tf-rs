@@ -153,8 +153,8 @@ impl ExponentialMovingAverage {
         let mut decay: Tensor = self.decay;
         if let Some(mut num_updates) = self.num_updates {
             num_updates = math_ops::cast(scope, num_updates, DataType::Float, "num_updates")?;
-            let c0 = scope.constant("", &[1.0_f32], &[] as &[i32])?;
-            let c1 = scope.constant("", &[10.0_f32], &[] as &[i32])?;
+            let c0 = scope.constant(&[1.0_f32], &[] as &[i32], "")?;
+            let c1 = scope.constant(&[10.0_f32], &[] as &[i32], "")?;
             let s0 = math_ops::add(scope, c0, num_updates, "")?;
             let s1 = math_ops::add(scope, c1, num_updates, "")?;
             let n = math_ops::divide(scope, s0, s1, "")?;
@@ -324,7 +324,7 @@ fn assign_moving_average(
                      };
     // TODO: colocate_with(variable)
     let decay = {
-        let n = scope.constant("", &[1], &[] as &[i32])?;
+        let n = scope.constant(&[1], &[] as &[i32], "")?;
         math_ops::sub(scope, n, decay, "decay")?
     };
     let update_delta = if zero_debias {
@@ -380,12 +380,12 @@ fn _zero_debias(
 
     let unbiased_var_shape = unbiased_var.get_shape(scope);
     let biased_var =
-        scope.get_variable("biased", Some(unbiased_var.dtype), Some(unbiased_var_shape))?;
+        scope.get_variable(Some(unbiased_var.dtype), Some(unbiased_var_shape), "biased")?;
     let local_step =
-        scope.get_variable("local_step", Some(unbiased_var.dtype), Some(&[] as &[i64]))?;
+        scope.get_variable(Some(unbiased_var.dtype), Some(&[] as &[i64]), "local_step")?;
 
     // constants:
-    let one = scope.constant("", &[1_i32], &[] as &[i32])?;
+    let one = scope.constant(&[1_i32], &[] as &[i32], "")?;
 
     // Get an update ops for both shadow variables.
     let update_biased = {

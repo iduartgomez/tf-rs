@@ -15,7 +15,7 @@ where
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
-    let axis = context.constant("", &[axis], &[] as &[i32])?;
+    let axis = context.constant(&[axis], &[] as &[i32], "")?;
     context.install(Concat::new(values, axis.into(), name)?)
 }
 
@@ -53,8 +53,8 @@ add_new_op!(ConcatV2,
 #[cfg(test)]
 fn test_concat() {
     let mut context = Scope::new();
-    let t1 = context.constant("t1", &[1_i32, 2, 3, 4, 5, 6], &[2, 3]).unwrap().into();
-    let t2 = context.constant("t2", &[7_i32, 8, 9, 10, 11, 12], &[2, 3]).unwrap().into();
+    let t1 = context.constant(&[1_i32, 2, 3, 4, 5, 6], &[2, 3], "t1").unwrap().into();
+    let t2 = context.constant(&[7_i32, 8, 9, 10, 11, 12], &[2, 3], "t2").unwrap().into();
     let op1 = concat(&mut context, vec![t1, t2], 0, "").unwrap();
     let op2 = concat(&mut context, vec![t1, t2], 1, "").unwrap();
     test_suite!(run_op: [op1, op2]; context, input: {});
@@ -132,7 +132,7 @@ where
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
-    let m = context.constant("", &[axis], &[] as &[TeS])?;
+    let m = context.constant(&[axis], &[] as &[TeS], "")?;
     context.install(ExpandDims::new(tensor.into(), m.into(), name)?)
 }
 
@@ -177,8 +177,8 @@ add_new_op!(Gather,
 #[cfg(test)]
 fn test_gather() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[0_i32, 1, 2, 3, 4, 5], &[6]).unwrap();
-    let indices = context.constant("gather", &[2_i32, 0, 2, 5], &[4]).unwrap();
+    let x = context.constant(&[0_i32, 1, 2, 3, 4, 5], &[6], "x").unwrap();
+    let indices = context.constant(&[2_i32, 0, 2, 5], &[4], "gather").unwrap();
     let op = gather(&mut context, x, indices, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32, 0, 2, 5]});
@@ -219,14 +219,14 @@ add_new_op!(Reshape,
 #[cfg(test)]
 fn test_reshape() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[9]).unwrap();
-    let y = context.constant("y", &[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3]).unwrap();
+    let x = context.constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[9], "x").unwrap();
+    let y = context.constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3], "y").unwrap();
 
-    let shape = context.constant("", &[3, 3], &[2]).unwrap();
+    let shape = context.constant(&[3, 3], &[2], "").unwrap();
     let op1 = reshape(&mut context, x, shape, "").unwrap();
     let (src_op1, idx1) = context.get_src_op(op1);
 
-    let shape = context.constant("", &[-1], &[1]).unwrap();
+    let shape = context.constant(&[-1], &[1], "").unwrap();
     let op2 = reshape(&mut context, y, shape, "").unwrap();
     let (src_op2, idx2) = context.get_src_op(op2);
 
@@ -307,7 +307,7 @@ add_new_op!(Shape,
 #[cfg(test)]
 fn test_shape() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3]).unwrap();
+    let x = context.constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3], "x").unwrap();
 
     let op = shape(&mut context, x, Some(DataType::Int64), "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -337,7 +337,7 @@ add_new_op!(Size,
 #[cfg(test)]
 fn test_size() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[1_i32, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4], &[2, 2, 3]).unwrap();
+    let x = context.constant(&[1_i32, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4], &[2, 2, 3], "x").unwrap();
     let op = size(&mut context, x, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [12]});

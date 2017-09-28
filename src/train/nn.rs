@@ -142,8 +142,7 @@ add_new_op!(Relu,
 ///
 ///  Returns:
 ///    A `Tensor`. Has the same type as `logits`. Same shape as `logits`.
-///  Raises:
-///    InvalidArgumentError: if `logits` is empty or `dim` is beyond the last
+///    Error: if `logits` is empty or `dim` is beyond the last
 ///      dimension of `logits`.
 pub fn softmax<L, S, TeS>(
     scope: &mut Scope,

@@ -219,9 +219,9 @@ where
     // Add the switch to the graph.
     let (p_0, p_1) = switch(scope, pred, pred, "")?;
 
-    let pivot_0 = scope.identity("switch_f", p_0)?;
-    let pivot_1 = scope.identity("switch_t", p_1)?;
-    let pred = scope.identity("pred_id", pred)?;
+    let pivot_0 = scope.identity(p_0, "switch_f")?;
+    let pivot_1 = scope.identity(p_1, "switch_t")?;
+    let pred = scope.identity(pred, "pred_id")?;
     // Disable the fetching of tensors that are only on one branch of cond.
     for tensor in &[p_0, p_1, pivot_0, pivot_1, pred] {
         scope.prevent_fetching(tensor);
@@ -997,7 +997,7 @@ impl WhileContextInterface for Scope {
 
         // Build the graph for the body.
         let mut vars_for_body =
-            switch_vars.iter().map(|&(_, x)| self.identity("", x)).collect::<Result<Vec<_>, _>>()?;
+            switch_vars.iter().map(|&(_, x)| self.identity(x, "")).collect::<Result<Vec<_>, _>>()?;
         while_context!(mut self).pivot_for_body = Some(vars_for_body[0]);
         let body_result = body(self, &mut vars_for_body)?;
 
@@ -1275,8 +1275,8 @@ mod test {
     #[test]
     fn test_where_cond() {
         let mut context = Scope::new();
-        let x = context.constant("x", &[4_i32, 2, 4], &[3]).unwrap();
-        let y = context.constant("y", &[2_i32, 4, 2], &[3]).unwrap();
+        let x = context.constant(&[4_i32, 2, 4], &[3], "x").unwrap();
+        let y = context.constant(&[2_i32, 4, 2], &[3], "y").unwrap();
         let cond = greater(&mut context, x, y, "").unwrap();
         let op = where_cond(&mut context, cond, None, None, "").unwrap();
         let results = test_suite!(run_op: [op]; context, input: {});
@@ -1289,8 +1289,8 @@ mod test {
     #[ignore]
     fn test_assert_eq() {
         let mut context = Scope::new();
-        let x = context.constant("x", &[2_i32], &[] as &[i32] as &[i32]).unwrap();
-        let y = context.constant("y", &[2_i32], &[] as &[i32] as &[i32]).unwrap();
+        let x = context.constant(&[2_i32], &[] as &[i32] as &[i32], "x").unwrap();
+        let y = context.constant(&[2_i32], &[] as &[i32] as &[i32], "y").unwrap();
         let assert = assert_eq(&mut context, x, y, None, None, "").unwrap();
         //context.install(assert.clone()).unwrap();
         let results = test_suite!(run_op: [assert]; context, input: {});
@@ -1300,8 +1300,8 @@ mod test {
     #[ignore]
     fn test_assert_greater() {
         let mut context = Scope::new();
-        let x = context.constant("x", &[3_i32], &[] as &[i32]).unwrap();
-        let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
+        let x = context.constant(&[3_i32], &[] as &[i32], "x").unwrap();
+        let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
         let assert = assert_greater(&mut context, x, y, None, None, "").unwrap();
         //context.install(assert.clone()).unwrap();
         let results = test_suite!(run_op: [assert]; context, input: {});
@@ -1312,17 +1312,17 @@ mod test {
         use super::assign;
         let mut context = Scope::new();
         let var: Tensor =
-            context.get_variable("", Some(DataType::Int32), Some(&[] as &[i32])).unwrap().into();
-        let x = context.constant("", &[2_i32], &[] as &[i32]).unwrap();
-        let y = context.constant("", &[5_i32], &[] as &[i32]).unwrap();
+            context.get_variable(Some(DataType::Int32), Some(&[] as &[i32]), "").unwrap().into();
+        let x = context.constant(&[2_i32], &[] as &[i32], "").unwrap();
+        let y = context.constant(&[5_i32], &[] as &[i32], "").unwrap();
 
         let f1 = Box::new(
-            move |mut scope: &mut Scope| -> Result<Vec<Tensor>, ::Error> {
+            move |scope: &mut Scope| -> Result<Vec<Tensor>, ::Error> {
                 Ok(vec![assign(scope, var, x, true, "")?])
             },
         );
         let f2 = Box::new(
-            move |mut scope: &mut Scope| -> Result<Vec<Tensor>, ::Error> {
+            move |scope: &mut Scope| -> Result<Vec<Tensor>, ::Error> {
                 Ok(vec![assign(scope, var, y, true, "")?])
             },
         );
@@ -1335,15 +1335,15 @@ mod test {
 
         let f1 = Box::new(
             move |mut scope: &mut Scope| -> Result<Vec<Tensor>, ::Error> {
-                let mult_x = scope.constant("", &[10_i32], &[] as &[i32])?;
-                let add_x = scope.constant("", &[20_i32], &[] as &[i32])?;
+                let mult_x = scope.constant(&[10_i32], &[] as &[i32], "")?;
+                let add_x = scope.constant(&[20_i32], &[] as &[i32], "")?;
                 let v = multiply(&mut scope, x, mult_x, "")?;
                 let v = add(&mut scope, v, add_x, "")?;
                 Ok(vec![assign(scope, var, v, true, "")?])
             },
         );
         let f2 = Box::new(
-            move |mut scope: &mut Scope| -> Result<Vec<Tensor>, ::Error> {
+            move |scope: &mut Scope| -> Result<Vec<Tensor>, ::Error> {
                 Ok(vec![assign(scope, var, y, true, "")?])
             },
         );
@@ -1359,18 +1359,18 @@ mod test {
     #[test]
     fn test_while_loop() {
         let mut context = Scope::new();
-        let x = context.constant("", &[0_i32], &[] as &[i32]).unwrap();
+        let x = context.constant(&[0_i32], &[] as &[i32], "").unwrap();
 
-        let pred = Box::new(move |mut scope: &mut Scope, loop_vars: &mut [Tensor]| {
-            let y = scope.constant("", &[10_i32], &[] as &[i32]).unwrap();
+        let pred = Box::new(move |scope: &mut Scope, loop_vars: &mut [Tensor]| {
+            let y = scope.constant(&[10_i32], &[] as &[i32], "").unwrap();
             let x = loop_vars[0];
-            less(&mut scope, x, y, "")
+            less(scope, x, y, "")
         });
 
-        let body = Box::new(move |mut scope: &mut Scope,
+        let body = Box::new(move |scope: &mut Scope,
               loop_vars: &mut [Tensor]|
               -> Result<Vec<Tensor>, ::Error> {
-            let y = scope.constant("", &[1_i32], &[] as &[i32]).unwrap();
+            let y = scope.constant(&[1_i32], &[] as &[i32], "").unwrap();
             let x = loop_vars[0];
             Ok(vec![add(scope, x, y, "")?])
         });

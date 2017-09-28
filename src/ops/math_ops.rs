@@ -15,8 +15,10 @@ where
 
 /// Returns x + y element-wise.
 ///
-/// Both x and y must be tensors of the same type. Name argument is optional,
-/// if an empty string is provided, the name will be generated automatically.
+/// Both x and y must be tensors of the same type. 
+/// 
+/// Name argument is optional, if an empty string is provided, 
+/// the name will be generated automatically.
 add_new_op!(Add,
     constructor: [add_new_op!(BIN CONSTRUCTOR: Add, Init: []);],
     digest: [DEFAULT_DIGEST: Add, INPUT0],
@@ -29,8 +31,8 @@ add_new_op!(Add,
 #[cfg(test)]
 fn test_add() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[2_i32], &[] as &[i32]).unwrap();
-    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
+    let x = context.constant(&[2_i32], &[] as &[i32], "x").unwrap();
+    let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
     let op = add(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [4_i32]});
@@ -78,8 +80,8 @@ add_new_op!(AddN,
 #[cfg(test)]
 fn test_add_n() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[2_i32], &[] as &[i32]).unwrap();
-    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
+    let x = context.constant(&[2_i32], &[] as &[i32], "x").unwrap();
+    let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
     let op = add_n(&mut context, vec![x.into(), y.into()], "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [4_i32]});
@@ -138,7 +140,7 @@ add_new_op!(Cast,
 #[cfg(test)]
 fn test_cast() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[0_i32, 1], &[2]).unwrap();
+    let x = context.constant(&[0_i32, 1], &[2], "x").unwrap();
     let op = cast(&mut context, x, DataType::Double, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Double] == [0_f64, 1.]});
@@ -211,8 +213,8 @@ add_new_op!(Div,
 #[cfg(test)]
 fn test_divide() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[4_i32], &[] as &[i32]).unwrap();
-    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
+    let x = context.constant(&[4_i32], &[] as &[i32], "x").unwrap();
+    let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
     let op = divide(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32]});
@@ -246,8 +248,8 @@ add_new_op!(Equal,
 #[cfg(test)]
 fn test_equal() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[1_i32, 2], &[2]).unwrap();
-    let y = context.constant("y", &[1_i32, 2], &[2]).unwrap();
+    let x = context.constant(&[1_i32, 2], &[2], "x").unwrap();
+    let y = context.constant(&[1_i32, 2], &[2], "y").unwrap();
     let op = equal(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [true, true]});
@@ -278,7 +280,7 @@ add_new_op!(Exp,
 #[cfg(test)]
 fn test_exp() {
     let mut context = Scope::new();
-    let e = context.constant("e", &[1_f64], &[] as &[i32]).unwrap();
+    let e = context.constant(&[1_f64], &[] as &[i32], "e").unwrap();
     let op = exp(&mut context, e, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Double] == [::std::f64::consts::E]});
@@ -312,8 +314,8 @@ add_new_op!(Greater,
 #[cfg(test)]
 fn test_greater() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[1_i32, 2], &[2]).unwrap();
-    let y = context.constant("y", &[0_i32, 3], &[2]).unwrap();
+    let x = context.constant(&[1_i32, 2], &[2], "x").unwrap();
+    let y = context.constant(&[0_i32, 3], &[2], "y").unwrap();
     let op = greater(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [true, false]});
@@ -537,8 +539,8 @@ add_new_op!(Mul,
 #[cfg(test)]
 fn test_multiply() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[4_i32], &[] as &[i32]).unwrap();
-    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
+    let x = context.constant(&[4_i32], &[] as &[i32], "x").unwrap();
+    let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
     let op = multiply(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [8_i32]});
@@ -572,8 +574,8 @@ add_new_op!(Less,
 #[cfg(test)]
 fn test_less() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[2_i32, 2], &[2]).unwrap();
-    let y = context.constant("y", &[1_i32, 3], &[2]).unwrap();
+    let x = context.constant(&[2_i32, 2], &[2], "x").unwrap();
+    let y = context.constant(&[1_i32, 3], &[2], "y").unwrap();
     let op = less(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [false, true]});
@@ -604,7 +606,7 @@ add_new_op!(Log,
 #[cfg(test)]
 fn test_log() {
     let mut context = Scope::new();
-    let e = context.constant("e", &[::std::f64::consts::E], &[] as &[i32]).unwrap();
+    let e = context.constant(&[::std::f64::consts::E], &[] as &[i32], "e").unwrap();
     let op = log(&mut context, e, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Double] == [1.]});
@@ -639,7 +641,7 @@ add_new_op!(LogicalNot,
 #[cfg(test)]
 fn test_logical_not() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[true, false], &[2]).unwrap();
+    let x = context.constant(&[true, false], &[2], "x").unwrap();
     let op = logical_not(&mut context, x, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [false, true]});
@@ -687,8 +689,8 @@ add_new_op!(Pow,
 #[cfg(test)]
 fn test_pow() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[2_i32], &[] as &[i32]).unwrap();
-    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
+    let x = context.constant(&[2_i32], &[] as &[i32], "x").unwrap();
+    let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
     let op = pow(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [4_i32]});
@@ -712,7 +714,7 @@ where
         // TODO: infer reduction to scalar
     }
     let dims = &[axis.len() as i64];
-    let reduce = context.constant(name.as_ref(), axis, dims)?;
+    let reduce = context.constant(axis, dims, name.as_ref())?;
     context.install(All::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
 }
 
@@ -751,7 +753,7 @@ add_new_op!(All,
 #[cfg(test)]
 fn test_reduce_all() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[true, true, true, false, true, true], &[2, 3]).unwrap();
+    let x = context.constant(&[true, true, true, false, true, true], &[2, 3], "x").unwrap();
 
     let op = reduce_all(&mut context, x, &[1], false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -816,7 +818,7 @@ where
 #[cfg(test)]
 fn test_reduce_logsumexp() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[0_f64, 0., 0., 0., 0., 0.], &[2, 3]).unwrap();
+    let x = context.constant(&[0_f64, 0., 0., 0., 0., 0.], &[2, 3], "x").unwrap();
 
     let op1 = reduce_logsumexp(&mut context, x, &[0, 1], false, "").unwrap();
     let results = test_suite!(run_op: [op1]; context, input: {});
@@ -848,7 +850,7 @@ where
         // TODO: infer reduction to scalar
     }
     let dims = &[axis.len() as i64];
-    let reduce = context.constant(name.as_ref(), axis, dims)?;
+    let reduce = context.constant(axis, dims, name.as_ref())?;
     context.install(Sum::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
 }
 
@@ -886,7 +888,7 @@ add_new_op!(Sum,
 #[cfg(test)]
 fn test_reduce_sum() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[1_i32, 2, 3, 4], &[2, 2]).unwrap();
+    let x = context.constant(&[1_i32, 2, 3, 4], &[2, 2], "x").unwrap();
 
     let op = reduce_sum(&mut context, x, &[0, 1], false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -913,7 +915,7 @@ where
         // TODO: infer reduction to scalar
     }
     let dims = &[axis.len() as i64];
-    let reduce = context.constant(name.as_ref(), axis, dims)?;
+    let reduce = context.constant(axis, dims, name.as_ref())?;
     context.install(Max::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
 }
 
@@ -951,7 +953,7 @@ add_new_op!(Max,
 #[cfg(test)]
 fn test_reduce_max() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[1_i32, 2, 3, 4], &[2, 2]).unwrap();
+    let x = context.constant(&[1_i32, 2, 3, 4], &[2, 2], "x").unwrap();
 
     let op = reduce_max(&mut context, x, &[0, 1], false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -1028,8 +1030,8 @@ add_new_op!(Minimum,
 #[cfg(test)]
 fn test_minimum() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[4_i32, 3], &[2] as &[i32]).unwrap();
-    let y = context.constant("y", &[2_i32, 6], &[2] as &[i32]).unwrap();
+    let x = context.constant(&[4_i32, 3], &[2] as &[i32], "x").unwrap();
+    let y = context.constant(&[2_i32, 6], &[2] as &[i32], "y").unwrap();
 
     let op = minimum(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -1081,8 +1083,8 @@ add_new_op!(Sub,
 #[cfg(test)]
 fn test_sub() {
     let mut context = Scope::new();
-    let x = context.constant("x", &[4_i32], &[] as &[i32]).unwrap();
-    let y = context.constant("y", &[2_i32], &[] as &[i32]).unwrap();
+    let x = context.constant(&[4_i32], &[] as &[i32], "x").unwrap();
+    let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
     let op = sub(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32]});

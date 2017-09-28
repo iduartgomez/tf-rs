@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 extern crate tensorflow as tf;
 extern crate uuid;
 
@@ -38,9 +40,9 @@ impl std::convert::From<std::ffi::NulError> for Error {
 
 pub mod prelude {
     pub use super::framework::{Constant, NodeIdent, Operation, Scope, Tensor, TensorArray,
-                               TensorContent, Variable};
+                               TensorContent, Variable, Attribute};
     pub use super::{OperationData, TypedTensor};
-    pub use super::Error as TF_Error;
+    pub use super::Error as TFError;
     pub use tf::{DataType, Status};
 
     pub use super::train;
