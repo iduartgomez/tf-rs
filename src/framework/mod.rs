@@ -40,7 +40,6 @@ pub use self::scope::*;
 mod tensor_types;
 pub(crate) use self::tensor_types::*;
 
-
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.
 pub trait Operation<'a>

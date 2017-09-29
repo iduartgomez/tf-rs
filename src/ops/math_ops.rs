@@ -1056,7 +1056,7 @@ fn test_reduce_max() {
 ///  Returns:
 ///    A Tensor respectively with the same type as `x` if
 ///    `x.dtype != qint32` otherwise the return type is `quint8`.
-pub fn tanh<TeS, Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn tanh<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
