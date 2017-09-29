@@ -15,12 +15,6 @@ pub fn in_top_k<C, Tx, Ty>(context: &mut C,
     unimplemented!()
 }
 
-pub fn log_softmax<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor, ::Error>
-    where Tx: Into<Tensor>
-{
-    unimplemented!()
-}
-
 pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>
 {
@@ -96,6 +90,49 @@ add_new_op!(BiasAdd,
 );
 
 
+///// LogSoftmax /////
+
+///  Computes log softmax activations.
+///
+///  For each batch `i` and class `j` we have
+///
+///      logsoftmax = logits - log(reduce_sum(exp(logits), dim))
+///
+///  Args:
+///    logits: A non-empty `Tensor`. Must be one of the following types: `half`,
+///      `float32`, `float64`.
+///    dim: The dimension softmax would be performed on. The default is -1 which
+///      indicates the last dimension.
+///    name: A name for the operation (optional).
+///
+///  Returns:
+///    A `Tensor`. Has the same type as `logits`. Same shape as `logits`.
+///    Error if `logits` is empty or `dim` is beyond the last dimension of `logits`.
+pub fn log_softmax<L, S, TeS>(
+    context: &mut Scope,
+    logits: L,
+    dim: TeS,
+    name: S,
+) -> Result<Tensor, ::Error>
+where
+    L: Into<Tensor>,
+    S: AsRef<Path>,
+    TeS: ShapeSize,
+{
+    softmax_helper(context, logits.into(), true, dim.as_i32(), name.as_ref())
+}
+
+add_new_op!(LogSoftmax, 
+    constructor: [
+        add_new_op!(UNARY CONSTRUCTOR: LogSoftmax, Init: []);
+    ],
+    digest: [DEFAULT_DIGEST: LogSoftmax, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
 ///// Relu /////
 
 ///  Computes rectified linear: `max(features, 0)`.
@@ -142,8 +179,7 @@ add_new_op!(Relu,
 ///
 ///  Returns:
 ///    A `Tensor`. Has the same type as `logits`. Same shape as `logits`.
-///    Error: if `logits` is empty or `dim` is beyond the last
-///      dimension of `logits`.
+///    Error: if `logits` is empty or `dim` is beyond the last dimension of `logits`.
 pub fn softmax<L, S, TeS>(
     context: &mut Scope,
     logits: L,
@@ -194,6 +230,7 @@ fn softmax_helper(
     dim: i32,
     name: &Path,
 ) -> Result<Tensor, ::Error> {
+
     fn swap_axis(
         scope: &mut Scope,
         logits: Tensor,
@@ -218,7 +255,7 @@ fn softmax_helper(
     let is_last_dim = dim == -1 || dim == ndims - 1;
     if (ndims == 2) && is_last_dim {
         if is_log_softmax {
-            unimplemented!()
+            return context.install(LogSoftmax::new(logits, name)?);
         } else {
             return context.install(Softmax::new(logits, name)?);
         }
@@ -242,7 +279,7 @@ fn softmax_helper(
 
     // Do the actual softmax on its last dimension.
     let mut output = if is_log_softmax {
-        unimplemented!()
+        context.install(LogSoftmax::new(logits, name)?)?
     } else {
         context.install(Softmax::new(logits, name)?)?
     };
