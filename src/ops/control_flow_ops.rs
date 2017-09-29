@@ -229,7 +229,10 @@ where
 
     // Build the graph for the true branch in a new context.
     let (_orig_res_t, res_t) = {
-        let name = scope.own_scope.name.join("true_branch").to_str().unwrap().to_owned();
+        let name = {
+            let name: &Path = scope.name().as_ref();
+            name.join("true_branch").to_str().unwrap().to_owned()
+        };
         let mut context_t =
             scope.cond_scope(CondContext::new(pred, pivot_1, 1, name), "true_branch");
         context_t.build_cond_branch(true_fn)?
@@ -237,7 +240,10 @@ where
 
     // Build the graph for the false branch in a new context.
     let (_orig_res_f, res_f) = {
-        let name = scope.own_scope.name.join("false_branch").to_str().unwrap().to_owned();
+        let name = {
+            let name: &Path = scope.name().as_ref();
+            name.join("false_branch").to_str().unwrap().to_owned()
+        };
         let mut context_f =
             scope.cond_scope(CondContext::new(pred, pivot_0, 0, name), "false_branch");
         context_f.build_cond_branch(false_fn)?

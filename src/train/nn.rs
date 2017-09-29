@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use super::*;
-use ops::ControlFlow;
+use ops::{ControlFlow, array_ops, math_ops};
 
 /*
 pub fn in_top_k<C, Tx, Ty>(context: &mut C,
@@ -145,7 +145,7 @@ add_new_op!(Relu,
 ///    Error: if `logits` is empty or `dim` is beyond the last
 ///      dimension of `logits`.
 pub fn softmax<L, S, TeS>(
-    scope: &mut Scope,
+    context: &mut Scope,
     logits: L,
     dim: TeS,
     name: S,
@@ -155,9 +155,7 @@ where
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
-    scope.install(Softmax::new(logits.into(), name)?);
-
-    unimplemented!()
+    softmax_helper(context, logits.into(), false, dim.as_i32(), name.as_ref())
 }
 
 add_new_op!(Softmax, 
@@ -169,3 +167,126 @@ add_new_op!(Softmax,
     extra_attr: [],
     output: [Tensor],
 );
+
+
+///  Helper function for softmax and log_softmax.
+///
+///  It reshapes and transposes the input logits into a 2-D Tensor and then invokes
+///  the tf.nn._softmax or tf.nn._log_softmax function. The output would be
+///  transposed and reshaped back.
+///
+///  Args:
+///    logits: A non-empty `Tensor`. Must be one of the following types: `half`,
+///      `float32`, `float64`.
+///    compute_op: Either gen_nn_ops._softmax or gen_nn_ops._log_softmax
+///    dim: The dimension softmax would be performed on. The default is -1 which
+///      indicates the last dimension.
+///    name: A name for the operation (optional).
+///
+///  Returns:
+///    A `Tensor`. Has the same type as `logits`. Same shape as `logits`.
+///    Error if `logits` is empty or `dim` is beyond the last
+///      dimension of `logits`.
+fn softmax_helper(
+    context: &mut Scope,
+    mut logits: Tensor,
+    is_log_softmax: bool,
+    dim: i32,
+    name: &Path,
+) -> Result<Tensor, ::Error> {
+    fn swap_axis(
+        scope: &mut Scope,
+        logits: Tensor,
+        dim_index: i32,
+        last_index: Tensor,
+        name: &Path,
+    ) -> Result<Tensor, ::Error> {
+        let r0 = ops::range(scope, 0_i32, dim_index, 1_i32, name)?;
+        let r1 = ops::range(scope, 0_i32, dim_index + 1, 1_i32, name)?;
+        let r2 = Constant::new(scope, &[dim_index], &[] as &[i32]).into();
+        let c = array_ops::concat(scope, vec![r0, last_index, r1, r2], 0, "")?;
+        array_ops::transpose(scope, logits, Some(c), name)
+    }
+
+    // We need its original shape for shape inference.
+    let shape = logits.get_shape(context);
+    let ndims = if let Some(n) = shape.dims() {
+        n as i32
+    } else {
+        return Err(::Error::Msg("shape of logits tensor must be defined for softmax operation.".to_owned(),),);
+    };
+    let is_last_dim = dim == -1 || dim == ndims - 1;
+    if (ndims == 2) && is_last_dim {
+        if is_log_softmax {
+            unimplemented!()
+        } else {
+            return context.install(Softmax::new(logits, name)?);
+        }
+    }
+
+    // If dim is the last dimension, simply reshape the logits to a matrix and
+    // apply the internal softmax.
+
+    // Swap logits' dimension of dim and its last dimension.
+    let input_rank = array_ops::rank(context, logits, "")?;
+
+    let s = {
+        let n = context.constant(&[1], &[] as &[i32], "")?;
+        ops::math_ops::sub(context, input_rank, n, "")?
+    };
+    logits = swap_axis(context, logits, dim, s, "".as_ref())?;
+    let shape_after_swap = array_ops::shape(context, logits, None, "")?;
+
+    // Reshape logits into a matrix.
+    logits = flatten_outer_dims(context, logits)?;
+
+    // Do the actual softmax on its last dimension.
+    let mut output = if is_log_softmax {
+        unimplemented!()
+    } else {
+        context.install(Softmax::new(logits, name)?)?
+    };
+
+    // Transform back the output tensor.
+    output = array_ops::reshape(context, output, shape_after_swap, "")?;
+    output = swap_axis(context, output, dim, s, name)?;
+
+    // Make shape inference work since reshape and transpose may erase its static shape.
+    output = output.set_shape(context, shape)?;
+    Ok(output)
+}
+
+/// Flattens logits' outer dimensions and keep its last dimension.
+fn flatten_outer_dims(scope: &mut Scope, logits: Tensor) -> Result<Tensor, ::Error> {
+    let r = array_ops::rank(scope, logits, "")?;
+    let last_dim_size = {
+        let s0 = array_ops::shape(scope, logits, None, "")?;
+        let s1 = math_ops::sub(scope, r, 1_i32, "")?;
+        array_ops::slice(scope, s0, s1, 1_i32, "")?
+    };
+    let mut output = {
+        let c0 = Tensor::new(scope, &[1_i32], &[] as &[i32]);
+        let c = array_ops::concat(scope, vec![c0, last_dim_size], 0, "")?;
+        array_ops::reshape(scope, logits, c, "")?
+    };
+
+    // Set output shaoe if known.
+    let shape: Option<Vec<Option<i64>>> = logits.get_shape(scope).into();
+    if let Some(shape) = shape {
+        //let shape.
+        let mut product = 1;
+        let mut product_valid = true;
+        for d in &shape[..shape.len()] {
+            if let Some(d) = *d {
+                product *= d;
+            } else {
+                product_valid = false;
+            }
+        }
+        if product_valid {
+            let output_shape = [product, shape.last().unwrap().unwrap()];
+            output = array_ops::reshape(scope, output, &output_shape as &[i64], "")?;
+        }
+    }
+    Ok(output)
+}

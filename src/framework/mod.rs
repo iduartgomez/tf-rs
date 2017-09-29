@@ -37,8 +37,8 @@ macro_rules! clone_tensor {
 mod scope;
 pub use self::scope::*;
 
-mod tensor_shape;
-pub(crate) use self::tensor_shape::*;
+mod tensor_types;
+pub(crate) use self::tensor_types::*;
 
 
 #[doc(hidden)]
@@ -180,6 +180,10 @@ impl Tensor {
     pub fn get_shape(&self, context: &Scope) -> Shape {
         let registry = &*context.registry.borrow();
         registry[&self.ident].shape.clone()
+    }
+
+    pub fn set_shape(self, context: &Scope, shape: Shape) -> Result<Tensor, ::Error> {
+        unimplemented!()
     }
 
     pub fn is_ref(&self) -> bool {

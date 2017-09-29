@@ -15,9 +15,9 @@ where
 
 /// Returns x + y element-wise.
 ///
-/// Both x and y must be tensors of the same type. 
-/// 
-/// Name argument is optional, if an empty string is provided, 
+/// Both x and y must be tensors of the same type.
+///
+/// Name argument is optional, if an empty string is provided,
 /// the name will be generated automatically.
 add_new_op!(Add,
     constructor: [add_new_op!(BIN CONSTRUCTOR: Add, Init: []);],
@@ -897,6 +897,88 @@ fn test_reduce_sum() {
 }
 
 
+///// Range /////
+
+///  Creates a sequence of numbers.
+///
+///  Creates a sequence of numbers that begins at `start` and extends by
+///  increments of `delta` up to but not including `limit`.
+///
+///  The dtype of the resulting tensor is inferred from the inputs unless
+///  it is provided explicitly.
+///
+///  Like the Python builtin `range`, `start` defaults to 0, so that
+///  `range(n) = range(0, n)`.
+///
+///  For example:
+///
+///  ```python
+///  # 'start' is 3
+///  # 'limit' is 18
+///  # 'delta' is 3
+///  tf.range(start, limit, delta) ==> [3, 6, 9, 12, 15]
+///
+///  # 'start' is 3
+///  # 'limit' is 1
+///  # 'delta' is -0.5
+///  tf.range(start, limit, delta) ==> [3, 2.5, 2, 1.5]
+///
+///  # 'limit' is 5
+///  tf.range(limit) ==> [0, 1, 2, 3, 4]
+///  ```
+///
+///  Args:
+///    start: A 0-D `Tensor` (scalar). First entry in the range.
+///    limit: A 0-D `Tensor` (scalar). Upper limit of sequence, exclusive.
+///    delta: A 0-D `Tensor` (scalar). Number that increments `start`.
+///    dtype: The type of the elements of the resulting tensor.
+///    name: A name for the operation. Defaults to "range".
+///
+///  Returns:
+///    An 1-D `Tensor` of type `dtype`.
+pub fn range<Ts, Tl, Td, S>(
+    context: &mut Scope,
+    start: Ts,
+    limit: Tl,
+    delta: Td,
+    name: S,
+) -> Result<Tensor, ::Error>
+where
+    Ts: TensorOps,
+    Tl: TensorOps,
+    Td: TensorOps,
+    S: AsRef<Path>,
+{
+    let scope = &mut context.name_scope(name.as_ref(), Some("Range".as_ref()));
+    let start = start.into_tensor(scope, "start");
+    let limit = start.into_tensor(scope, "limit");
+    let delta = start.into_tensor(scope, "delta");
+    scope.install(Range::new(start, limit, delta, name)?)
+}
+
+add_new_op!(Range,
+    constructor: [
+        fn new<S: AsRef<Path>>(start: Tensor, limit: Tensor, delta: Tensor, name: S) 
+            -> Result<Range<'a>, ::Error> 
+        {
+            Ok(
+                Range {
+                    ident: NodeIdent::new(),
+                    elements: vec![start, limit, delta],
+                    name: generate_name!(is_none: name),
+                    attributes: vec![],
+                    input_lists: vec![],
+                },
+            )
+        }
+    ],
+    digest: [DEFAULT_DIGEST: Range, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
 ///// Reduce Max /////
 
 pub fn reduce_max<TeS, Tx, S>(
@@ -974,14 +1056,11 @@ fn test_reduce_max() {
 ///  Returns:
 ///    A Tensor respectively with the same type as `x` if
 ///    `x.dtype != qint32` otherwise the return type is `quint8`.
-pub fn tanh<TeS, Tx, S>(
-    context: &mut Scope,
-    tensor: Tx,
-    name: S,
-) -> Result<Tensor, ::Error>
+pub fn tanh<TeS, Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
 where
     Tx: Into<Tensor>,
-    S: AsRef<Path> {
+    S: AsRef<Path>,
+{
     let scope = &mut context.name_scope(name.as_ref(), Some("Tanh".as_ref()));
     scope.install(Tanh::new(tensor.into(), name)?)
 }
@@ -1064,11 +1143,13 @@ add_new_op!(StopGradient,
 
 pub fn sub<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
-    context.install(Sub::new(x.into(), y.into(), name)?)
+    let x = x.into_tensor(context, "");
+    let y = y.into_tensor(context, "");
+    context.install(Sub::new(x, y, name)?)
 }
 
 add_new_op!(Sub,

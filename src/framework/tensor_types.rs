@@ -1,10 +1,94 @@
 use Shape;
 use tf::TensorType;
 
+use super::*;
+
+pub trait TensorOps {
+    fn into_tensor<S: AsRef<Path>>(self, scope: &mut Scope, name: S) -> Tensor;
+}
+
+macro_rules! impl_tensor_ops {
+    ($T:ty) => {
+        impl TensorOps for $T
+        {
+            fn into_tensor<S: AsRef<Path>>(self, scope: &mut Scope, name: S) -> Tensor {
+                scope.constant(&[self], &[] as &[i32], name).unwrap().into()
+            }
+        }
+
+        impl<'a> TensorOps for &'a [$T] {
+            fn into_tensor<S: AsRef<Path>>(self, scope: &mut Scope, name: S) -> Tensor {
+                scope.constant(self, &[self.len() as i32] as &[i32], name).unwrap().into()
+            }
+        }
+    }
+}
+
+impl_tensor_ops!(i32);
+impl_tensor_ops!(i64);
+impl_tensor_ops!(f32);
+impl_tensor_ops!(f64);
+
+impl TensorOps for Tensor {
+    fn into_tensor<S: AsRef<Path>>(self, _scope: &mut Scope, _name: S) -> Tensor {
+        self
+    }
+}
+
+impl TensorOps for Constant {
+    fn into_tensor<S: AsRef<Path>>(self, _scope: &mut Scope, _name: S) -> Tensor {
+        self.into()
+    }
+}
+
+impl TensorOps for Variable {
+    fn into_tensor<S: AsRef<Path>>(self, _scope: &mut Scope, _name: S) -> Tensor {
+        self.into()
+    }
+}
+
+
+///// Shape related traits /////
+
+pub trait ShapeSize: TensorType + Copy {
+    fn as_i32(self) -> i32;
+    fn as_i64(self) -> i64;
+    fn as_u64(self) -> u64;
+}
+
+impl ShapeSize for i32 {
+    fn as_i32(self) -> i32 {
+        self
+    }
+
+    fn as_i64(self) -> i64 {
+        self as i64
+    }
+
+    fn as_u64(self) -> u64 {
+        self as u64
+    }
+}
+
+impl ShapeSize for i64 {
+    fn as_i32(self) -> i32 {
+        self as i32
+    }
+
+    fn as_i64(self) -> i64 {
+        self
+    }
+
+    fn as_u64(self) -> u64 {
+        self as u64
+    }
+}
+
 pub trait DefinedShape {
     fn is_fully_defined(&self) -> bool;
     fn definition_u64(&self) -> Option<Vec<u64>>;
     fn definition_i64(&self) -> Option<Vec<i64>>;
+    //fn partial_def(&self) -> Option<Vec<Option
 }
 
 impl DefinedShape for Shape {
@@ -58,8 +142,9 @@ pub trait IntoShape {
     fn into_shape(&self) -> Shape;
 }
 
-impl<'a, TeS> IntoShape for &'a [TeS] 
-    where TeS: ShapeSize
+impl<'a, TeS> IntoShape for &'a [TeS]
+where
+    TeS: ShapeSize,
 {
     fn into_shape(&self) -> Shape {
         Shape::from(Some(self.iter().map(|x| Some(x.as_i64())).collect()))
@@ -69,31 +154,6 @@ impl<'a, TeS> IntoShape for &'a [TeS]
 impl IntoShape for Shape {
     fn into_shape(&self) -> Shape {
         self.clone()
-    }
-}
-
-pub trait ShapeSize: TensorType + Copy {
-    fn as_i64(self) -> i64;
-    fn as_u64(self) -> u64;
-}
-
-impl ShapeSize for i32 {
-    fn as_i64(self) -> i64 {
-        self as i64
-    }
-
-    fn as_u64(self) -> u64 {
-        self as u64
-    }
-}
-
-impl ShapeSize for i64 {
-    fn as_i64(self) -> i64 {
-        self
-    }
-
-    fn as_u64(self) -> u64 {
-        self as u64
     }
 }
 
