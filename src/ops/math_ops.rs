@@ -159,7 +159,6 @@ fn test_cast() {
 ///  The complex conjugate returned by this operation is of the form \\(a - bj\\).
 ///
 ///  For example:
-///
 ///      # tensor 'input' is [-2.25 + 4.75j, 3.25 + 5.75j]
 ///      tf.conj(input) ==> [-2.25 - 4.75j, 3.25 - 5.75j]
 ///

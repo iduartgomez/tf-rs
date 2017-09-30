@@ -39,8 +39,8 @@ impl std::convert::From<std::ffi::NulError> for Error {
 }
 
 pub mod prelude {
-    pub use super::framework::{Constant, NodeIdent, Operation, Scope, Tensor, TensorArray,
-                               TensorContent, Variable, Attribute};
+    pub use super::framework::{Attribute, Constant, DefinedShape, NodeIdent, Operation, Scope,
+                               Tensor, TensorArray, TensorContent, Variable};
     pub use super::{OperationData, TypedTensor};
     pub use super::Error as TFError;
     pub use tf::{DataType, Status};

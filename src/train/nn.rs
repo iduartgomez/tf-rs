@@ -95,7 +95,6 @@ add_new_op!(BiasAdd,
 ///  Computes log softmax activations.
 ///
 ///  For each batch `i` and class `j` we have
-///
 ///      logsoftmax = logits - log(reduce_sum(exp(logits), dim))
 ///
 ///  Args:
@@ -167,7 +166,6 @@ add_new_op!(Relu,
 ///  Computes softmax activations.
 ///
 ///  For each batch `i` and class `j` we have
-///
 ///      softmax = exp(logits) / reduce_sum(exp(logits), dim)
 ///
 ///  Args:
