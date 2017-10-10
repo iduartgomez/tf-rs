@@ -866,7 +866,8 @@ add_new_op!(RefMerge,
 /// returning a list of tensors of the same arity (length and structure) and types
 /// as `loop_vars`. `loop_vars` is a list of tensors that is passed to both
 /// `cond` and `body`.
-pub fn while_loop<'a, S>(
+#[allow(dead_code)]
+fn while_loop<'a, S>(
     context: &mut Scope,
     pred: WhileCondGraph,
     body: WhileBodyGraph,
@@ -908,6 +909,7 @@ pub(crate) struct WhileContext {
 }
 
 impl WhileContext {
+    #[allow(dead_code)]
     fn new(name: String) -> WhileContext {
         WhileContext {
             name,

@@ -88,9 +88,9 @@ add_new_op!(AssignAdd,
 #[cfg(test)]
 fn test_assign_add() {
     let mut context = Scope::new();
-    let x = context.get_variable(Some(DataType::Int32), Some(&[] as &[i32]), "x").unwrap();
-    let y = context.constant(&[3_i32], &[] as &[i32], "y").unwrap();
-    let op = assign_add(&mut context, x, y, true, "").unwrap();
+    let x = context.get_variable(Some(DataType::Int32), Some(&[1] as &[i32]), "x").unwrap();
+    let y = context.constant(&[3_i32], &[1] as &[i32], "y").unwrap();
+    let op = assign_add(&mut context, x, y, false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [3_i32]});
 }
@@ -135,9 +135,9 @@ add_new_op!(AssignSub,
 #[cfg(test)]
 fn test_assign_sub() {
     let mut context = Scope::new();
-    let x = context.get_variable(Some(DataType::Int32), Some(&[] as &[i32]), "x").unwrap();
-    let y = context.constant(&[3_i32], &[] as &[i32], "y").unwrap();
-    let op = assign_sub(&mut context, x, y, true, "").unwrap();
+    let x = context.get_variable(Some(DataType::Int32), Some(&[1] as &[i32]), "x").unwrap();
+    let y = context.constant(&[3_i32], &[1] as &[i32], "y").unwrap();
+    let op = assign_sub(&mut context, x, y, false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [-3_i32]});
 }

@@ -50,6 +50,7 @@ impl TensorOps for Variable {
 
 ///// Shape related traits /////
 
+/// Marker for types which can be used to define a tensor shape.
 pub trait ShapeSize: TensorType + Copy {
     fn as_i32(self) -> i32;
     fn as_i64(self) -> i64;
@@ -84,6 +85,7 @@ impl ShapeSize for i64 {
     }
 }
 
+/// Methods to determine and get the shape of a tensor if it's actually defined.
 pub trait DefinedShape {
     fn is_fully_defined(&self) -> bool;
     fn definition_u64(&self) -> Option<Vec<u64>>;
@@ -138,21 +140,22 @@ impl DefinedShape for Shape {
     }
 }
 
+/// Return a tensor shape from self.
 pub trait IntoShape {
-    fn into_shape(&self) -> Shape;
+    fn to_shape(&self) -> Shape;
 }
 
 impl<'a, TeS> IntoShape for &'a [TeS]
 where
     TeS: ShapeSize,
 {
-    fn into_shape(&self) -> Shape {
+    fn to_shape(&self) -> Shape {
         Shape::from(Some(self.iter().map(|x| Some(x.as_i64())).collect()))
     }
 }
 
 impl IntoShape for Shape {
-    fn into_shape(&self) -> Shape {
+    fn to_shape(&self) -> Shape {
         self.clone()
     }
 }
@@ -163,10 +166,10 @@ pub fn shape_from_dims<T: ShapeSize>(dims: &[T]) -> Shape {
 }
 */
 
-pub fn shape_as_u64<T: ShapeSize>(dims: &[T]) -> Vec<u64> {
+pub(crate) fn shape_as_u64<T: ShapeSize>(dims: &[T]) -> Vec<u64> {
     dims.iter().map(|x| x.as_u64()).collect()
 }
 
-pub fn shape_as_i64<T: ShapeSize>(dims: &[T]) -> Vec<i64> {
+pub(crate) fn shape_as_i64<T: ShapeSize>(dims: &[T]) -> Vec<i64> {
     dims.iter().map(|x| x.as_i64()).collect()
 }
