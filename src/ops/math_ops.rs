@@ -467,12 +467,13 @@ where
         DataType::Float => true,
         _ => false,
     };
-    let mut use_sparse_matmul = sparse_matmul_a && sparse_matmul_b && (a_is_sparse || b_is_sparse);
 
+    let mut use_sparse_matmul = sparse_matmul_a && sparse_matmul_b && (a_is_sparse || b_is_sparse);
     if [a.dtype, b.dtype].iter().find(|x| DataType::BFloat16 == **x).is_some() {
         // matmul currently doesn't handle bfloat16 inputs.
         use_sparse_matmul = true;
     }
+
     if use_sparse_matmul {
         //sparse_matmul(scope, a, b, transpose_a, transpose_b, a_is_sparse, b_is_sparse, "");
         unimplemented!()

@@ -50,7 +50,7 @@ impl<'g> ClientSession<'g> {
     }
 
     /// Input to feed to a graph node.
-    pub fn feed<In, I, Id>(&mut self, inputs: I) -> &mut Self
+    pub fn feed<I, Id>(&mut self, inputs: I) -> &mut Self
         where Id: Into<NodeIdent>,
               I: IntoIterator<Item = (Id, Vec<TensorContent>)>
     {

@@ -7,17 +7,17 @@ The API is designed to be simple and concise: graph operations are expressed usi
 Let's start with a simple example that illustrates graph construction and execution using the Rust API.
 
 ```Rust
-// tensorflow/cc/example/example.cc
-export tf_rs as tf;
+// examples/guide_0_0.rs
+extern crate tf_rs as tf;
 
-use tf_rs::prelude::*;
+use tf::prelude::*;
 
 fn main() {
-    let mut root = &mut Scope::new();
-    // Matrix A = [3 2; -1 0]
-    let A = Const::new(root, &[3.0_f32, 2., -1, 0.], &[2_i32, 2]);
-    // Vector b = [3 5]
-    let b = Const::new(root, &[3.0_f32, 5.], &[2]);
+    let root = &mut Scope::new();
+    // Matrix A = [3, 2; -1, 0]
+    let A = Constant::new(root, &[3.0_f32, 2., -1., 0.], &[2, 2]);
+    // Vector b = [3, 5; 0, 0]
+    let b = Constant::new(root, &[3.0_f32, 5., 0., 0.], &[2, 2]);
     // v = Ab^T
     let v =  ops::matmul(
             root, A, b, 
@@ -25,14 +25,17 @@ fn main() {
         .unwrap();
 
     let outputs = {
-        let mut session = ClientSession::new(root);
+        let mut session = ClientSession::new(root).unwrap();
         // Run and fetch v
         session.fetch(&[v]).run(None).unwrap()
     };
-    let TensorContent::Float(tensor) = outputs[0] {
-        let values: Vec<f32> = (&tensor).iter().cloned().collect();
-        println!("{:?}", &values); // expect [19,  -3]
+    let values = match outputs[0] {
+        TensorContent::Float(ref tensor) => {
+            tensor.iter().cloned().collect::<Vec<_>>()
+        }       
+        _ => panic!() 
     };
+    println!("values: {:?}", &values); // expect [19, 0; -3, 0]
     ::std::process::exit(0)
 }
 ```
@@ -95,24 +98,31 @@ let outputs = session.fetch(&[add]).run(None).unwrap();
 Similarly, the object returned by the operation constructor can be used as the argument to specify a value being fed when executing the graph. Furthermore, the value to feed can be specified with the different kinds of Rust values used to specify tensor constants. For example:
 
 ```Rust
-let mut root = Scope::new();
+// examples/guide_0_1.rs
+let root = &mut Scope::new();
 let a = root.placeholder(DataType::Int32);
-let b = Const(root, &[3, 3, 3, 3], &[2, 2]);
+let b = Constant::new(root, &[3, 3, 3, 3], &[2, 2]);
 // [[3, 3], [3, 3]]
 let add = ops::add(root, a, b, "").unwrap();
 
 let mut session = ClientSession::new(root).unwrap();
 // Feed a <- [[1, 2], [3, 4]]
 let feed_a = {
-    let t = TypedTensor::<i32>::new(&[2, 2])
+    let mut t = TypedTensor::<i32>::new(&[2, 2]);
     for (i, x) in [1, 2, 3, 4].iter().enumerate() {
-        t[i] = x;
+        t[i] = *x;
     }
     t
 };
-session.feed(vec![TensorContent::Int32(feed_a)]);
+session.feed(vec![(a, vec![TensorContent::Int32(feed_a)])]);
 let outputs = session.fetch(&[add]).run(None).unwrap();
-// outputs[0] == [[4, 5], [6, 7]]
+let values = match outputs[0] {
+    TensorContent::Int32(ref tensor) => {
+        tensor.iter().collect::<Vec<_>>()
+    }       
+    _ => panic!() 
+};
+println!("values: {:?}", &values); // expect [[4, 5], [6, 7]]
 ```
 
 Please see the [Tensor]() documentation for more information on how to use the execution output.

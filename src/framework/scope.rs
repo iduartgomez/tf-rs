@@ -233,14 +233,6 @@ impl Scope {
                 self.resolve_tensor_name(None, op_name, false)?
             };
             let mut new_op = graph.new_operation(op.get_op_type_name(), name.to_str().unwrap())?;
-            for input in processed_inputs {
-                match input {
-                    OpInput::Single(val) => new_op.add_input(val),
-                    OpInput::List(val) => new_op.add_input_list(&val),
-                }
-            }
-            let control_inputs = root.control_dependencies.iter().map(|x| &x.finished);
-            add_control_input(&mut new_op, control_inputs);
 
             for &(name, is_list, ref attribute) in op.fetch_attributes() {
                 match *attribute {
@@ -295,6 +287,14 @@ impl Scope {
                     }
                 }
             }
+            for input in processed_inputs {
+                match input {
+                    OpInput::Single(val) => new_op.add_input(val),
+                    OpInput::List(val) => new_op.add_input_list(&val),
+                }
+            }
+            let control_inputs = root.control_dependencies.iter().map(|x| &x.finished);
+            add_control_input(&mut new_op, control_inputs);
             new_op.finish()?
         };
         op.digest(self, new_op)
@@ -833,11 +833,13 @@ impl Scope {
 
     pub fn placeholder(&mut self, dtype: DataType) -> Tensor {
         self.allow_writes();
+
+        let ident = NodeIdent::new();
+        let full_name = self.resolve_tensor_name(None, IdType::Placeholder, false).unwrap();
+
         let graph = &mut *self.graph.borrow_mut();
         let registry = &mut *self.registry.borrow_mut();
 
-        let ident = NodeIdent::new();
-        let full_name = self.resolve_tensor_name(None, IdType::Constant, false).unwrap();
         let data_origin =
             (array_ops::placeholder(graph, full_name.to_str().unwrap(), dtype).unwrap(), 0);
         registry.insert(
