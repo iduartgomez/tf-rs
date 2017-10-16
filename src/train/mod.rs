@@ -43,11 +43,9 @@ impl Optimizer {
     pub fn new<V>(kind: Optimizers, learning_rate: V, use_locking: bool) -> Self
         where V: Into<Tensor>
     {
-        unimplemented!()
     }
 
     pub fn configure(&mut self) -> &mut OptimizerInterface {
-        unimplemented!()
     }
 
     pub fn composite_optimizer(optimizer1: Optimizer,
@@ -55,27 +53,23 @@ impl Optimizer {
                                switch: bool,
                                use_locking: bool)
                                -> Self {
-        unimplemented!()
     }
 
     pub fn compute_gradients(&mut self,
                              loss: Tensor,
                              var_list: Vec<Tensor>)
                              -> Vec<(Option<Tensor>, Tensor)> {
-        unimplemented!()
     }
 
     pub fn apply_gradients(&mut self,
                            grads_and_vars: Vec<(Tensor, Tensor)>,
                            global_step: Tensor)
                            -> Tensor {
-        unimplemented!()
     }
 }
 
 pub(crate) trait OptimizerInterface {
     fn add_param(&mut self, name: &str, value: f64) {
-        unimplemented!()
     }
 }
 
@@ -135,7 +129,6 @@ impl ExponentialDecay {
     }
 
     pub fn run(self) -> Result<Tensor, ::Error> {
-        unimplemented!()
     }
 }
 */

@@ -12,13 +12,11 @@ pub fn in_top_k<C, Tx, Ty>(context: &mut C,
     where Tx: Into<Tensor>,
             Ty: Into<Tensor>
 {
-    unimplemented!()
 }
 
 pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor, ::Error>
     where Tx: Into<Tensor>
 {
-    unimplemented!()
 }
 
 pub fn sparse_softmax_cross_entropy_with_logits<C, Tx, Ty>(context: &mut C,
@@ -28,7 +26,6 @@ pub fn sparse_softmax_cross_entropy_with_logits<C, Tx, Ty>(context: &mut C,
     where Tx: Into<Tensor>,
             Ty: Into<Tensor>
 {
-    unimplemented!()
 }
 */
 
@@ -300,7 +297,7 @@ fn flatten_outer_dims(scope: &mut Scope, logits: Tensor) -> Result<Tensor, ::Err
         array_ops::slice(scope, s0, s1, 1_i32, "")?
     };
     let mut output = {
-        let c0 = Tensor::new(scope, &[1_i32], &[] as &[i32]);
+        let c0 = Constant::new(scope, &[1_i32], &[] as &[i32]).into();
         let c = array_ops::concat(scope, vec![c0, last_dim_size], 0, "")?;
         array_ops::reshape(scope, logits, c, "")?
     };

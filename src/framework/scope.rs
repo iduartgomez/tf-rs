@@ -448,7 +448,9 @@ impl Scope {
         scope
     }
 
-    /// Make a new variable.
+    /// Gets an existing variable with these parameters or create a new one.
+    ///
+    /// This function prefixes the name with the current variable scope and performs reuse checks.
     ///
     /// Returns an error when creating a new variable and shape is not declared or when violating
     /// reuse during variable creation.
@@ -479,7 +481,31 @@ impl Scope {
                 DataType::Int16 => array_ops::constant(g, n, TypedTensor::<i16>::new(shape), &[]),
                 DataType::Int8 => array_ops::constant(g, n, TypedTensor::<i8>::new(shape), &[]),
                 DataType::Int64 => array_ops::constant(g, n, TypedTensor::<i64>::new(shape), &[]),
-                _ => unimplemented!(),
+                DataType::String => {
+                    array_ops::constant(g, n, TypedTensor::<String>::new(shape), &[])
+                }
+                DataType::QUInt8 => {
+                    array_ops::constant(g, n, TypedTensor::<::QUInt8>::new(shape), &[])
+                } 
+                DataType::QInt16 => {
+                    array_ops::constant(g, n, TypedTensor::<::QInt16>::new(shape), &[])
+                } 
+                DataType::QUInt16 => {
+                    array_ops::constant(g, n, TypedTensor::<::QUInt16>::new(shape), &[])
+                } 
+                DataType::QInt32 => {
+                    array_ops::constant(g, n, TypedTensor::<::QInt32>::new(shape), &[])
+                } 
+                DataType::BFloat16 => {
+                    array_ops::constant(g, n, TypedTensor::<::BFloat16>::new(shape), &[])
+                }
+                DataType::Complex64 => {
+                    array_ops::constant(g, n, TypedTensor::<::Complex32>::new(shape), &[])
+                } 
+                DataType::Complex128 => {
+                    array_ops::constant(g, n, TypedTensor::<::Complex64>::new(shape), &[])
+                }
+                _ => panic!("tensor creation for this datatype not supported"),
             }
         }
 
@@ -606,6 +632,7 @@ impl Scope {
         }
     }
 
+    /// Create a new_variable with the given initializer.
     pub fn get_variable_with_initializer<S, T>(
         &mut self,
         initializer: T,
@@ -731,7 +758,12 @@ impl Scope {
         }
     }
 
-    fn _make_var_handle(&mut self, ident: NodeIdent, new_var: PathBuf, dtype: DataType) -> Variable {
+    fn _make_var_handle(
+        &mut self,
+        ident: NodeIdent,
+        new_var: PathBuf,
+        dtype: DataType,
+    ) -> Variable {
         // make handle
         let var = Variable {
             ident,
@@ -750,6 +782,7 @@ impl Scope {
         }
     }
 
+    /// Create a new 'constant' tensor with given values and shape.
     pub fn constant<TeS, T, S>(
         &mut self,
         value: &[T],
@@ -831,6 +864,10 @@ impl Scope {
         Ok(Constant { ident, dtype })
     }
 
+    /// Inserts a placeholder for a tensor that will be always fed.
+    ///
+    /// _Important:_ This tensor will produce an error if evaluated. Its value must be fed to the
+    /// client session.
     pub fn placeholder(&mut self, dtype: DataType) -> Tensor {
         self.allow_writes();
 
@@ -861,6 +898,7 @@ impl Scope {
         }
     }
 
+    /// Returns a scope that specifies control dependencies.
     pub fn control_dependencies<'a, I, T: 'a>(&mut self, control_inputs: I) -> Scope
     where
         I: IntoIterator<Item = &'a T>,
@@ -910,6 +948,7 @@ impl Scope {
         context
     }
 
+    /// Returns a scope which ignores all previously set up control dependencies.
     pub fn clear_control_dependencies(&mut self) -> Scope {
         let name = self.own_scope.name.clone();
         let mut context = self.as_new_child(name);
@@ -972,6 +1011,12 @@ impl Scope {
         unimplemented!()
     }
 
+    /// Returns the local seeds an operation should use given an op-specific seed.
+    ///
+    /// Given operation-specific seed, op_seed, this helper function returns two seeds
+    /// derived from graph-level and op-level seeds. Many random operations internally
+    /// use the two seeds to allow user to change the seed globally for a graph, or
+    /// for only specific operations.
     pub fn get_seed(&self, op_seed: Option<i32>) -> (i32, i32) {
         unimplemented!()
     }
@@ -997,6 +1042,7 @@ impl Scope {
         }
     }
 
+    /// Returns this scope unique name.
     pub fn name(&self) -> &str {
         self.own_scope.name.to_str().unwrap()
     }

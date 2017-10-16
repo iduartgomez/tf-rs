@@ -21,13 +21,15 @@ impl<'g> ClientSession<'g> {
             // can only create sessions out of root scopes
             return Err(::Error::Stub);
         }
-        Ok(ClientSession {
-               fetch: vec![],
-               feed: vec![],
-               context,
-               reinit_vars: false,
-               initialized: false,
-           })
+        Ok(
+            ClientSession {
+                fetch: vec![],
+                feed: vec![],
+                context,
+                reinit_vars: false,
+                initialized: false,
+            },
+        )
     }
 
     /// If variables had already been initialized, reinitialize them again.
@@ -40,8 +42,9 @@ impl<'g> ClientSession<'g> {
 
     /// Output to fetch from the given operation.
     pub fn fetch<I, V>(&mut self, fetches: I) -> &mut Self
-        where I: IntoIterator<Item = V>,
-              V: Into<NodeIdent>
+    where
+        I: IntoIterator<Item = V>,
+        V: Into<NodeIdent>,
     {
         for t in fetches.into_iter() {
             self.fetch.push(t.into());
@@ -51,8 +54,9 @@ impl<'g> ClientSession<'g> {
 
     /// Input to feed to a graph node.
     pub fn feed<I, Id>(&mut self, inputs: I) -> &mut Self
-        where Id: Into<NodeIdent>,
-              I: IntoIterator<Item = (Id, Vec<TensorContent>)>
+    where
+        Id: Into<NodeIdent>,
+        I: IntoIterator<Item = (Id, Vec<TensorContent>)>,
     {
         for (id, inputs) in inputs.into_iter() {
             self.feed.push((id.into(), inputs));
@@ -86,11 +90,13 @@ impl<'g> ClientSession<'g> {
     ///
     /// Returns error if any of the session input was inadequate.
     pub fn run(&mut self, options: Option<SessionOptions>) -> Result<Vec<TensorContent>, ::Error> {
-        fn control_ops<'a, I>(init_steep: &mut StepWithGraph,
-                              steep: &mut StepWithGraph,
-                              control_ops: I)
-                              -> bool
-            where I: Iterator<Item = &'a ControlOp>
+        fn control_ops<'a, I>(
+            init_steep: &mut StepWithGraph,
+            steep: &mut StepWithGraph,
+            control_ops: I,
+        ) -> bool
+        where
+            I: Iterator<Item = &'a ControlOp>,
         {
             let mut any_init = false;
             for init in control_ops {
@@ -130,8 +136,10 @@ impl<'g> ClientSession<'g> {
         let mut output_tokens = Vec::with_capacity(self.fetch.len());
         for output in &self.fetch {
             let info = &registry[&output];
-            output_tokens.push((steep1.request_output(&info.data_origin.0, info.data_origin.1),
-                                info.dtype));
+            output_tokens.push(
+                (steep1.request_output(&info.data_origin.0, info.data_origin.1),
+                 info.dtype),
+            );
         }
         // feed input
         for &(ref token, ref inputs) in &self.feed {
@@ -156,7 +164,15 @@ impl<'g> ClientSession<'g> {
                 DataType::Int16 => TensorContent::from(steep1.take_output::<i16>(token)?),
                 DataType::Int8 => TensorContent::from(steep1.take_output::<i8>(token)?),
                 DataType::Int64 => TensorContent::from(steep1.take_output::<i64>(token)?),
-                _ => unimplemented!(),
+                DataType::String => TensorContent::from(steep1.take_output::<String>(token)?), 
+                DataType::QUInt8 => TensorContent::from(steep1.take_output::<::QUInt8>(token)?), 
+                DataType::QUInt16 => TensorContent::from(steep1.take_output::<::QUInt16>(token)?), 
+                DataType::QInt16 => TensorContent::from(steep1.take_output::<::QInt16>(token)?), 
+                DataType::QInt32 => TensorContent::from(steep1.take_output::<::QInt32>(token)?), 
+                DataType::BFloat16 => TensorContent::from(steep1.take_output::<::BFloat16>(token)?), 
+                DataType::Complex64 => TensorContent::from(steep1.take_output::<::Complex32>(token)?,), 
+                DataType::Complex128 => TensorContent::from(steep1.take_output::<::Complex64>(token)?,), 
+                _ => return Err(::Error::Stub),
             };
             results.push(res);
         }

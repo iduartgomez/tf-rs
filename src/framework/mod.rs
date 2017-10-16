@@ -44,7 +44,8 @@ pub use self::tensor_types::DefinedShape;
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.
 pub trait Operation<'a>
-    where Self: Sized + Into<NodeIdent>
+where
+    Self: Sized + Into<NodeIdent>,
 {
     type Outputs;
 
@@ -64,8 +65,9 @@ pub trait Operation<'a>
 }
 
 pub(crate) fn add_control_input<I, T>(op: &mut OperationDescription, control_inputs: I)
-    where I: IntoIterator<Item = T>,
-          T: ::std::ops::Deref<Target = OperationData>
+where
+    I: IntoIterator<Item = T>,
+    T: ::std::ops::Deref<Target = OperationData>,
 {
     for ctrl in control_inputs.into_iter() {
         op.add_control_input(&*ctrl);
@@ -153,20 +155,13 @@ pub struct Tensor {
 }
 
 impl Tensor {
-    /// Performs an assign operation for this tensor.
-    pub fn new<TeS, T>(context: &mut Scope, values: &[T], shape: &[TeS]) -> Tensor
-        where T: TensorType,
-              TeS: ShapeSize
-    {
-        unimplemented!()
-    }
-
     pub fn get_initializer(&self, context: &Scope) -> Result<Tensor, ::Error> {
         if !self.is_ref() {
             return Err(::Error::Stub);
         }
         let registry = &*context.registry.borrow();
         let tensor_data = &registry[&self.ident];
+
 
         unimplemented!()
     }
@@ -241,8 +236,9 @@ pub struct Constant {
 
 impl Constant {
     pub fn new<TeS, T>(context: &mut Scope, value: &[T], shape: &[TeS]) -> Constant
-        where T: TensorType,
-              TeS: ShapeSize
+    where
+        T: TensorType,
+        TeS: ShapeSize,
     {
         let name = context.resolve_tensor_name(None, IdType::Constant, false).unwrap();
         context.constant(value, shape, name).unwrap()
@@ -304,8 +300,9 @@ pub struct Variable {
 
 impl Variable {
     pub fn new<TeS, T>(context: &mut Scope, initial_value: &[T], shape: &[TeS]) -> Variable
-        where T: TensorType,
-              TeS: ShapeSize
+    where
+        T: TensorType,
+        TeS: ShapeSize,
     {
         let name = context.resolve_tensor_name(None, IdType::Variable, false).unwrap();
         unimplemented!()
@@ -322,7 +319,8 @@ impl Variable {
         registry[&self.ident].shape.clone()
     }
 
-    pub fn from_tensor(tensor: Tensor, context: &Scope) -> Result<Variable, ::Error> {
+    /// Returns a Variable type if the Tensor is indeed a Variable, error otherwise.
+    pub fn from_tensor(context: &Scope, tensor: Tensor) -> Result<Variable, ::Error> {
         unimplemented!()
     }
 }
@@ -372,6 +370,7 @@ impl<'a> Into<NodeIdent> for &'a Variable {
 }
 
 
+#[doc(hidden)]
 #[derive(Debug, Clone)]
 pub struct TensorArray {
     pub flow: Tensor,
@@ -400,34 +399,48 @@ impl Into<NodeIdent> for TensorArray {
 
 #[derive(Debug)]
 pub enum TensorContent {
+    Bool(TypedTensor<bool>),
     Float(TypedTensor<f32>),
     Double(TypedTensor<f64>),
-    Int32(TypedTensor<i32>),
     UInt8(TypedTensor<u8>),
-    Int16(TypedTensor<i16>),
     Int8(TypedTensor<i8>),
-    String(TypedTensor<String>),
+    Int16(TypedTensor<i16>),
+    Int32(TypedTensor<i32>),
     Int64(TypedTensor<i64>),
-    Bool(TypedTensor<bool>),
+    String(TypedTensor<String>),
+    QUInt8(TypedTensor<::QUInt8>),
+    QUInt16(TypedTensor<::QUInt16>),
+    QInt16(TypedTensor<::QInt16>),
+    QInt32(TypedTensor<::QInt32>),
+    BFloat16(TypedTensor<::BFloat16>),
+    Complex64(TypedTensor<::Complex32>),
+    Complex128(TypedTensor<::Complex64>),
 }
 
 impl Clone for TensorContent {
     fn clone(&self) -> TensorContent {
         match *self {
+            TensorContent::Bool(ref val) => TensorContent::Bool(clone_tensor!(val)),
             TensorContent::Float(ref val) => TensorContent::Float(clone_tensor!(val)),
             TensorContent::Double(ref val) => TensorContent::Double(clone_tensor!(val)),
-            TensorContent::Int32(ref val) => TensorContent::Int32(clone_tensor!(val)),
             TensorContent::UInt8(ref val) => TensorContent::UInt8(clone_tensor!(val)),
-            TensorContent::Int16(ref val) => TensorContent::Int16(clone_tensor!(val)),
             TensorContent::Int8(ref val) => TensorContent::Int8(clone_tensor!(val)),
-            TensorContent::String(ref val) => TensorContent::String(clone_tensor!(val)), 
+            TensorContent::Int16(ref val) => TensorContent::Int16(clone_tensor!(val)),
+            TensorContent::Int32(ref val) => TensorContent::Int32(clone_tensor!(val)),
             TensorContent::Int64(ref val) => TensorContent::Int64(clone_tensor!(val)),
-            TensorContent::Bool(ref val) => TensorContent::Bool(clone_tensor!(val)),
+            TensorContent::String(ref val) => TensorContent::String(clone_tensor!(val)), 
+            TensorContent::QUInt8(ref val) => TensorContent::QUInt8(clone_tensor!(val)),
+            TensorContent::QUInt16(ref val) => TensorContent::QUInt16(clone_tensor!(val)),
+            TensorContent::QInt16(ref val) => TensorContent::QInt16(clone_tensor!(val)),
+            TensorContent::QInt32(ref val) => TensorContent::QInt32(clone_tensor!(val)),
+            TensorContent::BFloat16(ref val) => TensorContent::BFloat16(clone_tensor!(val)),
+            TensorContent::Complex64(ref val) => TensorContent::Complex64(clone_tensor!(val)),
+            TensorContent::Complex128(ref val) => TensorContent::Complex128(clone_tensor!(val)),
         }
     }
 }
 
-macro_rules! unwrap_tfinput {
+macro_rules! unwrap_tensor_content {
     ($variant:ident, $name:tt, $type:ty) => {
         pub fn $name(self) -> TypedTensor<$type> {
             match self {
@@ -438,7 +451,7 @@ macro_rules! unwrap_tfinput {
     }
 }
 
-macro_rules! tf_tensor_obj {
+macro_rules! from_tensor_to_content {
     ($type:ty, $id:ident) => {
         impl From<TypedTensor<$type>> for TensorContent {
             fn from(tensor: TypedTensor<$type>) -> Self {
@@ -448,15 +461,22 @@ macro_rules! tf_tensor_obj {
     }
 }
 
-tf_tensor_obj!(f32, Float);
-tf_tensor_obj!(f64, Double);
-tf_tensor_obj!(i32, Int32);
-tf_tensor_obj!(u8, UInt8);
-tf_tensor_obj!(i16, Int16);
-tf_tensor_obj!(i8, Int8);
-tf_tensor_obj!(i64, Int64);
-tf_tensor_obj!(bool, Bool);
-
+from_tensor_to_content!(f32, Float);
+from_tensor_to_content!(f64, Double);
+from_tensor_to_content!(i32, Int32);
+from_tensor_to_content!(u8, UInt8);
+from_tensor_to_content!(i16, Int16);
+from_tensor_to_content!(i8, Int8);
+from_tensor_to_content!(i64, Int64);
+from_tensor_to_content!(bool, Bool);
+from_tensor_to_content!(String, String);
+from_tensor_to_content!(::QUInt8, QUInt8);
+from_tensor_to_content!(::QUInt16, QUInt16);
+from_tensor_to_content!(::QInt16, QInt16);
+from_tensor_to_content!(::QInt32, QInt32);
+from_tensor_to_content!(::BFloat16, BFloat16);
+from_tensor_to_content!(::Complex32, Complex64);
+from_tensor_to_content!(::Complex64, Complex128);
 
 impl TensorContent {
     fn get_datatype(&self) -> DataType {
@@ -470,6 +490,13 @@ impl TensorContent {
             TensorContent::Int64(_) => DataType::Int64,
             TensorContent::Bool(_) => DataType::Bool,
             TensorContent::String(_) => DataType::String,
+            TensorContent::QUInt8(_) => DataType::QUInt8,
+            TensorContent::QUInt16(_) => DataType::QUInt16,
+            TensorContent::QInt16(_) => DataType::QInt16,
+            TensorContent::QInt32(_) => DataType::QInt32,
+            TensorContent::BFloat16(_) => DataType::BFloat16,
+            TensorContent::Complex64(_) => DataType::Complex64,
+            TensorContent::Complex128(_) => DataType::Complex128,
         }
     }
 
@@ -487,7 +514,19 @@ impl TensorContent {
             DataType::Int16 => new_op.set_attr_tensor_list(name, collect_i16_tensor(val))?,
             DataType::Int8 => new_op.set_attr_tensor_list(name, collect_i8_tensor(val))?,
             DataType::Int64 => new_op.set_attr_tensor_list(name, collect_i64_tensor(val))?,
-            _ => unimplemented!(),
+            DataType::String => new_op.set_attr_tensor_list(name, collect_string_tensor(val))?,
+            DataType::QUInt8 => new_op.set_attr_tensor_list(name, collect_quint8_tensor(val))?,
+            DataType::QUInt16 => new_op.set_attr_tensor_list(name, collect_quint16_tensor(val))?,
+            DataType::QInt16 => new_op.set_attr_tensor_list(name, collect_qint16_tensor(val))?,
+            DataType::QInt32 => new_op.set_attr_tensor_list(name, collect_qint32_tensor(val))?,
+            DataType::BFloat16 => new_op.set_attr_tensor_list(name, collect_bfloat16_tensor(val))?,
+            DataType::Complex64 => {
+                new_op.set_attr_tensor_list(name, collect_complex64_tensor(val))?
+            }
+            DataType::Complex128 => {
+                new_op.set_attr_tensor_list(name, collect_complex128_tensor(val))?
+            }
+            _ => return Err(::Error::Stub),
         }
         Ok(())
     }
@@ -518,19 +557,51 @@ impl TensorContent {
             DataType::Int64 => {
                 new_op.set_attr_tensor(name, collect_i64_tensor(val).pop().unwrap())?
             }
-            _ => unimplemented!(),
+            DataType::String => {
+                new_op.set_attr_tensor(name, collect_string_tensor(val).pop().unwrap())?
+            }
+            DataType::QUInt8 => {
+                new_op.set_attr_tensor(name, collect_quint8_tensor(val).pop().unwrap())?
+            }
+            DataType::QUInt16 => {
+                new_op.set_attr_tensor(name, collect_quint16_tensor(val).pop().unwrap())?
+            }
+            DataType::QInt16 => {
+                new_op.set_attr_tensor(name, collect_qint16_tensor(val).pop().unwrap())?
+            }
+            DataType::QInt32 => {
+                new_op.set_attr_tensor(name, collect_qint32_tensor(val).pop().unwrap())?
+            }
+            DataType::BFloat16 => {
+                new_op.set_attr_tensor(name, collect_bfloat16_tensor(val).pop().unwrap())?
+            }
+            DataType::Complex64 => {
+                new_op.set_attr_tensor(name, collect_complex64_tensor(val).pop().unwrap())?
+            }
+            DataType::Complex128 => {
+                new_op.set_attr_tensor(name, collect_complex128_tensor(val).pop().unwrap())?
+            }
+            _ => return Err(::Error::Stub),
         }
         Ok(())
     }
 
-    unwrap_tfinput!(Float, unwrap_float, f32);
-    unwrap_tfinput!(Double, unwrap_double, f64);
-    unwrap_tfinput!(Int32, unwrap_i32, i32);
-    unwrap_tfinput!(UInt8, unwrap_u8, u8);
-    unwrap_tfinput!(Int16, unwrap_i16, i16);
-    unwrap_tfinput!(Int8, unwrap_i8, i8);
-    unwrap_tfinput!(Int64, unwrap_i64, i64);
-    unwrap_tfinput!(Bool, unwrap_bool, bool);
+    unwrap_tensor_content!(Float, unwrap_float, f32);
+    unwrap_tensor_content!(Double, unwrap_double, f64);
+    unwrap_tensor_content!(Int32, unwrap_i32, i32);
+    unwrap_tensor_content!(UInt8, unwrap_u8, u8);
+    unwrap_tensor_content!(Int16, unwrap_i16, i16);
+    unwrap_tensor_content!(Int8, unwrap_i8, i8);
+    unwrap_tensor_content!(Int64, unwrap_i64, i64);
+    unwrap_tensor_content!(Bool, unwrap_bool, bool);
+    unwrap_tensor_content!(String, unwrap_string, String);
+    unwrap_tensor_content!(QUInt8, unwrap_quint8, ::QUInt8);
+    unwrap_tensor_content!(QUInt16, unwrap_quint16, ::QUInt16);
+    unwrap_tensor_content!(QInt16, unwrap_qint16, ::QInt16);
+    unwrap_tensor_content!(QInt32, unwrap_qint32, ::QInt32);
+    unwrap_tensor_content!(BFloat16, unwrap_bfloat16, ::BFloat16);
+    unwrap_tensor_content!(Complex64, unwrap_complex64, ::Complex32);
+    unwrap_tensor_content!(Complex128, unwrap_complex128, ::Complex64);
 }
 
 /// Enumerates possible operation attributes.
@@ -566,10 +637,19 @@ collect_tensors!(Int16, collect_i16_tensor, i16);
 collect_tensors!(Int8, collect_i8_tensor, i8);
 collect_tensors!(Int64, collect_i64_tensor, i64);
 collect_tensors!(Bool, collect_bool_tensor, bool);
+collect_tensors!(String, collect_string_tensor, String);
+collect_tensors!(QUInt8, collect_quint8_tensor, ::QUInt8);
+collect_tensors!(QUInt16, collect_quint16_tensor, ::QUInt16);
+collect_tensors!(QInt16, collect_qint16_tensor, ::QInt16);
+collect_tensors!(QInt32, collect_qint32_tensor, ::QInt32);
+collect_tensors!(BFloat16, collect_bfloat16_tensor, ::BFloat16);
+collect_tensors!(Complex64, collect_complex64_tensor, ::Complex32);
+collect_tensors!(Complex128, collect_complex128_tensor, ::Complex64);
 
 impl<'a, T> From<Vec<TypedTensor<T>>> for Attribute<'a>
-    where T: TensorType,
-          TensorContent: From<TypedTensor<T>>
+where
+    T: TensorType,
+    TensorContent: From<TypedTensor<T>>,
 {
     fn from(src: Vec<TypedTensor<T>>) -> Attribute<'a> {
         Attribute::Tensor(src.into_iter().map(|x| TensorContent::from(x)).collect())

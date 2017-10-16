@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 
 extern crate tensorflow as tf;
+extern crate num_complex;
 extern crate uuid;
 
 #[macro_use]
@@ -15,6 +16,8 @@ use tf::{OperationDescription, Output, Shape};
 pub type OperationData = tf::Operation;
 pub type TypedTensor<T> = tf::Tensor<T>;
 use tf::{DataType, Graph, Session, SessionOptions, Status, StepWithGraph};
+use tf::{QUInt8, QInt16, QUInt16, QInt32, BFloat16};
+use num_complex::{Complex32, Complex64};
 
 #[derive(Debug)]
 pub enum Error {
