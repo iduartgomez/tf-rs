@@ -67,17 +67,8 @@ pub(crate) fn create_zeros_slot<S>(
 where
     S: AsRef<str>,
 {
-    /*
-    slot_shape = primary.get_shape()
-    slot_shape = (slot_shape if slot_shape.is_fully_defined()
-                    else array_ops.shape(primary.initialized_value()))
-    if slot_shape.is_fully_defined():
-        initializer = init_ops.zeros_initializer(dtype)
-        return create_slot_with_initializer(
-            primary, initializer, slot_shape, dtype, name,
-            colocate_with_primary=colocate_with_primary)
-    */
-    let slot_shape = array_ops::shape(scope, primary, Some(primary.dtype), "").unwrap();
+    let scope = &mut scope.name_scope("zeros", None);
+    let slot_shape = array_ops::shape(scope, primary, None, "").unwrap();
     let slot_shape_arr = slot_shape.get_shape(scope);
     if slot_shape_arr.is_fully_defined() {
         let initializer = init_ops::zeros_initializer(
@@ -92,11 +83,7 @@ where
             colocate_with_primary,
         )
     } else {
-        /*
-        val = array_ops.zeros(slot_shape, dtype=dtype)
-        return create_slot(primary, val, name,
-                        colocate_with_primary=colocate_with_primary)
-        */
-        unimplemented!()
+        let val = array_ops::zeros(scope, slot_shape, primary.dtype, "")?;
+        create_slot(scope, primary, val, name, colocate_with_primary)
     }
 }

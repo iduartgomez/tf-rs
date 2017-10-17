@@ -1,6 +1,7 @@
 //! State operations.
 use super::*;
 
+// FIXME: op+assign on variables has no deterministic behaviour, marked as private for now
 
 ///// Assign /////
 
@@ -48,10 +49,9 @@ fn test_assign() {
     test_suite!(results; assert: {[0;Int32] == [2_i32]});
 }
 
-
 ///// AssignAdd /////
 
-pub fn assign_add<Tx, Ty, S>(
+pub(crate) fn assign_add<Tx, Ty, S>(
     context: &mut Scope,
     ref_tensor: Tx,
     value: Ty,
@@ -85,6 +85,7 @@ add_new_op!(AssignAdd,
 );
 
 #[test]
+#[ignore]
 #[cfg(test)]
 fn test_assign_add() {
     let mut context = Scope::new();
@@ -98,7 +99,7 @@ fn test_assign_add() {
 
 ///// AssignSub /////
 
-pub fn assign_sub<Tx, Ty, S>(
+pub(crate) fn assign_sub<Tx, Ty, S>(
     context: &mut Scope,
     ref_tensor: Tx,
     value: Ty,
@@ -132,6 +133,7 @@ add_new_op!(AssignSub,
 );
 
 #[test]
+#[ignore]
 #[cfg(test)]
 fn test_assign_sub() {
     let mut context = Scope::new();

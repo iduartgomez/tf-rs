@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use tf::TensorType;
 
-use super::super::{DataType, Graph, OperationData, Output, Shape, Status, TypedTensor};
+use super::super::{DataType, Graph, OperationData, Output, Shape, TypedTensor};
 use super::IntoShape;
 use ops::*;
 
@@ -471,42 +471,43 @@ impl Scope {
             dtype: DataType,
             n: &str,
             shape: &[u64],
-        ) -> Result<OperationData, Status> {
-            match dtype {
-                DataType::Bool => array_ops::constant(g, n, TypedTensor::<bool>::new(shape), &[]),
-                DataType::Double => array_ops::constant(g, n, TypedTensor::<f64>::new(shape), &[]),
-                DataType::Float => array_ops::constant(g, n, TypedTensor::<f32>::new(shape), &[]),
-                DataType::Int32 => array_ops::constant(g, n, TypedTensor::<i32>::new(shape), &[]),
-                DataType::UInt8 => array_ops::constant(g, n, TypedTensor::<u8>::new(shape), &[]),
-                DataType::Int16 => array_ops::constant(g, n, TypedTensor::<i16>::new(shape), &[]),
-                DataType::Int8 => array_ops::constant(g, n, TypedTensor::<i8>::new(shape), &[]),
-                DataType::Int64 => array_ops::constant(g, n, TypedTensor::<i64>::new(shape), &[]),
+        ) -> Result<OperationData, ::Error> {
+            let op_data = match dtype {
+                DataType::Bool => array_ops::constant(g, n, TypedTensor::<bool>::new(shape), &[])?,
+                DataType::Double => array_ops::constant(g, n, TypedTensor::<f64>::new(shape), &[])?,
+                DataType::Float => array_ops::constant(g, n, TypedTensor::<f32>::new(shape), &[])?,
+                DataType::Int32 => array_ops::constant(g, n, TypedTensor::<i32>::new(shape), &[])?,
+                DataType::UInt8 => array_ops::constant(g, n, TypedTensor::<u8>::new(shape), &[])?,
+                DataType::Int16 => array_ops::constant(g, n, TypedTensor::<i16>::new(shape), &[])?,
+                DataType::Int8 => array_ops::constant(g, n, TypedTensor::<i8>::new(shape), &[])?,
+                DataType::Int64 => array_ops::constant(g, n, TypedTensor::<i64>::new(shape), &[])?,
                 DataType::String => {
-                    array_ops::constant(g, n, TypedTensor::<String>::new(shape), &[])
+                    array_ops::constant(g, n, TypedTensor::<String>::new(shape), &[])?
                 }
                 DataType::QUInt8 => {
-                    array_ops::constant(g, n, TypedTensor::<::QUInt8>::new(shape), &[])
+                    array_ops::constant(g, n, TypedTensor::<::QUInt8>::new(shape), &[])?
                 } 
                 DataType::QInt16 => {
-                    array_ops::constant(g, n, TypedTensor::<::QInt16>::new(shape), &[])
+                    array_ops::constant(g, n, TypedTensor::<::QInt16>::new(shape), &[])?
                 } 
                 DataType::QUInt16 => {
-                    array_ops::constant(g, n, TypedTensor::<::QUInt16>::new(shape), &[])
+                    array_ops::constant(g, n, TypedTensor::<::QUInt16>::new(shape), &[])?
                 } 
                 DataType::QInt32 => {
-                    array_ops::constant(g, n, TypedTensor::<::QInt32>::new(shape), &[])
+                    array_ops::constant(g, n, TypedTensor::<::QInt32>::new(shape), &[])?
                 } 
                 DataType::BFloat16 => {
-                    array_ops::constant(g, n, TypedTensor::<::BFloat16>::new(shape), &[])
+                    array_ops::constant(g, n, TypedTensor::<::BFloat16>::new(shape), &[])?
                 }
                 DataType::Complex64 => {
-                    array_ops::constant(g, n, TypedTensor::<::Complex32>::new(shape), &[])
+                    array_ops::constant(g, n, TypedTensor::<::Complex32>::new(shape), &[])?
                 } 
                 DataType::Complex128 => {
-                    array_ops::constant(g, n, TypedTensor::<::Complex64>::new(shape), &[])
+                    array_ops::constant(g, n, TypedTensor::<::Complex64>::new(shape), &[])?
                 }
-                _ => panic!("tensor creation for this datatype not supported"),
-            }
+                _ => return Err(::Error::Stub),
+            };
+            Ok(op_data)
         }
 
         self.allow_writes();

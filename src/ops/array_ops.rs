@@ -644,6 +644,27 @@ add_new_op!(Where,
 );
 
 
+///// Zeros /////
+
+/// Creates a tensor with all elements set to zero.
+///
+/// This operation returns a tensor of type _dtype_ with shape _shape_ and all
+/// elements set to zero.
+pub fn zeros<S, TeS>(
+    context: &mut Scope,
+    shape: TeS,
+    dtype: DataType,
+    name: S,
+) -> Result<Tensor, ::Error>
+where
+    S: AsRef<Path>,
+    TeS: Into<Tensor>,
+{
+
+    unimplemented!()
+}
+
+
 ///// Lower level support ops /////
 
 pub(crate) fn constant<'a, T, I>(
