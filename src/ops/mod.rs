@@ -170,6 +170,7 @@ macro_rules! add_new_op {
                 idtype,
                 dtype,
                 idx: 0,
+                initializer: None,
             };
             match context.control_context {
                 ControlFlow::CondContext(ref mut cond) => {

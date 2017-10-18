@@ -180,13 +180,23 @@ where
     let x = x.into();
     if x.dtype.is_complex() {
         let scope = &mut context.name_scope(name.as_ref(), Some("Conj".as_ref()));
-        unimplemented!()
+        scope.install(Conj::new(x.into(), name)?)
     } else if x.dtype.is_floating() || x.dtype.is_integer() {
         Ok(x)
     } else {
-        Err(::Error::Msg(format!("Expected numeric tensor, got dtype {:?}", x.dtype)),)
+        Err(::Error::Msg(
+            format!("Expected numeric tensor, got dtype {:?}", x.dtype),
+        ))
     }
 }
+
+add_new_op!(Conj, 
+    constructor: [ add_new_op!(UNARY CONSTRUCTOR: Conj, Init: []); ],
+    digest: [DEFAULT_DIGEST: Conj, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
 
 
 ///// Division /////
@@ -421,10 +431,16 @@ where
 {
     let scope = &mut context.name_scope(name.as_ref(), Some("MatMul".as_ref()));
     if transpose_a && adjoint_a {
-        return Err(::Error::Msg("Only one of transpose_a and adjoint_a can be True.".to_owned(),),);
+        return Err(::Error::Msg(
+            "Only one of transpose_a and adjoint_a can be True."
+                .to_owned(),
+        ));
     }
     if transpose_b && adjoint_b {
-        return Err(::Error::Msg("Only one of transpose_b and adjoint_b can be True.".to_owned(),),);
+        return Err(::Error::Msg(
+            "Only one of transpose_b and adjoint_b can be True."
+                .to_owned(),
+        ));
     }
 
     let mut a = a.into();
@@ -432,8 +448,9 @@ where
     let a_shape = a.get_shape(scope);
     let b_shape = b.get_shape(scope);
     if (!a_is_sparse && !b_is_sparse) &&
-       ((a_shape.dims().is_none() || a_shape.dims().unwrap() > 2) &&
-        (b_shape.dims().is_none() || b_shape.dims().unwrap() > 2)) {
+        ((a_shape.dims().is_none() || a_shape.dims().unwrap() > 2) &&
+             (b_shape.dims().is_none() || b_shape.dims().unwrap() > 2))
+    {
         // BatchMatmul does not support transpose, so we conjugate the matrix and
         // use adjoint instead. Conj() is a noop for real matrices.
         if transpose_a {
@@ -476,12 +493,22 @@ where
 
     if use_sparse_matmul {
         //sparse_matmul(scope, a, b, transpose_a, transpose_b, a_is_sparse, b_is_sparse, "");
-        unimplemented!()
+        scope.install(
+            SparseMatMul::new(a, b, "")?
+                .transpose_a(&[transpose_a])
+                .transpose_b(&[transpose_b])
+                .a_is_sparse(&[a_is_sparse])
+                .b_is_sparse(&[b_is_sparse]),
+        )
     } else {
         if a.dtype != b.dtype {
-            return Err(::Error::Msg("Matrix a and matrix b must be of the same type.".to_owned()),);
+            return Err(::Error::Msg(
+                "Matrix a and matrix b must be of the same type.".to_owned(),
+            ));
         }
-        scope.install(MatMul::new(a, b, "")?.transpose_a(&[transpose_a]).transpose_b(&[transpose_b]))
+        scope.install(
+            MatMul::new(a, b, "")?.transpose_a(&[transpose_a]).transpose_b(&[transpose_b]),
+        )
     }
 }
 
@@ -507,6 +534,48 @@ add_new_op!(MatMul,
         }
 
         fn transpose_b(mut self, val: &'a [bool]) -> Self {
+            self.attributes.push(("transpose_b", false, Attribute::Bool(val)));
+            self
+        }
+    ], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+/// Multiply matrix "a" by matrix "b".
+///
+/// The inputs must be two-dimensional matrices and the inner dimension of "a" must
+/// match the outer dimension of "b". This op is optimized for the case where at
+/// least one of "a" or "b" is sparse. The breakeven for using this versus a dense
+/// matrix multiply on one platform was 30% zero values in the sparse matrix.
+///
+/// The gradient computation of this operation will only take advantage of sparsity
+/// in the input gradient when that gradient comes from a Relu.
+///
+/// transpose_a: If true, "a" is transposed before multiplication.
+/// transpose_b: If true, "b" is transposed before multiplication.
+/// a_is_sparse: If true, `a` is treated as a sparse matrix.
+/// b_is_sparse: If true, `b` is treated as a sparse matrix.
+add_new_op!(SparseMatMul,
+    constructor: [add_new_op!(BIN CONSTRUCTOR: SparseMatMul, Init: []);],
+    digest: [DEFAULT_DIGEST: SparseMatMul, INPUT0],
+    extra_funcs: [
+        fn transpose_a(mut self, val: &'a [bool]) -> Self {
+            self.attributes.push(("transpose_a", false, Attribute::Bool(val)));
+            self
+        }
+
+        fn transpose_b(mut self, val: &'a [bool]) -> Self {
+            self.attributes.push(("transpose_b", false, Attribute::Bool(val)));
+            self
+        }
+
+        fn a_is_sparse(mut self, val: &'a [bool]) -> Self {
+            self.attributes.push(("transpose_b", false, Attribute::Bool(val)));
+            self
+        }
+
+        fn b_is_sparse(mut self, val: &'a [bool]) -> Self {
             self.attributes.push(("transpose_b", false, Attribute::Bool(val)));
             self
         }
@@ -715,7 +784,9 @@ where
     }
     let dims = &[axis.len() as i64];
     let reduce = context.constant(axis, dims, name.as_ref())?;
-    context.install(All::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
+    context.install(All::new(tensor.into(), reduce.into(), name)?.keep_dims(
+        &[keep_dims],
+    ))
 }
 
 add_new_op!(All, 
@@ -851,7 +922,9 @@ where
     }
     let dims = &[axis.len() as i64];
     let reduce = context.constant(axis, dims, name.as_ref())?;
-    context.install(Sum::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
+    context.install(Sum::new(tensor.into(), reduce.into(), name)?.keep_dims(
+        &[keep_dims],
+    ))
 }
 
 add_new_op!(Sum, 
@@ -998,7 +1071,9 @@ where
     }
     let dims = &[axis.len() as i64];
     let reduce = context.constant(axis, dims, name.as_ref())?;
-    context.install(Max::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]),)
+    context.install(Max::new(tensor.into(), reduce.into(), name)?.keep_dims(
+        &[keep_dims],
+    ))
 }
 
 add_new_op!(Max, 
@@ -1171,9 +1246,22 @@ fn test_sub() {
     test_suite!(results; assert: {[0;Int32] == [2_i32]});
 }
 
-
-/////
-
+/// Computes the sum along segments of a tensor.
+///
+/// Computes a tensor such that
+/// `(output[i] = sum_{j...} data[j...]` where the sum is over tuples `j...` such
+/// that `segment_ids[j...] == i`.  Unlike `SegmentSum`, `segment_ids`
+/// need not be sorted and need not cover all values in the full
+/// range of valid values.
+///
+/// If the sum is empty for a given segment ID `i`, `output[i] = 0`.
+///
+/// `num_segments` should equal the number of distinct segment IDs.
+///
+/// Returns a `Tensor` that has the same type as `data`.
+/// Has same shape as data, except for the first `segment_ids.rank`
+/// dimensions, which are replaced with a single dimension which has size
+/// `num_segments`.
 pub fn unsorted_segment_sum<Tx, Ty, Tz, S>(
     context: &mut Scope,
     data: Tx,
@@ -1187,5 +1275,36 @@ where
     Tz: Into<Tensor>,
     S: AsRef<Path>,
 {
-    unimplemented!()
+    context.install(UnsortedSegmentSum::new(
+        data.into(),
+        segment_ids.into(),
+        num_segments.into(),
+        name,
+    )?)
 }
+
+add_new_op!(UnsortedSegmentSum,
+    constructor: [
+        fn new<S: AsRef<Path>>(
+            data: Tensor, 
+            segment_ids: Tensor, 
+            num_segments: Tensor, name: S
+        ) -> Result<UnsortedSegmentSum<'a>, ::Error> {
+            let output_type = data.dtype;
+            Ok(
+                UnsortedSegmentSum {
+                    ident: NodeIdent::new(),
+                    name: generate_name!(is_none: name),
+                    attributes: Vec::with_capacity(0),
+                    elements: vec![data, segment_ids, num_segments],
+                    input_lists: Vec::with_capacity(0),
+                    output_type: output_type,
+                },
+            )
+        }
+    ],
+    digest: [DEFAULT_DIGEST: UnsortedSegmentSum, DTYPE_ATTR],
+    extra_funcs: [], 
+    extra_attr: [output_type: DataType],
+    output: [Tensor],
+);

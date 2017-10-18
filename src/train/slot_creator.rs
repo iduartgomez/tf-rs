@@ -74,6 +74,7 @@ where
         let initializer = init_ops::zeros_initializer(
             scope,
             &shape_as_i64(slot_shape_arr.definition_i64().as_ref().unwrap()),
+            primary.dtype
         )?;
         create_slot(
             scope,

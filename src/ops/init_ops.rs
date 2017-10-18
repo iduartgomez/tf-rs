@@ -120,11 +120,84 @@ fn test_random_normal_initializer() {
 }
 
 /// Initializer that generates tensors initialized to 0.
-pub fn zeros_initializer<TeS>(context: &mut Scope, shape: &[TeS]) -> Result<Constant, ::Error>
+pub fn zeros_initializer<'a, TeS>(
+    context: &mut Scope,
+    shape: &'a [TeS],
+    dtype: DataType,
+) -> Result<Constant, ::Error>
 where
-    TeS: ShapeSize,
+    TeS: ShapeSize + ::std::iter::Product<&'a TeS>,
 {
-    unimplemented!()
+    // TODO: rewrite this function so it's less inefficient, avoid extra allocation of "vals"
+    let elem_num: TeS = shape.iter().product();
+    let elem_num = elem_num.as_u64() as usize;
+    match dtype {
+        DataType::Bool => {
+            let vals = vec![false; elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::Double => {
+            let vals = vec![0_f64; elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::Float => {
+            let vals = vec![0_f32; elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::Int32 => {
+            let vals = vec![0_i32; elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::UInt8 => {
+            let vals = vec![0_u8; elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::Int16 => {
+            let vals = vec![0_i16; elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::Int8 => {
+            let vals = vec![0_i8; elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::Int64 => {
+            let vals = vec![0_i64; elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::String => {
+            let vals = vec!["".to_string(); elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::QUInt8 => {
+            let vals = vec![::QInt32::from(0); elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::QInt16 => {
+            let vals = vec![::QInt32::from(0); elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::QUInt16 => {
+            let vals = vec![::QInt32::from(0); elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::QInt32 => {
+            let vals = vec![::QInt32::from(0); elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::BFloat16 => {
+            let vals = vec![::BFloat16::from(0.); elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::Complex64 => {
+            let vals = vec![::Complex32::new(0., 0.); elem_num];
+            context.constant(&vals, shape, "")
+        }
+        DataType::Complex128 => {
+            let vals = vec![::Complex64::new(0., 0.); elem_num];
+            context.constant(&vals, shape, "")
+        }
+        _ => Err(::Error::Stub),
+    }
 }
 
 ///// Lower level support ops /////

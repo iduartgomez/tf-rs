@@ -10,7 +10,7 @@ use super::{DataType, OperationData, OperationDescription, Shape, TypedTensor};
 
 // Macros:
 
-macro_rules! to_tf_tensor {
+macro_rules! to_typed_tensor {
     [$values:expr; $shape:expr] => {{
         let mut tensor = TypedTensor::<T>::new($shape);
         for (i, v) in $values.iter().enumerate() {
@@ -152,6 +152,7 @@ pub struct Tensor {
     pub(crate) dtype: DataType,
     /// Index of this tensor in the source operation output.
     pub(crate) idx: i32,
+    pub(crate) initializer: Option<NodeIdent>,
 }
 
 impl Tensor {
@@ -160,8 +161,7 @@ impl Tensor {
             return Err(::Error::Stub);
         }
         let registry = &*context.registry.borrow();
-        let tensor_data = &registry[&self.ident];
-
+        let (ref op, idx) = registry[&self.ident].data_origin;
 
         unimplemented!()
     }
@@ -265,6 +265,7 @@ impl Into<Tensor> for Constant {
             dtype,
             idtype: IdType::Constant,
             idx: 0,
+            initializer: None,
         }
     }
 }
@@ -314,14 +315,25 @@ impl Variable {
         op.name().unwrap()
     }
 
-    pub fn get_shape(&self, shape: &Scope) -> Shape {
-        let registry = &*shape.registry.borrow();
+    pub fn get_shape(&self, scope: &Scope) -> Shape {
+        let registry = &*scope.registry.borrow();
         registry[&self.ident].shape.clone()
     }
 
     /// Returns a Variable type if the Tensor is indeed a Variable, error otherwise.
-    pub fn from_tensor(context: &Scope, tensor: Tensor) -> Result<Variable, ::Error> {
-        unimplemented!()
+    pub fn from_tensor(scope: &Scope, tensor: &Tensor) -> Result<Variable, ::Error> {
+        let registry = &*scope.registry.borrow();
+        let tensor_data = &registry[&tensor.ident];
+        if let Some(initializer) = tensor.initializer {
+            Ok(Variable {
+                ident: tensor.ident,
+                dtype: tensor.dtype,
+                initializer,
+                idx: tensor.idx,
+            })
+        } else {
+            Err(::Error::Stub)
+        }
     }
 }
 
@@ -353,6 +365,7 @@ impl Into<Tensor> for Variable {
             dtype,
             idtype: IdType::Variable,
             idx,
+            initializer: None,
         }
     }
 }

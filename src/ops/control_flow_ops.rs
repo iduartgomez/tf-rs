@@ -410,6 +410,7 @@ add_new_op!(Switch,
                 idtype,
                 dtype,
                 idx: 0,
+                initializer: None,
             };
 
             let ident1 = NodeIdent::new();
@@ -419,6 +420,7 @@ add_new_op!(Switch,
                 idtype,
                 dtype,
                 idx: 1,
+                initializer: None,
             };
 
             match context.control_context {
@@ -522,6 +524,7 @@ add_new_op!(RefSwitch,
                 idtype,
                 dtype,
                 idx: 0,
+                initializer: None,
             };
 
             let ident1 = NodeIdent::new();
@@ -531,6 +534,7 @@ add_new_op!(RefSwitch,
                 idtype,
                 dtype,
                 idx: 1,
+                initializer: None,
             };
 
             match context.control_context {
@@ -651,6 +655,7 @@ add_new_op!(Merge,
                 idtype,
                 dtype: dtype0,
                 idx: 0,
+                initializer: None,
             };
 
             let ident1 = NodeIdent::new();
@@ -669,6 +674,7 @@ add_new_op!(Merge,
                 idtype,
                 dtype: DataType::Int32,
                 idx: 1,
+                initializer: None,
             };
 
             match context.control_context {
@@ -789,6 +795,7 @@ add_new_op!(RefMerge,
                 idtype,
                 dtype: dtype0,
                 idx: 0,
+                initializer: None,
             };
 
             let ident1 = NodeIdent::new();
@@ -807,6 +814,7 @@ add_new_op!(RefMerge,
                 idtype,
                 dtype: DataType::Int32,
                 idx: 1,
+                initializer: None,
             };
 
             match context.control_context {

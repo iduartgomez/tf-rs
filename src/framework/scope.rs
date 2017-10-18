@@ -543,10 +543,11 @@ impl Scope {
 
             let ident = NodeIdent::new();
             let init;
+            let init_ident;
             let var;
             {
                 let graph = &mut *self.graph.borrow_mut();
-                let registry = &*self.registry.borrow();
+                let registry = &mut *self.registry.borrow_mut();
 
                 // variable op, not initialized!
                 var = {
@@ -585,6 +586,19 @@ impl Scope {
                             &rank_info.definition_u64().unwrap(),
                         )?
                     };
+
+                    init_ident = NodeIdent::new();
+                    registry.insert(
+                        init_ident.clone(),
+                        TensorData {
+                            full_name: new_var.join("init_value"),
+                            idtype: IdType::Constant,
+                            dtype,
+                            data_origin: (initial_value.clone(), 0),
+                            shape: rank_info.clone(),
+                        },
+                    );
+
                     let init = &[
                         init_ops::assign_(
                             graph,
@@ -603,9 +617,7 @@ impl Scope {
                         control_inputs,
                     )?
                 };
-            }
-            {
-                let registry = &mut *self.registry.borrow_mut();
+                // Register variable data.
                 registry.insert(
                     ident,
                     TensorData {
@@ -627,7 +639,7 @@ impl Scope {
                         },
                     );
             }
-            Ok(self._make_var_handle(ident, new_var, dtype))
+            Ok(self._make_var_handle(ident, init_ident, new_var, dtype))
         } else {
             Err(::Error::Stub)
         }
@@ -646,6 +658,7 @@ impl Scope {
     {
         self.allow_writes();
         let new_var = self.resolve_tensor_name(Some(name.as_ref()), IdType::Variable, false)?;
+        let initializer = initializer.into();
 
         let var = if self.not_variable_scope {
             // use scopes/root
@@ -672,15 +685,18 @@ impl Scope {
                 let graph = &mut *self.graph.borrow_mut();
                 let registry = &mut *self.registry.borrow_mut();
 
-                let initializer = registry.get(&initializer.into()).unwrap();
-                rank_info = graph
-                    .tensor_shape(
-                        Output {
-                            operation: initializer.data_origin.0.clone(),
-                            index: initializer.data_origin.1,
-                        },
-                    )?;
-                dtype = initializer.dtype;
+                let initializer = {
+                    let initializer = registry.get(&initializer).unwrap();
+                    rank_info = graph
+                        .tensor_shape(
+                            Output {
+                                operation: initializer.data_origin.0.clone(),
+                                index: initializer.data_origin.1,
+                            },
+                        )?;
+                    dtype = initializer.dtype;
+                    initializer.data_origin.clone()
+                };
 
                 // variable op, not initialized!
                 var = {
@@ -715,7 +731,7 @@ impl Scope {
                             graph,
                             new_var.join("init").to_str().unwrap(),
                             var.clone(),
-                            initializer.data_origin.clone(),
+                            initializer,
                             validate_shape,
                         )?,
                     ];
@@ -729,9 +745,8 @@ impl Scope {
                         control_inputs,
                     )?
                 };
-            }
-            {
-                let registry = &mut *self.registry.borrow_mut();
+
+                // Register variable data
                 registry.insert(
                     ident,
                     TensorData {
@@ -753,7 +768,7 @@ impl Scope {
                         },
                     );
             }
-            Ok(self._make_var_handle(ident, new_var, dtype))
+            Ok(self._make_var_handle(ident, initializer, new_var, dtype))
         } else {
             Err(::Error::Stub)
         }
@@ -762,6 +777,7 @@ impl Scope {
     fn _make_var_handle(
         &mut self,
         ident: NodeIdent,
+        initializer: NodeIdent,
         new_var: PathBuf,
         dtype: DataType,
     ) -> Variable {
@@ -769,7 +785,7 @@ impl Scope {
         let var = Variable {
             ident,
             dtype,
-            initializer: NodeIdent::new(),
+            initializer,
             idx: 0,
         };
         if !self.not_variable_scope {
@@ -812,7 +828,7 @@ impl Scope {
                     array_ops::constant(
                         graph,
                         full_name.to_str().unwrap(),
-                        to_tf_tensor![value; shape],
+                        to_typed_tensor![value; shape],
                         cd.iter().map(|x| &x.finished).chain(pivot),
                     )?
                 }
@@ -829,7 +845,7 @@ impl Scope {
                     array_ops::constant(
                         graph,
                         full_name.to_str().unwrap(),
-                        to_tf_tensor![value; shape],
+                        to_typed_tensor![value; shape],
                         cd.iter().map(|x| &x.finished).chain(pivot),
                     )?
                 }
@@ -837,7 +853,7 @@ impl Scope {
                     array_ops::constant(
                         graph,
                         full_name.to_str().unwrap(),
-                        to_tf_tensor![value; shape],
+                        to_typed_tensor![value; shape],
                         cd.iter().map(|x| &x.finished),
                     )?
                 }
@@ -896,6 +912,7 @@ impl Scope {
             idtype: IdType::Placeholder,
             dtype,
             idx: 0,
+            initializer: None,
         }
     }
 
@@ -1000,6 +1017,7 @@ impl Scope {
                 dtype: dtype,
                 idtype: idtype,
                 idx: 0,
+                initializer: None,
             },
         )
     }
