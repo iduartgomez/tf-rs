@@ -157,13 +157,19 @@ pub struct Tensor {
 
 impl Tensor {
     pub fn get_initializer(&self, context: &Scope) -> Result<Tensor, ::Error> {
-        if !self.is_ref() {
-            return Err(::Error::Stub);
+        if let Some(ref initializer) = self.initializer {
+            let registry = &*context.registry.borrow();
+            let init_data = &registry[&initializer];
+            Ok(Tensor {
+                ident: initializer.clone(),
+                idtype: IdType::Constant,
+                dtype: init_data.dtype,
+                idx: init_data.data_origin.1,
+                initializer: None,
+            })
+        } else {
+            Err(::Error::Stub)
         }
-        let registry = &*context.registry.borrow();
-        let (ref op, idx) = registry[&self.ident].data_origin;
-
-        unimplemented!()
     }
 
     pub fn get_name(&self, context: &Scope) -> String {
@@ -189,6 +195,7 @@ impl Tensor {
         }
     }
 
+    #[doc(hidden)]
     pub fn write(&mut self, context: &mut Scope, tensor: Tensor) -> Result<(), ::Error> {
         unimplemented!()
     }
@@ -305,8 +312,8 @@ impl Variable {
         T: TensorType,
         TeS: ShapeSize,
     {
-        let name = context.resolve_tensor_name(None, IdType::Variable, false).unwrap();
-        unimplemented!()
+        let values = context.constant(initial_value, shape, "").unwrap();
+        context.get_variable_with_initializer(values, false, "").unwrap()
     }
 
     pub fn get_name(&self, context: &Scope) -> String {
