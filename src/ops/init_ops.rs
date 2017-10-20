@@ -172,15 +172,15 @@ where
             context.constant(&vals, shape, "")
         }
         DataType::QUInt8 => {
-            let vals = vec![::QInt32::from(0); elem_num];
+            let vals = vec![::QUInt8::from(0); elem_num];
             context.constant(&vals, shape, "")
         }
         DataType::QInt16 => {
-            let vals = vec![::QInt32::from(0); elem_num];
+            let vals = vec![::QInt16::from(0); elem_num];
             context.constant(&vals, shape, "")
         }
         DataType::QUInt16 => {
-            let vals = vec![::QInt32::from(0); elem_num];
+            let vals = vec![::QUInt16::from(0); elem_num];
             context.constant(&vals, shape, "")
         }
         DataType::QInt32 => {

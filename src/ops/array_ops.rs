@@ -146,6 +146,27 @@ add_new_op!(ExpandDims,
 );
 
 
+///// Fill /////
+
+pub fn fill<Tx, Ty, S>(context: &mut Scope, dims: Tx, value: Ty, name: S) -> Result<Tensor, ::Error>
+where
+    Tx: Into<Tensor>,
+    Ty: TensorType,
+    S: AsRef<Path>,
+{
+    let val = context.constant(&[value], &[] as &[i32], "")?;
+    context.install(Fill::new(dims.into(), val.into(), name)?)
+}
+
+add_new_op!(Fill,
+    constructor: [add_new_op!(BIN CONSTRUCTOR: Fill, Init: []);],
+    digest: [DEFAULT_DIGEST: Fill, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
 ///// Gather /////
 
 pub fn gather<Tx, Ty, S>(
@@ -660,7 +681,26 @@ where
     S: AsRef<Path>,
     TeS: Into<Tensor>,
 {
-    unimplemented!()
+    let zero = match dtype {
+        DataType::Bool => context.constant(&[false], &[] as &[i32], "")?,
+        DataType::Double => context.constant(&[0_f64], &[] as &[i32], "")?,
+        DataType::Float => context.constant(&[0_f32], &[] as &[i32], "")?,
+        DataType::Int32 => context.constant(&[0_i32], &[] as &[i32], "")?,
+        DataType::UInt8 => context.constant(&[0_u8], &[] as &[i32], "")?,
+        DataType::Int16 => context.constant(&[0_i16], &[] as &[i32], "")?,
+        DataType::Int8 => context.constant(&[0_i8], &[] as &[i32], "")?,
+        DataType::Int64 => context.constant(&[0_i64], &[] as &[i32], "")?,
+        DataType::String => context.constant(&["".to_string()], &[] as &[i32], "")?,
+        DataType::QUInt8 => context.constant(&[::QUInt8::from(0)], &[] as &[i32], "")?, 
+        DataType::QInt16 => context.constant(&[::QInt16::from(0)], &[] as &[i32], "")?, 
+        DataType::QUInt16 => context.constant(&[::QUInt16::from(0)], &[] as &[i32], "")?, 
+        DataType::QInt32 => context.constant(&[::QInt32::from(0)], &[] as &[i32], "")?, 
+        DataType::BFloat16 => context.constant(&[::BFloat16::from(0.)], &[] as &[i32], "")?,
+        DataType::Complex64 => context.constant(&[::Complex32::new(0., 0.)], &[] as &[i32], "")?, 
+        DataType::Complex128 => context.constant(&[::Complex64::new(0., 0.)], &[] as &[i32], "")?,
+        _ => return Err(::Error::Stub),
+    };
+    context.install(Fill::new(shape.into(), zero.into(), name)?)
 }
 
 
@@ -693,12 +733,10 @@ where
     I: IntoIterator<Item = &'a OperationData>,
 {
     let mut copy = graph.new_operation("Identity", name)?;
-    copy.add_input(
-        Output {
-            operation: input.0,
-            index: input.1,
-        },
-    );
+    copy.add_input(Output {
+        operation: input.0,
+        index: input.1,
+    });
     super::add_control_input(&mut copy, control_inputs);
     copy.finish()
 }

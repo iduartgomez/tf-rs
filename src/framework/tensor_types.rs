@@ -90,7 +90,6 @@ pub trait DefinedShape {
     fn is_fully_defined(&self) -> bool;
     fn definition_u64(&self) -> Option<Vec<u64>>;
     fn definition_i64(&self) -> Option<Vec<i64>>;
-    //fn partial_def(&self) -> Option<Vec<Option
 }
 
 impl DefinedShape for Shape {
@@ -159,12 +158,6 @@ impl IntoShape for Shape {
         self.clone()
     }
 }
-
-/*
-pub fn shape_from_dims<T: ShapeSize>(dims: &[T]) -> Shape {
-    Shape::from(Some(dims.iter().map(|x| Some(x.as_i64())).collect::<Vec<_>>()),)
-}
-*/
 
 pub(crate) fn shape_as_u64<T: ShapeSize>(dims: &[T]) -> Vec<u64> {
     dims.iter().map(|x| x.as_u64()).collect()
