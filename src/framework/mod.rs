@@ -183,8 +183,14 @@ impl Tensor {
         registry[&self.ident].shape.clone()
     }
 
-    pub fn set_shape(self, context: &Scope, shape: Shape) -> Result<Tensor, ::Error> {
-        unimplemented!()
+    pub fn set_shape(self, context: &mut Scope, shape: Shape) -> Result<Tensor, ::Error> {
+        use framework::DefinedShape;
+        if let Some(definition) = shape.definition_i64() {
+            let shape = context.constant(&definition, &[definition.len() as i64], "")?;
+            ::ops::array_ops::reshape(context, self, shape, "")
+        } else {
+            Err(::Error::Stub)
+        }
     }
 
     pub fn is_ref(&self) -> bool {

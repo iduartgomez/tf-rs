@@ -9,6 +9,8 @@ use super::super::{DataType, Graph, OperationData, Output, Shape, TypedTensor};
 use super::IntoShape;
 use ops::*;
 
+const DEFAULT_GRAPH_SEED: i32 = 87_654_321;
+
 /// Master context manager for building TensorFlow graphs and managing session execution.
 #[derive(Debug)]
 pub struct Scope {
@@ -25,6 +27,7 @@ pub struct Scope {
     ignore_deps: bool,
     locked: Rc<RefCell<bool>>,
     parent_lock: Option<Rc<RefCell<bool>>>,
+    seed: Option<i32>,
 }
 
 impl Scope {
@@ -42,6 +45,7 @@ impl Scope {
             locked: Rc::new(RefCell::new(false)),
             parent_lock: None,
             ops: Rc::new(RefCell::new(HashMap::new())),
+            seed: None,
         }
     }
 
@@ -191,6 +195,7 @@ impl Scope {
             locked: Rc::new(RefCell::new(false)),
             parent_lock: Some(self.locked.clone()),
             ops: self.ops.clone(),
+            seed: self.seed.clone(),
         }
     }
 
@@ -1022,12 +1027,28 @@ impl Scope {
         )
     }
 
-    /// Can only be set at root scope context.
+    /// Sets the graph-level random seed. Can only be set at root scope context.
+    ///
+    /// Operations that rely on a random seed actually derive it from two seeds:
+    /// the graph-level and operation-level seeds. This sets the graph-level seed.
+    /// 
+    /// Its interactions with operation-level seeds is as follows:
+    /// 
+    ///     1. If neither the graph-level nor the operation seed is set:
+    ///       A random seed is used for this op.
+    ///     2. If the graph-level seed is set, but the operation seed is not:
+    ///       The system deterministically picks an operation seed in conjunction
+    ///       with the graph-level seed so that it gets a unique random sequence.
+    ///     3. If the graph-level seed is not set, but the operation seed is set:
+    ///       A default graph-level seed and the specified operation seed are used to
+    ///       determine the random sequence.
+    ///     4. If both the graph-level and the operation seed are set:
+    ///       Both seeds are used in conjunction to determine the random sequence.
     pub fn set_random_seed(&mut self, value: Option<i32>) {
         if self.parent_lock.is_some() {
             panic!("random seed can only be set at the root scope");
         }
-        unimplemented!()
+        self.seed = value;
     }
 
     /// Returns the local seeds an operation should use given an op-specific seed.
@@ -1036,18 +1057,38 @@ impl Scope {
     /// derived from graph-level and op-level seeds. Many random operations internally
     /// use the two seeds to allow user to change the seed globally for a graph, or
     /// for only specific operations.
-    pub fn get_seed(&self, op_seed: Option<i32>) -> (i32, i32) {
-        unimplemented!()
+    pub fn get_seed(&self, op_seed: Option<i32>) -> (Option<i32>, Option<i32>) {
+        let seeds;
+        if let Some(g_seed) = self.seed {
+            let op_seed = if let Some(seed) = op_seed {
+                seed
+            } else {
+                // op_seed = ops.get_default_graph()._last_id
+                0
+            };
+            seeds = (Some(g_seed), Some(op_seed));
+        } else if op_seed.is_some() {
+            seeds = (Some(DEFAULT_GRAPH_SEED), op_seed);
+        } else {
+            seeds = (None, None);
+        }
+        if let (Some(0), Some(0)) = seeds{
+            (Some(0), Some(::std::i32::MAX))
+        } else {
+            seeds
+        }
     }
 
-    /// Marks the given op/tensor as unfetchable in this graph.
+    #[doc(hidden)]
+    /// Marks the given op as unfetchable in this graph.
     pub fn prevent_fetching<Op: Into<NodeIdent>>(&mut self, op: Op) {
         self.scopes.borrow_mut().unfetchable.insert(op.into());
     }
 
-    /// Marks the given op/tensor as unfetchable in this graph.
+    #[doc(hidden)]
+    /// Marks the given tensor as unfeedable in this graph.
     pub fn prevent_feeding<Op: Into<NodeIdent>>(&mut self, op: Op) {
-        unimplemented!()
+        self.scopes.borrow_mut().unfeedable.insert(op.into());
     }
 
     /// Consumes self and returns underlying graph if it's a unique reference, otherwise
@@ -1081,6 +1122,7 @@ impl ::std::ops::Drop for Scope {
             inner_scopes,
             control_dependencies,
             unfetchable,
+            unfeedable,
         } = new_scope;
         // find if this scope already exists
         if let Some(parent) = find_parent_scope(&mut global.inner_scopes, &name, 0) {
@@ -1095,6 +1137,7 @@ impl ::std::ops::Drop for Scope {
         global.control_dependencies.truncate(original_deps);
         // add to global scope:
         global.unfetchable.extend(unfetchable);
+        global.unfeedable.extend(unfeedable);
         if let Some(lock) = self.parent_lock.as_ref() {
             *lock.borrow_mut() = false;
         }
@@ -1122,6 +1165,8 @@ pub(crate) struct InternScope {
     pub(crate) control_dependencies: VecDeque<ControlOp>,
     /// Unfetchable tensors.
     unfetchable: HashSet<NodeIdent>,
+    /// Unfeedable tensors.
+    unfeedable: HashSet<NodeIdent>,
 }
 
 impl InternScope {
@@ -1134,6 +1179,7 @@ impl InternScope {
             ops: vec![],
             control_dependencies: VecDeque::new(),
             unfetchable: HashSet::new(),
+            unfeedable: HashSet::new(),
         }
     }
 

@@ -46,14 +46,19 @@ where
     let stddev_tensor = scope.constant(&[stddev], &[] as &[i64], "name")?;
 
     let rnd = {
+        let mut seed_ = [0_i64];
+        let mut seed2_ = [0_i64];
         let (seed, seed2) = scope.get_seed(seed);
-        let seed = &[seed as i64];
-        let seed2 = &[seed2 as i64];
         let dtype = &[F::data_type()];
-        let op = RandomStandardNormal::new(shape_tensor.into(), "")?
-            .set_seed(seed)
-            .set_seed2(seed2)
-            .set_dtype(dtype);
+        let mut op = RandomStandardNormal::new(shape_tensor.into(), "")?.set_dtype(dtype);
+        if let Some(seed) = seed {
+            seed_[0] = seed as i64;
+            op.set_seed(&seed_);
+        };
+        if let Some(seed) = seed2 {
+            seed2_[0] = seed as i64;
+            op.set_seed2(&seed2_);
+        };
         scope.install(op)?
     };
 
@@ -82,15 +87,13 @@ add_new_op!(RandomStandardNormal,
     digest: [DEFAULT_DIGEST: RandomStandardNormal, DTYPE_ATTR],
     extra_funcs: [
         /// Default is 0.
-        fn set_seed(mut self, val: &'a [i64]) -> Self {
+        fn set_seed(&mut self, val: &'a [i64]) {
             self.attributes.push(("seed", false, Attribute::Int(val)));
-            self
         }
 
         /// Default is 0.
-        fn set_seed2(mut self, val: &'a [i64]) -> Self {
+        fn set_seed2(&mut self, val: &'a [i64]) {
             self.attributes.push(("seed2", false, Attribute::Int(val)));
-            self
         }
 
         /// Output tensor dtype.
