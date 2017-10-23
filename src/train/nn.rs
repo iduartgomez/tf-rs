@@ -1,3 +1,5 @@
+//! Neural network support.
+
 use std::path::{Path, PathBuf};
 
 use super::*;

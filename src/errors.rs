@@ -6,7 +6,7 @@ error_chain! {
     errors { Stub }
 
     foreign_links {
-        FFI_NulError(::std::ffi::NulError);
+        Ffi_NulError(::std::ffi::NulError);
     }
 }
 

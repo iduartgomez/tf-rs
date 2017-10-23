@@ -6,6 +6,16 @@ use super::*;
 
 ///// Concat /////
 
+/// Concatenates tensors along one dimension.
+///
+/// Concatenates the list of tensors values along dimension axis. 
+/// If `values[i].shape = [D0, D1, ... Daxis(i), ...Dn]`, the concatenated result 
+/// has shape where `Raxis = sum(Daxis(i))`
+/// 
+/// That is, the data from the input tensors is joined along the axis dimension.
+/// 
+/// The number of dimensions of the input tensors must match, and all dimensions 
+/// except `axis` must be equal.
 pub fn concat<S, TeS>(
     context: &mut Scope,
     values: Vec<Tensor>,
@@ -109,18 +119,18 @@ fn test_concat() {
 ///   This operation is related to `squeeze()`, which removes dimensions of
 ///   size 1.
 ///
-///   Args:
-///     input: A `Tensor`.
-///     axis: 0-D (scalar). Specifies the dimension index at which to
+///   ### Args
+///     * input: A `Tensor`.
+///     * axis: 0-D (scalar). Specifies the dimension index at which to
 ///       expand the shape of `input`.
-///     name: The name of the output `Tensor`.
-///     dim: 0-D (scalar). Equivalent to `axis`, to be deprecated.
+///     * name: The name of the output `Tensor`.
+///     * dim: 0-D (scalar). Equivalent to `axis`, to be deprecated.
 ///
-///   Returns:
+///   ### Returns
 ///     A `Tensor` with the same data as `input`, but its shape has an additional
 ///     dimension of size 1 added.
 ///
-///   Raises:
+///   ### Error
 ///     ValueError: if both `dim` and `axis` are specified.
 pub fn expand_dims<Tx, S, TeS>(
     context: &mut Scope,
@@ -148,6 +158,17 @@ add_new_op!(ExpandDims,
 
 ///// Fill /////
 
+/// Creates a tensor filled with a scalar value.
+/// 
+/// This operation creates a tensor of shape dims and fills it with value.
+/// 
+/// ### Args
+/// * dims: A Tensor of type int32. 1-D. Represents the shape of the output tensor.
+/// * value: A Tensor. 0-D (scalar). Value to fill the returned tensor.
+/// * name: A name for the operation (optional).
+/// 
+/// ### Returns
+/// A Tensor. Has the same type as value.
 pub fn fill<Tx, Ty, S>(context: &mut Scope, dims: Tx, value: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
@@ -169,6 +190,38 @@ add_new_op!(Fill,
 
 ///// Gather /////
 
+/// Gather slices from params axis axis according to indices.
+///
+/// `indices` must be an integer tensor of any dimension (usually 0-D or 1-D). 
+/// Produces an output tensor with shape 
+/// `params.shape[:axis] + indices.shape + params.shape[axis + 1:]` where:
+///
+/// ```Python
+/// # Scalar indices (output is rank(params) - 1).
+/// output[a_0, ..., a_n, b_0, ..., b_n] =
+///     params[a_0, ..., a_n, indices, b_0, ..., b_n]
+/// 
+/// # Vector indices (output is rank(params)).
+/// output[a_0, ..., a_n, i, b_0, ..., b_n] =
+///     params[a_0, ..., a_n, indices[i], b_0, ..., b_n]
+/// 
+/// # Higher rank indices (output is rank(params) + rank(indices) - 1).
+/// output[a_0, ..., a_n, i, ..., j, b_0, ... b_n] =
+///     params[a_0, ..., a_n, indices[i, ..., j], b_0, ..., b_n]
+/// ```
+///
+/// ### Args
+/// * params: The tensor from which to gather values. Must be at least rank axis + 1.
+/// * indices: A `Tensor`. Must be one of the following types: int32, int64. Index tensor. 
+///       Must be in range [0, params.shape[axis]).
+/// * axis: A `Tensor`. Must be one of the following types: int32, int64. 
+///       The axis in params to gather indices from. Defaults to the first dimension. 
+///       Supports negative indexes.
+/// * name: A name for the operation (optional).
+/// 
+/// ### Returns
+/// A `Tensor` with the same type as `params`. Values from `params` gathered from indices given 
+/// by `indices`, with shape `params.shape[:axis] + indices.shape + params.shape[axis + 1:]`.
 pub fn gather<Tx, Ty, S>(
     context: &mut Scope,
     params: Tx,
@@ -225,12 +278,12 @@ fn test_gather() {
 ///  rank of a tensor is the number of indices required to uniquely select each
 ///  element of the tensor. Rank is also known as "order", "degree", or "ndims."
 ///
-///  Args:
-///    input: A `Tensor` or `SparseTensor`.
-///    name: A name for the operation (optional).
+///  ### Args
+///    * input: A `Tensor` or `SparseTensor`.
+///    * name: A name for the operation (optional).
 ///
-///  Returns:
-///    A `Tensor` of type `int32`.
+///  ### Returns
+///    * A `Tensor` of type `int32`.
 pub fn rank<Tx, S>(context: &mut Scope, input_tensor: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
@@ -259,6 +312,24 @@ add_new_op!(Rank,
 
 ///// Reshape /////
 
+/// Reshapes a tensor.
+/// 
+/// Given `tensor`, this operation returns a tensor that has the same values 
+/// as `tensor` with shape `shape`.
+/// 
+/// If one component of `shape` is the special value -1, the size of that dimension is computed 
+/// so that the total size remains constant. In particular, a shape of `[-1]` flattens into 1-D. 
+/// At most one component of `shape` can be -1.
+/// 
+/// If `shape` is 1-D or higher, then the operation returns a tensor with shape `shape` filled 
+/// with the values of `tensor`. In this case, the number of elements implied by `shape` must 
+/// be the same as the number of elements in `tensor`.
+///
+/// ### Args
+///  * tensor: A Tensor.
+///  * shape: A Tensor. Must be one of the following types: int32, int64. 
+///    Defines the shape of the output tensor.
+///  * name: A name for the operation (optional).
 pub fn reshape<Tx, Ty, S>(
     context: &mut Scope,
     tensor: Tx,
@@ -317,6 +388,9 @@ fn test_reshape() {
 
 ///// Shape /////
 
+/// Returns the shape of a tensor.
+///
+/// This operation returns a 1-D integer tensor representing the shape of `input`.
 pub fn shape<Tx, S>(
     context: &mut Scope,
     tensor: Tx,
@@ -335,9 +409,6 @@ where
     context.install(Shape::new(tensor.into(), &out_type, name)?)
 }
 
-/// Returns the shape of a tensor.
-///
-/// This operation returns a 1-D integer tensor representing the shape of `input`.
 add_new_op!(Shape,
     constructor: [
         fn new<S: AsRef<Path>>(tensor: Tensor, output_type: &'a [DataType], name: S) 
@@ -390,12 +461,15 @@ fn test_shape() {
 
 ///// Size /////
 
-pub fn size<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor>
+/// Returns the size of a tensor.
+/// 
+/// This operation returns an int32 representing the number of elements in input.
+pub fn size<Tx, S>(context: &mut Scope, input: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
 {
-    context.install(Size::new(tensor.into(), name)?)
+    context.install(Size::new(input.into(), name)?)
 }
 
 add_new_op!(Size, 
@@ -419,6 +493,21 @@ fn test_size() {
 
 ///// Squeeze /////
 
+/// Removes dimensions of size 1 from the shape of a tensor.
+/// 
+/// Given a tensor `input`, this operation returns a tensor of the same type with 
+/// all dimensions of size 1 removed. If you don't want to remove all size 1 dimensions, 
+/// you can remove specific size 1 dimensions by specifying `axis`.
+///
+/// ### Args
+/// * input: A Tensor. The input to squeeze.
+/// * axis: An optional list of ints. If specified, only squeezes the dimensions listed. 
+///    The dimension index starts at 0. It is an error to squeeze a dimension that is not 1.
+/// * name: A name for the operation (optional).
+/// 
+/// #### Returns
+/// * A Tensor with the same type as input. Contains the same data as input, 
+///   but has one or more dimensions of size 1 removed.
 pub fn squeeze<TeS, Tx, S>(
     context: &mut Scope,
     tensor: Tx,
@@ -492,14 +581,14 @@ add_new_op!(Squeeze,
 ///                                             [[5, 5, 5]]]
 ///  ```
 ///
-///  Args:
-///    input_: A `Tensor`.
-///    begin: An `int32` or `int64` `Tensor`.
-///    size: An `int32` or `int64` `Tensor`.
-///    name: A name for the operation (optional).
+///  ### Args
+///    * input: A `Tensor`.
+///    * begin: An `int32` or `int64` `Tensor`.
+///    * size: An `int32` or `int64` `Tensor`.
+///    * name: A name for the operation (optional).
 ///
-///  Returns:
-///    A `Tensor` the same type as `input`.
+///  ### Returns
+///    A `Tensor` with the same type as `input`.
 pub fn slice<Tx, Tb, Ts, S>(
     context: &mut Scope,
     input: Tx,
@@ -580,13 +669,13 @@ add_new_op!(Slice,
 ///                                        [9 12]]]
 ///  ```
 ///
-///  Args:
-///    a: A `Tensor`.
-///    perm: A permutation of the dimensions of `a`.
-///    name: A name for the operation (optional).
+///  ### Args
+///    * a: A `Tensor`.
+///    * perm: A permutation of the dimensions of `a`.
+///    * name: A name for the operation (optional).
 ///
-///  Returns:
-///    A transposed `Tensor`.
+///  ### Returns
+///    * A transposed `Tensor`.
 pub fn transpose<S, TeS, Tx>(
     context: &mut Scope,
     a: Tx,
@@ -630,6 +719,36 @@ add_new_op!(Transpose,
 
 ///// Where /////
 
+/// Return the elements, either from x or y, depending on the condition.
+/// 
+/// If both x and y are None, then this operation returns the coordinates of true elements of condition. 
+/// The coordinates are returned in a 2-D tensor where the first dimension (rows) represents 
+/// the number of true elements, and the second dimension (columns) represents the coordinates 
+/// of the true elements. Keep in mind, the shape of the output tensor can vary depending on 
+/// how many true values there are in input. Indices are output in row-major order.
+/// 
+/// If both non-None, `x` and `y` must have the same shape. The `condition` tensor must be a scalar 
+/// if `x` and `y` are scalar. If `x` and `y` are vectors of higher rank, then condition must be either 
+/// a vector with size matching the first dimension of `x`, or must have the same shape as `x`.
+/// 
+/// The `condition` tensor acts as a mask that chooses, based on the value at each element, 
+/// whether the corresponding element / row in the output should be taken from `x` (if true) 
+/// or `y` (if false).
+/// 
+/// If `condition` is a vector and `x` and `y` are higher rank matrices, then it chooses which row 
+/// (outer dimension) to copy from `x` and `y`. If `condition` has the same shape as `x` and `y`, 
+/// then it chooses which element to copy from `x` and `y`.
+/// 
+/// ### Args
+/// * `condition`: A `Tensor` of type `bool`.
+/// * `x`: A Tensor which may have the same shape as condition. If condition is rank 1, 
+///   `x` may have higher rank, but its first dimension must match the size of condition.
+/// * `y`: A tensor with the same shape and type as `x`.
+/// * `name`: A name of the operation.
+/// 
+/// ### Returns
+/// * A `Tensor` with the same type and shape as `x`, `y` if they are non-None. 
+///   A `Tensor` with shape `(num_true, dim_size(condition))`.
 pub fn where_cond<Tc, S>(
     context: &mut Scope,
     cond: Tc,

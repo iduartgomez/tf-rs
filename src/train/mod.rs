@@ -1,3 +1,5 @@
+//! Support for training models.
+
 use super::*;
 use super::framework::*;
 use errors::*;

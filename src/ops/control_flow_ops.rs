@@ -74,6 +74,11 @@ impl PartialEq for ControlFlow {
 
 ///// Assert /////
 
+/// Asserts that the given condition is true.
+///
+/// If condition evaluates to false, print the list of tensors in data. summarize determines how many entries of the tensors to print.
+///
+/// _NOTE:_ To ensure that Assert executes, one usually attaches a dependency:
 #[derive(Debug, Clone)]
 pub struct Assert<'a> {
     ident: NodeIdent,
@@ -1227,6 +1232,10 @@ add_new_op!(RefNextIteration,
     output: [Tensor],
 );
 
+/// Create an op that groups multiple operations.
+///
+/// When this op finishes, all ops in input have finished. This op has no output.
+/// This is useful for control flow in conjunction with `control_dependencies` for example.
 #[derive(Debug, Clone, Copy)]
 pub struct Group(NodeIdent);
 

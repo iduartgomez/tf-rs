@@ -40,7 +40,7 @@ pub use self::scope::*;
 
 mod tensor_types;
 pub(crate) use self::tensor_types::*;
-pub use self::tensor_types::DefinedShape;
+pub use self::tensor_types::{DefinedShape, ShapeSize};
 
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.
@@ -91,7 +91,7 @@ impl GetIdent for NodeIdent {
     }
 }
 
-/// Get the identity token of an object.
+/// Get the identity token of an tensor or an operation.
 pub trait GetIdent {
     fn get_ident(&self) -> NodeIdent;
 }
@@ -424,6 +424,7 @@ impl Into<NodeIdent> for TensorArray {
 }
 
 
+/// An enumeration of the the different types of tensors.
 #[derive(Debug)]
 pub enum TensorContent {
     Bool(TypedTensor<bool>),

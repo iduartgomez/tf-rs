@@ -4,6 +4,12 @@ use super::*;
 
 ///// Add /////
 
+/// Returns x + y element-wise.
+///
+/// Both x and y must be tensors of the same type.
+///
+/// Name argument is optional, if an empty string is provided,
+/// the name will be generated automatically.
 pub fn add<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
@@ -13,12 +19,6 @@ where
     context.install(Add::new(x.into(), y.into(), name)?)
 }
 
-/// Returns x + y element-wise.
-///
-/// Both x and y must be tensors of the same type.
-///
-/// Name argument is optional, if an empty string is provided,
-/// the name will be generated automatically.
 add_new_op!(Add,
     constructor: [add_new_op!(BIN CONSTRUCTOR: Add, Init: []);],
     digest: [DEFAULT_DIGEST: Add, INPUT0],
@@ -41,6 +41,7 @@ fn test_add() {
 
 ///// AddN /////
 
+/// Adds all input tensors element-wise.
 pub fn add_n<S>(context: &mut Scope, values: Vec<Tensor>, name: S) -> Result<Tensor>
 where
     S: AsRef<Path>,
@@ -90,9 +91,12 @@ fn test_add_n() {
 
 //// Cast /////
 
+/// Casts a tensor to a new type.
+///
+/// The operation casts x to dtype.
 pub fn cast<Tx, S>(
     context: &mut Scope,
-    tensor: Tx,
+    x: Tx,
     ty: DataType,
     name: S,
 ) -> Result<Tensor>
@@ -100,9 +104,10 @@ where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
 {
-    context.install(Cast::new(tensor.into(), &[ty], name)?)
+    context.install(Cast::new(x.into(), &[ty], name)?)
 }
 
+/// Casts a tensor to type float.
 pub fn to_float<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
@@ -159,19 +164,22 @@ fn test_cast() {
 ///  The complex conjugate returned by this operation is of the form \\(a - bj\\).
 ///
 ///  For example:
+///  ```
 ///      # tensor 'input' is [-2.25 + 4.75j, 3.25 + 5.75j]
 ///      tf.conj(input) ==> [-2.25 - 4.75j, 3.25 - 5.75j]
+///  ```
 ///
 ///  If `x` is real, it is returned unchanged.
 ///
-///  Args:
-///    x: `Tensor` to conjugate.  Must have numeric type.
-///    name: A name for the operation (optional).
+///  ### Args
+///    * x: `Tensor` to conjugate.  Must have numeric type.
+///    * name: A name for the operation (optional).
 ///
-///  Returns:
+///  ### Returns
 ///    A `Tensor` that is the conjugate of `x` (with the same type).
 ///
-///    Error: If `x` is not a numeric tensor.
+///  ### Error
+///    If `x` is not a numeric tensor.
 pub fn conj<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
@@ -201,6 +209,7 @@ add_new_op!(Conj,
 
 ///// Division /////
 
+/// Divide `x` by `y` element-wise.
 pub fn divide<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
@@ -232,6 +241,17 @@ fn test_divide() {
 
 ///// Equal /////
 
+/// Returns the truth value of (x == y) element-wise.
+///
+/// ### Args
+///    * `x`: A Tensor. Must be one of the following types: half, float32, float64, 
+///     uint8, int8, int16, int32, int64, complex64, quint8, qint8, qint32, string, 
+///     bool, complex128.
+///    * `y`: A Tensor. Must have the same type as x.
+///    * `name`: A name for the operation (optional).
+///
+/// ### Returns
+/// A Tensor of type bool.
 pub fn equal<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,

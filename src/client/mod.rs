@@ -1,3 +1,5 @@
+//! Types to perform computation sessions and graph evaluations.
+
 use std::cell::RefCell;
 use std::rc::Rc;
 

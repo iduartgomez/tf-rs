@@ -60,28 +60,22 @@ impl ExponentialMovingAverage {
     ///
     ///   `min(decay, (1 + num_updates) / (10 + num_updates))`
     ///
-    /// Args:
-    ///   decay: The decay to use.
-    ///   num_updates: Optional count of number of updates applied to variables.
-    ///   zero_debias: If `True`, zero debias moving-averages that are initialized
+    /// ### Args:
+    ///   * decay: The decay to use.
+    ///   * num_updates: Optional count of number of updates applied to variables.
+    ///   * zero_debias: If `true`, zero debias moving-averages that are initialized
     ///     with tensors.
-    ///   name: String. Optional prefix name to use for the name of ops added in
+    ///   * name: Optional prefix name to use for the name of ops added in
     ///     `apply()`.
-    pub fn new<Tx, Ty>(
+    pub fn new<Tx>(
         decay: Tx,
-        num_updates: Option<Ty>,
+        num_updates: Option<Tensor>,
         zero_debias: bool,
         name: &str,
     ) -> ExponentialMovingAverage
     where
         Tx: Into<Tensor>,
-        Ty: Into<Tensor>,
     {
-        let num_updates = if let Some(num_updates) = num_updates {
-            Some(num_updates.into())
-        } else {
-            None
-        };
         ExponentialMovingAverage {
             averages: HashMap::new(),
             decay: decay.into(),
@@ -96,29 +90,27 @@ impl ExponentialMovingAverage {
     /// `var_list` must be a list of `Tensor` or `Tensor` objects.  This method
     /// creates shadow variables for all elements of `var_list`.  Shadow variables
     /// for `Tensor` objects are initialized to the variable's initial value.
-    /// They will be added to the `GraphKeys.MOVING_AVERAGE_VARIABLES` collection.
+    /// ~~They will be added to the `GraphKeys.MOVING_AVERAGE_VARIABLES` collection.~~
     /// For `Tensor` objects, the shadow variables are initialized to 0 and zero
     /// debiased (see docstring in `assign_moving_average` for more details).
     ///
-    /// shadow variables are created with `trainable=False` and added to the
+    /// ~~shadow variables are created with `trainable=False` and added to the
     /// `GraphKeys.ALL_VARIABLES` collection.  They will be returned by calls to
-    /// `tf.global_variables()`.
-    ///
-    /// Returns an op that updates all shadow variables as described above.
+    /// `tf.global_variables()`.~~
     ///
     /// Note that `apply()` can be called multiple times with different lists of
     /// variables.
     ///
-    /// Args:
-    ///   var_list: A list of Tensor or Tensor objects. The variables
+    /// ### Args:
+    ///   * var_list: A list of Tensor or Tensor objects. The variables
     ///     and Tensors must be of types float16, float32, or float64.
     ///
-    /// Returns:
-    ///   An Operation that updates the moving averages.
+    /// ### Returns: 
+    ///   * Operation that updates the moving averages.
     ///
-    /// Raises:
-    ///   TypeError: If the arguments are not all float16, float32, or float64.
-    ///   ValueError: If the moving average of one of the variables is already
+    /// ### Errors:
+    ///   * TypeError: If the arguments are not all float16, float32, or float64.
+    ///   * ValueError: If the moving average of one of the variables is already
     ///     being computed.
     pub fn apply(&mut self, context: &mut Scope, var_list: &[Tensor]) -> Result<Group> {
         let mut zero_debias_true: HashSet<NodeIdent> = HashSet::new(); // set of vars to set to `zero_debias=True`
@@ -179,11 +171,11 @@ impl ExponentialMovingAverage {
 
     /// Returns the `Tensor` holding the average of `var`.
     ///
-    /// Args:
-    ///   var: A `Tensor` object.
+    /// ### Args:
+    ///   * var: A `Tensor` object.
     ///
-    /// Returns:
-    ///   A `Tensor` object or `None` if the moving average of `var`
+    /// ### Returns:
+    ///   * A `Tensor` object or `None` if the moving average of `var`
     ///   is not maintained.
     pub fn average(&self, var: &Tensor) -> Option<&Variable> {
         self.averages.get(var)
@@ -202,13 +194,12 @@ impl ExponentialMovingAverage {
     ///
     /// `average_name()` can be called whether or not `apply()` has been called.
     ///
-    /// Args:
-    ///  var: A `Tensor` object.
+    /// ### Args:
+    ///    * var: A `Tensor` object.
     ///
-    /// Returns:
-    ///   A string: The name of the variable that will be used or was used
-    ///   by the `ExponentialMovingAverage class` to hold the moving average of
-    ///   `var`.
+    /// ### Returns:
+    ///    * A string: The name of the variable that will be used or was used by the
+    ///      `ExponentialMovingAverage` type to hold the moving average of `var`.
     pub fn average_name(&self, context: &Scope, var: &Tensor) -> String {
         if let Some(ref var) = self.averages.get(var) {
             var.get_name(context)
@@ -226,26 +217,12 @@ impl ExponentialMovingAverage {
     /// If a variable has a moving average, use the moving average variable name as
     /// the restore name; otherwise, use the variable name.
     ///
-    /// For example,
+    /// ### Args:
+    ///   * moving_avg_variables: a list of variables that require to use of the
+    ///     moving variable name to be restored. ~~If empty, it will default to
+    ///     context.moving_average_variables() + context.trainable_variables()~~
     ///
-    /// ```python
-    ///   variables_to_restore = ema.variables_to_restore()
-    ///   saver = tf.train.Saver(variables_to_restore)
-    /// ```
-    ///
-    /// Below is an example of such mapping:
-    ///
-    /// ```bash
-    ///   conv/batchnorm/gamma/ExponentialMovingAverage: conv/batchnorm/gamma,
-    ///   conv_4/conv2d_params/ExponentialMovingAverage: conv_4/conv2d_params,
-    ///   global_step: global_step
-    /// ```
-    /// Args:
-    ///   moving_avg_variables: a list of variables that require to use of the
-    ///     moving variable name to be restored. If empty, it will default to
-    ///     context.moving_average_variables() + context.trainable_variables()
-    ///
-    /// Returns:
+    /// ### Returns:
     ///   A map from restore_names to variables. The restore_name can be the
     ///   moving_average version of the variable name if it exist, or the original
     ///   variable name.
@@ -283,30 +260,34 @@ impl ExponentialMovingAverage {
 ///   Compute the moving average of a variable.
 ///
 ///   The moving average of 'variable' updated with 'value' is:
-///     variable * decay + value * (1 - decay)
+///
+///     `variable * decay + value * (1 - decay)`
 ///
 ///   The returned Operation sets 'variable' to the newly computed moving average.
 ///
 ///   The new value of 'variable' can be set with the 'AssignSub' op as:
-///      variable -= (1 - decay) * (variable - value)
+///
+///      `variable -= (1 - decay) * (variable - value)`
 ///
 ///   Since variables that are initialized to a `0` value will be `0` biased,
 ///   `zero_debias` optionally enables scaling by the mathematically correct
-///   debiasing factor of
-///     1 - decay ** num_updates
-///   See `ADAM: A Method for Stochastic Optimization` Section 3 for more details
-///   (https://arxiv.org/abs/1412.6980).
+///   debiasing factor of:
 ///
-///   Args:
-///     variable: A Variable.
-///     value: A tensor with the same shape as 'variable'.
-///     decay: A float Tensor or float value.  The moving average decay.
-///     zero_debias: A python bool. If true, assume the variable is 0-initialized and
+///     `1 - decay ** num_updates`
+///
+///   See `ADAM: A Method for Stochastic Optimization` [Section 3](https://arxiv.org/abs/1412.6980) 
+///   for more details.
+///
+///   ### Args:
+///     * variable: A Variable.
+///     * value: A tensor with the same shape as 'variable'.
+///     * decay: A float Tensor or float value.  The moving average decay.
+///     * zero_debias: A python bool. If true, assume the variable is 0-initialized and
 ///       unbias it, as in https://arxiv.org/abs/1412.6980. See docstring in
 ///       `_zero_debias` for more details.
-///     name: Optional name of the returned operation.
+///     * name: Optional name of the returned operation.
 ///
-///   Returns:
+///   ### Returns:
 ///     A reference to the input 'variable' tensor with the newly computed
 ///     moving average.
 fn assign_moving_average(
@@ -359,12 +340,12 @@ fn assign_moving_average(
 ///  the biased estimate, and the other keeps track of the number of updates that
 ///  have occurred.
 ///
-///  Args:
-///    unbiased_var: A Variable representing the current value of the unbiased EMA.
-///    value: A Tensor representing the most recent value.
-///    decay: A Tensor representing `1-decay` for the EMA.
+///  ### Args:
+///    * unbiased_var: A Variable representing the current value of the unbiased EMA.
+///    * value: A Tensor representing the most recent value.
+///    * decay: A Tensor representing `1-decay` for the EMA.
 ///
-///  Returns:
+///  ### Returns:
 ///    The amount that the unbiased variable should be updated. Computing this
 ///    tensor will also update the shadow variables appropriately.
 fn _zero_debias(

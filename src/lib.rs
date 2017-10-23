@@ -1,3 +1,5 @@
+//! A high level (Pythonic) API for the TensorFlow framework.
+
 #![allow(unused_variables)]
 
 extern crate tensorflow as tf;
