@@ -120,16 +120,16 @@ impl ExponentialMovingAverage {
     ///   TypeError: If the arguments are not all float16, float32, or float64.
     ///   ValueError: If the moving average of one of the variables is already
     ///     being computed.
-    pub fn apply(&mut self, context: &mut Scope, var_list: &[Tensor]) -> Result<Group, ::Error> {
+    pub fn apply(&mut self, context: &mut Scope, var_list: &[Tensor]) -> Result<Group> {
         let mut zero_debias_true: HashSet<NodeIdent> = HashSet::new(); // set of vars to set to `zero_debias=True`
         for var in var_list {
             match var.dtype {
                 DataType::Float | DataType::Double => {}
-                _ => return Err(::Error::Stub),
+                _ => return Err(Error::from(ErrorKind::Stub)),
             }
 
             if self.averages.keys().find(|&&x| x.ident == var.ident).is_some() {
-                return Err(::Error::Stub);
+                return Err(Error::from(ErrorKind::Stub));
             }
 
             // For variables: to lower communication bandwidth across devices we keep
@@ -316,7 +316,7 @@ fn assign_moving_average(
     decay: Tensor,
     zero_debias: bool,
     name: Option<&str>,
-) -> Result<Tensor, ::Error> {
+) -> Result<Tensor> {
     let scope = &mut if let Some(name) = name {
                          scope.name_scope(name, None)
                      } else {
@@ -372,7 +372,7 @@ fn _zero_debias(
     unbiased_var: &Variable,
     value: &Tensor,
     decay: &Tensor,
-) -> Result<Tensor, ::Error> {
+) -> Result<Tensor> {
     let scope_name = unbiased_var.get_name(scope);
     let scope = &mut scope.variable_scope(&scope_name, None, None)?;
     // TODO: colocate_with(unbiased_var)

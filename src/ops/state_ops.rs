@@ -1,4 +1,5 @@
 //! State operations.
+
 use super::*;
 
 // FIXME: op+assign on variables has no deterministic behaviour, marked as private for now
@@ -11,7 +12,7 @@ pub fn assign<Tx, Ty, S>(
     value: Ty,
     use_locking: bool,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
@@ -57,7 +58,7 @@ pub(crate) fn assign_add<Tx, Ty, S>(
     value: Ty,
     use_locking: bool,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>
@@ -105,7 +106,7 @@ pub(crate) fn assign_sub<Tx, Ty, S>(
     value: Ty,
     use_locking: bool,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
     where Tx: Into<Tensor>,
           Ty: Into<Tensor>,
           S: AsRef<Path>

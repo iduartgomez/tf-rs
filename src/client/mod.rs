@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use super::{DataType, Graph, Session, SessionOptions, StepWithGraph};
 use super::framework::*;
+use errors::*;
 
 /// A ClientSession object lets the caller drive the evaluation of the TensorFlow graph
 /// constructed with the Rust API.
@@ -16,10 +17,10 @@ pub struct ClientSession<'g> {
 }
 
 impl<'g> ClientSession<'g> {
-    pub fn new(context: &'g mut Scope) -> Result<ClientSession<'g>, ::Error> {
+    pub fn new(context: &'g mut Scope) -> Result<ClientSession<'g>> {
         if context.locked() {
             // can only create sessions out of root scopes
-            return Err(::Error::Stub);
+            return Err(Error::from(ErrorKind::Stub));
         }
         Ok(
             ClientSession {
@@ -73,7 +74,7 @@ impl<'g> ClientSession<'g> {
 
     /// Consumes self and returns underlying graph if it's a unique reference, otherwise
     /// will return a Rc pointer to it.
-    pub fn unwrap_graph(self) -> Result<Graph, Rc<RefCell<Graph>>> {
+    pub fn unwrap_graph(self) -> ::std::result::Result<Graph, Rc<RefCell<Graph>>> {
         let mut graph = Rc::new(RefCell::new(Graph::new()));
         ::std::mem::swap(&mut graph, &mut self.context.graph);
         match Rc::try_unwrap(graph) {
@@ -89,7 +90,7 @@ impl<'g> ClientSession<'g> {
     /// The number and order of outputs will match the construction phase.
     ///
     /// Returns error if any of the session input was inadequate.
-    pub fn run(&mut self, options: Option<SessionOptions>) -> Result<Vec<TensorContent>, ::Error> {
+    pub fn run(&mut self, options: Option<SessionOptions>) -> Result<Vec<TensorContent>> {
         fn control_ops<'a, I>(
             init_steep: &mut StepWithGraph,
             steep: &mut StepWithGraph,
@@ -172,7 +173,7 @@ impl<'g> ClientSession<'g> {
                 DataType::BFloat16 => TensorContent::from(steep1.take_output::<::BFloat16>(token)?), 
                 DataType::Complex64 => TensorContent::from(steep1.take_output::<::Complex32>(token)?,), 
                 DataType::Complex128 => TensorContent::from(steep1.take_output::<::Complex64>(token)?,), 
-                _ => return Err(::Error::Stub),
+                _ => return Err(Error::from(ErrorKind::Stub)),
             };
             results.push(res);
         }

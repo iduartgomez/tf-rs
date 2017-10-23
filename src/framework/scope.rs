@@ -7,6 +7,7 @@ use tf::TensorType;
 
 use super::super::{DataType, Graph, OperationData, Output, Shape, TypedTensor};
 use super::IntoShape;
+use errors::*;
 use ops::*;
 
 const DEFAULT_GRAPH_SEED: i32 = 87_654_321;
@@ -55,7 +56,7 @@ impl Scope {
         name: Option<&Path>,
         kind: IdType,
         reuse: bool,
-    ) -> Result<PathBuf, ::Error> {
+    ) -> Result<PathBuf> {
         let name = if let Some(given_name) = name {
             if given_name.to_str().unwrap() == "" {
                 return self.resolve_tensor_name(None, kind, reuse);
@@ -67,30 +68,26 @@ impl Scope {
                     // like a constant and viceversa
                     IdType::Constant | IdType::Variable => {
                         if self.own_scope.name_exists(&name) {
-                            return Err(::Error::Stub);
+                            return Err(Error::from(ErrorKind::Stub));
                         }
                     }
                     IdType::Placeholder => {
                         if self.registry
-                               .borrow()
-                               .values()
-                               .find(|x| &x.full_name == &name)
-                               .is_some() {
-                            return Err(::Error::Stub);
+                            .borrow()
+                            .values()
+                            .find(|x| &x.full_name == &name)
+                            .is_some()
+                        {
+                            return Err(Error::from(ErrorKind::Stub));
                         }
                     }
                     IdType::Operation(_) => {
                         if self.own_scope.ops.iter().find(|&&(ref x, _)| x == &name).is_some() {
-                            name =
-                                self.own_scope
-                                    .name
-                                    .join(
-                                        format!(
-                                            "{}_{}",
-                                            given_name.display(),
-                                            self.own_scope.ops.len()
-                                        ),
-                                    )
+                            name = self.own_scope.name.join(format!(
+                                "{}_{}",
+                                given_name.display(),
+                                self.own_scope.ops.len()
+                            ))
                         }
                     }
                 }
@@ -115,21 +112,18 @@ impl Scope {
     ) -> PathBuf {
         let new_name;
         if name_cmp!(name, "") {
-            new_name =
-                self.own_scope
-                    .name
-                    .join(format!("{}_{}", default_prefix, self.own_scope.inner_scopes.len()),);
+            new_name = self.own_scope.name.join(format!(
+                "{}_{}",
+                default_prefix,
+                self.own_scope.inner_scopes.len()
+            ));
             new_name
         } else {
-            self.own_scope
-                .name
-                .join(
-                    format!(
-                        "{}_{}",
-                        name.as_ref().display(),
-                        self.own_scope.inner_scopes.len()
-                    ),
-                )
+            self.own_scope.name.join(format!(
+                "{}_{}",
+                name.as_ref().display(),
+                self.own_scope.inner_scopes.len()
+            ))
         }
     }
 
@@ -221,7 +215,7 @@ impl Scope {
     ///
     /// Returns the output of the operations.
     #[doc(hidden)]
-    pub fn install<'a, T>(&mut self, op: T) -> Result<T::Outputs, ::Error>
+    pub fn install<'a, T>(&mut self, op: T) -> Result<T::Outputs>
     where
         T: Operation<'a>,
     {
@@ -318,8 +312,9 @@ impl Scope {
         let reg_c = self.registry.clone();
         let mut inputs = vec![];
 
-        fn input_ls<'a>(input_lists: &mut ::std::slice::Iter<'a, (usize, Vec<Tensor>)>,)
-            -> (Option<usize>, Option<&'a [Tensor]>) {
+        fn input_ls<'a>(
+            input_lists: &mut ::std::slice::Iter<'a, (usize, Vec<Tensor>)>,
+        ) -> (Option<usize>, Option<&'a [Tensor]>) {
             if let Some(&(ref idx, ref list)) = input_lists.next() {
                 (Some(*idx), Some(list))
             } else {
@@ -339,12 +334,10 @@ impl Scope {
                 let mut inputs = vec![];
                 for tensor in current_list.unwrap() {
                     let data = &reg[&tensor.ident];
-                    inputs.push(
-                        Output {
-                            operation: data.data_origin.0.clone(),
-                            index: data.data_origin.1,
-                        },
-                    )
+                    inputs.push(Output {
+                        operation: data.data_origin.0.clone(),
+                        index: data.data_origin.1,
+                    })
                 }
                 all_inputs.push(OpInput::List(inputs));
                 let (i, ls) = input_ls(input_lists);
@@ -410,18 +403,15 @@ impl Scope {
         name: S,
         default_name: Option<S>,
         reuse: Option<bool>,
-    ) -> Result<Scope, ::Error>
+    ) -> Result<Scope>
     where
         S: AsRef<Path>,
     {
         self.allow_writes();
         if name_cmp!(name, "") && default_name.is_none() {
-            return Err(
-                ::Error::Msg(
-                    "If default_name is None then name is required not be empty."
-                        .to_string(),
-                ),
-            );
+            return Err(Error::from(
+                "If default_name is None then name is required not be empty.",
+            ));
         }
         let name = if let Some(default_name) = default_name {
             self.resolve_new_scope_name(name, default_name.as_ref().to_str().unwrap())
@@ -466,7 +456,7 @@ impl Scope {
         dtype: Option<DataType>,
         shape: Option<IS>,
         name: S,
-    ) -> Result<Variable, ::Error>
+    ) -> Result<Variable>
     where
         S: AsRef<Path>,
         IS: IntoShape,
@@ -476,7 +466,7 @@ impl Scope {
             dtype: DataType,
             n: &str,
             shape: &[u64],
-        ) -> Result<OperationData, ::Error> {
+        ) -> Result<OperationData> {
             let op_data = match dtype {
                 DataType::Bool => array_ops::constant(g, n, TypedTensor::<bool>::new(shape), &[])?,
                 DataType::Double => array_ops::constant(g, n, TypedTensor::<f64>::new(shape), &[])?,
@@ -510,7 +500,7 @@ impl Scope {
                 DataType::Complex128 => {
                     array_ops::constant(g, n, TypedTensor::<::Complex64>::new(shape), &[])?
                 }
-                _ => return Err(::Error::Stub),
+                _ => return Err(Error::from(ErrorKind::Stub)),
             };
             Ok(op_data)
         }
@@ -530,7 +520,7 @@ impl Scope {
             if let Ok(idx) = var {
                 Ok(self.own_scope.variables[idx].1)
             } else {
-                Err(::Error::Stub)
+                Err(Error::from(ErrorKind::Stub))
             }
         } else if var.is_err() && !self.reuse_variable {
             // try making a new variable
@@ -538,12 +528,12 @@ impl Scope {
                 shape.to_shape()
             } else {
                 // shape for a new variable must be specified
-                return Err(::Error::Stub);
+                return Err(Error::from(ErrorKind::Stub));
             };
             let dtype = if let Some(dtype) = dtype {
                 dtype
             } else {
-                return Err(::Error::Msg("dtype not specified".to_owned()));
+                return Err(Error::from("dtype not specified"));
             };
 
             let ident = NodeIdent::new();
@@ -564,14 +554,14 @@ impl Scope {
                             if cond.pivot_for_body.is_some() {
                                 vec![
                                     &registry[&cond.pivot_for_body.as_ref().unwrap().ident]
-                                         .data_origin
-                                         .0,
+                                        .data_origin
+                                        .0,
                                 ]
                             } else {
                                 vec![
                                     &registry[&cond.pivot_for_pred.as_ref().unwrap().ident]
-                                         .data_origin
-                                         .0,
+                                        .data_origin
+                                        .0,
                                 ]
                             }
                         }
@@ -633,20 +623,15 @@ impl Scope {
                         shape: rank_info,
                     },
                 );
-                self.scopes
-                    .borrow_mut()
-                    .control_dependencies
-                    .push_front(
-                        ControlOp {
-                            ident: NodeIdent::new(),
-                            finished: init,
-                            kind: ControlOpKind::VarInitializer,
-                        },
-                    );
+                self.scopes.borrow_mut().control_dependencies.push_front(ControlOp {
+                    ident: NodeIdent::new(),
+                    finished: init,
+                    kind: ControlOpKind::VarInitializer,
+                });
             }
             Ok(self._make_var_handle(ident, init_ident, new_var, dtype))
         } else {
-            Err(::Error::Stub)
+            Err(Error::from(ErrorKind::Stub))
         }
     }
 
@@ -656,7 +641,7 @@ impl Scope {
         initializer: T,
         validate_shape: bool,
         name: S,
-    ) -> Result<Variable, ::Error>
+    ) -> Result<Variable>
     where
         S: AsRef<Path>,
         T: Into<NodeIdent>,
@@ -678,7 +663,7 @@ impl Scope {
             if let Ok(idx) = var {
                 Ok(self.own_scope.variables[idx].1)
             } else {
-                Err(::Error::Stub)
+                Err(Error::from(ErrorKind::Stub))
             }
         } else if var.is_err() && !self.reuse_variable {
             let ident = NodeIdent::new();
@@ -692,13 +677,10 @@ impl Scope {
 
                 let initializer = {
                     let initializer = registry.get(&initializer).unwrap();
-                    rank_info = graph
-                        .tensor_shape(
-                            Output {
-                                operation: initializer.data_origin.0.clone(),
-                                index: initializer.data_origin.1,
-                            },
-                        )?;
+                    rank_info = graph.tensor_shape(Output {
+                        operation: initializer.data_origin.0.clone(),
+                        index: initializer.data_origin.1,
+                    })?;
                     dtype = initializer.dtype;
                     initializer.data_origin.clone()
                 };
@@ -713,14 +695,14 @@ impl Scope {
                             if cond.pivot_for_body.is_some() {
                                 vec![
                                     &registry[&cond.pivot_for_body.as_ref().unwrap().ident]
-                                         .data_origin
-                                         .0,
+                                        .data_origin
+                                        .0,
                                 ]
                             } else {
                                 vec![
                                     &registry[&cond.pivot_for_pred.as_ref().unwrap().ident]
-                                         .data_origin
-                                         .0,
+                                        .data_origin
+                                        .0,
                                 ]
                             }
                         }
@@ -762,20 +744,15 @@ impl Scope {
                         shape: rank_info,
                     },
                 );
-                self.scopes
-                    .borrow_mut()
-                    .control_dependencies
-                    .push_front(
-                        ControlOp {
-                            ident: NodeIdent::new(),
-                            finished: init,
-                            kind: ControlOpKind::VarInitializer,
-                        },
-                    );
+                self.scopes.borrow_mut().control_dependencies.push_front(ControlOp {
+                    ident: NodeIdent::new(),
+                    finished: init,
+                    kind: ControlOpKind::VarInitializer,
+                });
             }
             Ok(self._make_var_handle(ident, initializer, new_var, dtype))
         } else {
-            Err(::Error::Stub)
+            Err(Error::from(ErrorKind::Stub))
         }
     }
 
@@ -810,7 +787,7 @@ impl Scope {
         value: &[T],
         shape: &[TeS],
         name: S,
-    ) -> Result<Constant, ::Error>
+    ) -> Result<Constant>
     where
         S: AsRef<Path>,
         T: TensorType,
@@ -872,13 +849,10 @@ impl Scope {
                 dtype: dtype,
                 idtype: IdType::Constant,
                 data_origin: (data_origin.clone(), 0),
-                shape: graph
-                    .tensor_shape(
-                        Output {
-                            operation: data_origin,
-                            index: 0,
-                        },
-                    )?,
+                shape: graph.tensor_shape(Output {
+                    operation: data_origin,
+                    index: 0,
+                })?,
             },
         );
 
@@ -899,8 +873,11 @@ impl Scope {
         let graph = &mut *self.graph.borrow_mut();
         let registry = &mut *self.registry.borrow_mut();
 
-        let data_origin =
-            (array_ops::placeholder(graph, full_name.to_str().unwrap(), dtype).unwrap(), 0);
+        let data_origin = (
+            array_ops::placeholder(graph, full_name.to_str().unwrap(), dtype)
+                .unwrap(),
+            0,
+        );
         registry.insert(
             ident,
             TensorData {
@@ -980,7 +957,7 @@ impl Scope {
     }
 
     /// Returns a copy of the variable, with the same shape and content.
-    pub fn identity<S, Tx>(&mut self, tensor: Tx, name: S) -> Result<Tensor, ::Error>
+    pub fn identity<S, Tx>(&mut self, tensor: Tx, name: S) -> Result<Tensor>
     where
         S: AsRef<Path>,
         Tx: GetIdent,
@@ -994,13 +971,15 @@ impl Scope {
         let (dtype, idtype, data_origin, full_name) = {
             let src = &registry[&tensor.get_ident()];
             let full_name = self.resolve_tensor_name(Some(name.as_ref()), src.idtype, false)?;
-            let data_origin = (array_ops::identity(
-                graph,
-                full_name.to_str().unwrap(),
-                src.data_origin.clone(),
-                global.iter().map(|x| &x.finished),
-            )?,
-                               0);
+            let data_origin = (
+                array_ops::identity(
+                    graph,
+                    full_name.to_str().unwrap(),
+                    src.data_origin.clone(),
+                    global.iter().map(|x| &x.finished),
+                )?,
+                0,
+            );
             (src.dtype, src.idtype, data_origin, full_name)
         };
 
@@ -1016,24 +995,21 @@ impl Scope {
             },
         );
 
-        Ok(
-            Tensor {
-                ident,
-                dtype: dtype,
-                idtype: idtype,
-                idx: 0,
-                initializer: None,
-            },
-        )
+        Ok(Tensor {
+            ident,
+            dtype: dtype,
+            idtype: idtype,
+            idx: 0,
+            initializer: None,
+        })
     }
 
     /// Sets the graph-level random seed. Can only be set at root scope context.
     ///
     /// Operations that rely on a random seed actually derive it from two seeds:
     /// the graph-level and operation-level seeds. This sets the graph-level seed.
-    /// 
+    ///
     /// Its interactions with operation-level seeds is as follows:
-    /// 
     ///     1. If neither the graph-level nor the operation seed is set:
     ///       A random seed is used for this op.
     ///     2. If the graph-level seed is set, but the operation seed is not:
@@ -1072,7 +1048,7 @@ impl Scope {
         } else {
             seeds = (None, None);
         }
-        if let (Some(0), Some(0)) = seeds{
+        if let (Some(0), Some(0)) = seeds {
             (Some(0), Some(::std::i32::MAX))
         } else {
             seeds
@@ -1093,7 +1069,7 @@ impl Scope {
 
     /// Consumes self and returns underlying graph if it's a unique reference, otherwise
     /// will return a Rc pointer to it.
-    pub fn unwrap_graph(mut self) -> Result<Graph, Rc<RefCell<Graph>>> {
+    pub fn unwrap_graph(mut self) -> ::std::result::Result<Graph, Rc<RefCell<Graph>>> {
         let mut graph = Rc::new(RefCell::new(Graph::new()));
         ::std::mem::swap(&mut graph, &mut self.graph);
         match Rc::try_unwrap(graph) {
@@ -1224,12 +1200,10 @@ fn find_parent_scope<'a>(
 ) -> Option<&'a mut InternScope> {
     for scope in scopes {
         let rest = if let Some((_, prefix)) =
-            scope
-                .name
-                .iter()
-                .enumerate()
-                .skip_while(|&(ref i, _)| i < &comp)
-                .find(|&(_, p)| name.starts_with(p)) {
+            scope.name.iter().enumerate().skip_while(|&(ref i, _)| i < &comp).find(|&(_, p)| {
+                name.starts_with(p)
+            })
+        {
             name.strip_prefix(prefix).unwrap().to_owned()
         } else {
             continue;

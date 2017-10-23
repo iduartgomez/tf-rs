@@ -41,7 +41,7 @@ pub(crate) fn create_slot<S>(
     val: Tensor,
     name: S,
     _colocate_with_primary: bool,
-) -> Result<Variable, ::Error>
+) -> Result<Variable>
 where
     S: AsRef<str>,
 {
@@ -63,7 +63,7 @@ pub(crate) fn create_zeros_slot<S>(
     primary: Tensor,
     name: S,
     colocate_with_primary: bool,
-) -> Result<Variable, ::Error>
+) -> Result<Variable>
 where
     S: AsRef<str>,
 {

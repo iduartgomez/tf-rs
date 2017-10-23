@@ -4,7 +4,7 @@ use super::*;
 
 ///// Add /////
 
-pub fn add<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn add<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -41,7 +41,7 @@ fn test_add() {
 
 ///// AddN /////
 
-pub fn add_n<S>(context: &mut Scope, values: Vec<Tensor>, name: S) -> Result<Tensor, ::Error>
+pub fn add_n<S>(context: &mut Scope, values: Vec<Tensor>, name: S) -> Result<Tensor>
 where
     S: AsRef<Path>,
 {
@@ -50,11 +50,11 @@ where
 
 add_new_op!(AddN,
     constructor: [
-        fn new<S: AsRef<Path>>(values: Vec<Tensor>, name: S) -> Result<AddN<'a>, ::Error> {
+        fn new<S: AsRef<Path>>(values: Vec<Tensor>, name: S) -> Result<AddN<'a>> {
             let output_type = values[0].dtype;
             for x in &values {
                 if &x.dtype != &output_type {
-                    return Err(::Error::Stub);
+                    return Err(Error::from(ErrorKind::Stub));
                 }
             }
 
@@ -95,7 +95,7 @@ pub fn cast<Tx, S>(
     tensor: Tx,
     ty: DataType,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -103,7 +103,7 @@ where
     context.install(Cast::new(tensor.into(), &[ty], name)?)
 }
 
-pub fn to_float<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn to_float<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -113,10 +113,10 @@ where
 
 add_new_op!(Cast, 
     constructor: [
-        fn new<S: AsRef<Path>>(x: Tensor, dst_type: &'a [DataType], name: S) -> Result<Cast<'a>, ::Error> {
+        fn new<S: AsRef<Path>>(x: Tensor, dst_type: &'a [DataType], name: S) -> Result<Cast<'a>> {
             if &x.dtype == &dst_type[0] {
                 // trivial cast
-                return Err(::Error::Stub);
+                return Err(Error::from(ErrorKind::Stub));
             }
             Ok(
                 Cast {
@@ -172,7 +172,7 @@ fn test_cast() {
 ///    A `Tensor` that is the conjugate of `x` (with the same type).
 ///
 ///    Error: If `x` is not a numeric tensor.
-pub fn conj<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn conj<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -184,7 +184,7 @@ where
     } else if x.dtype.is_floating() || x.dtype.is_integer() {
         Ok(x)
     } else {
-        Err(::Error::Msg(
+        Err(Error::from(
             format!("Expected numeric tensor, got dtype {:?}", x.dtype),
         ))
     }
@@ -201,7 +201,7 @@ add_new_op!(Conj,
 
 ///// Division /////
 
-pub fn divide<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn divide<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -232,7 +232,7 @@ fn test_divide() {
 
 ///// Equal /////
 
-pub fn equal<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn equal<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -267,7 +267,7 @@ fn test_equal() {
 
 ///// Exp /////
 
-pub fn exp<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn exp<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -298,7 +298,7 @@ fn test_exp() {
 
 ///// Greater /////
 
-pub fn greater<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn greater<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -423,7 +423,7 @@ pub fn matmul<Tx, Ty, S>(
     a_is_sparse: bool,
     b_is_sparse: bool,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -431,13 +431,13 @@ where
 {
     let scope = &mut context.name_scope(name.as_ref(), Some("MatMul".as_ref()));
     if transpose_a && adjoint_a {
-        return Err(::Error::Msg(
+        return Err(Error::from(
             "Only one of transpose_a and adjoint_a can be True."
                 .to_owned(),
         ));
     }
     if transpose_b && adjoint_b {
-        return Err(::Error::Msg(
+        return Err(Error::from(
             "Only one of transpose_b and adjoint_b can be True."
                 .to_owned(),
         ));
@@ -502,7 +502,7 @@ where
         )
     } else {
         if a.dtype != b.dtype {
-            return Err(::Error::Msg(
+            return Err(Error::from(
                 "Matrix a and matrix b must be of the same type.".to_owned(),
             ));
         }
@@ -587,7 +587,7 @@ add_new_op!(SparseMatMul,
 
 ///// Multiply /////
 
-pub fn multiply<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn multiply<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -618,7 +618,7 @@ fn test_multiply() {
 
 ///// Less /////
 
-pub fn less<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn less<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -653,7 +653,7 @@ fn test_less() {
 
 ///// Log /////
 
-pub fn log<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn log<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -684,14 +684,14 @@ fn test_log() {
 
 ///// Logical Not /////
 
-pub fn logical_not<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn logical_not<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
 {
     let tensor = tensor.into();
     if tensor.dtype != DataType::Bool {
-        return Err(::Error::Stub);
+        return Err(Error::from(ErrorKind::Stub));
     }
     context.install(LogicalNot::new(tensor, name)?)
 }
@@ -737,7 +737,7 @@ fn test_logical_not() {
 ///
 /// Returns:
 ///     A `Tensor`. Has the same type as `x`.
-pub fn pow<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn pow<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -774,7 +774,7 @@ pub fn reduce_all<Tx, S>(
     axis: &[i32],
     keep_dims: bool,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -791,11 +791,11 @@ where
 
 add_new_op!(All, 
     constructor: [
-        fn new<S: AsRef<Path>>(input: Tensor, axis: Tensor, name: S) -> Result<All<'a>, ::Error> {
+        fn new<S: AsRef<Path>>(input: Tensor, axis: Tensor, name: S) -> Result<All<'a>> {
             if input.dtype != DataType::Bool ||
                (axis.dtype != DataType::Int32 &&
                 axis.dtype != DataType::Int64) {
-                return Err(::Error::Stub);
+                return Err(Error::from(ErrorKind::Stub));
             }
             Ok(
                 All {
@@ -851,7 +851,7 @@ pub fn reduce_logsumexp<TeS, Tx, S>(
     axis: &[TeS],
     keep_dims: bool,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -911,7 +911,7 @@ pub fn reduce_sum<TeS, Tx, S>(
     axis: &[TeS],
     keep_dims: bool,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -929,10 +929,10 @@ where
 
 add_new_op!(Sum, 
     constructor: [
-        fn new<S: AsRef<Path>>(input: Tensor, axis: Tensor, name: S) -> Result<Sum<'a>, ::Error> {
+        fn new<S: AsRef<Path>>(input: Tensor, axis: Tensor, name: S) -> Result<Sum<'a>> {
             if axis.dtype != DataType::Int32 &&
                axis.dtype != DataType::Int64 {
-                return Err(::Error::Stub);
+                return Err(Error::from(ErrorKind::Stub));
             }
             Ok(
                 Sum {
@@ -1015,7 +1015,7 @@ pub fn range<Ts, Tl, Td, S>(
     limit: Tl,
     delta: Td,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Ts: TensorOps,
     Tl: TensorOps,
@@ -1032,7 +1032,7 @@ where
 add_new_op!(Range,
     constructor: [
         fn new<S: AsRef<Path>>(start: Tensor, limit: Tensor, delta: Tensor, name: S) 
-            -> Result<Range<'a>, ::Error> 
+            -> Result<Range<'a>> 
         {
             Ok(
                 Range {
@@ -1060,7 +1060,7 @@ pub fn reduce_max<TeS, Tx, S>(
     axis: &[TeS],
     keep_dims: bool,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -1078,10 +1078,10 @@ where
 
 add_new_op!(Max, 
     constructor: [
-        fn new<S: AsRef<Path>>(input: Tensor, axis: Tensor, name: S) -> Result<Max<'a>, ::Error> {
+        fn new<S: AsRef<Path>>(input: Tensor, axis: Tensor, name: S) -> Result<Max<'a>> {
             if axis.dtype != DataType::Int32 &&
                axis.dtype != DataType::Int64 {
-                return Err(::Error::Stub);
+                return Err(Error::from(ErrorKind::Stub));
             }
             Ok(
                 Max {
@@ -1131,7 +1131,7 @@ fn test_reduce_max() {
 ///  Returns:
 ///    A Tensor respectively with the same type as `x` if
 ///    `x.dtype != qint32` otherwise the return type is `quint8`.
-pub fn tanh<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn tanh<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -1163,7 +1163,7 @@ add_new_op!(Tanh,
 ///
 /// Returns:
 ///     A `Tensor`. Has the same type as `x`.
-pub fn minimum<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn minimum<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -1195,7 +1195,7 @@ fn test_minimum() {
 
 ///// Stop Gradient /////
 
-pub fn stop_gradient<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn stop_gradient<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -1216,7 +1216,7 @@ add_new_op!(StopGradient,
 
 ///// Sub /////
 
-pub fn sub<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn sub<Tx, Ty, S>(context: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: TensorOps,
     Ty: TensorOps,
@@ -1268,7 +1268,7 @@ pub fn unsorted_segment_sum<Tx, Ty, Tz, S>(
     segment_ids: Ty,
     num_segments: Tz,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -1289,7 +1289,7 @@ add_new_op!(UnsortedSegmentSum,
             data: Tensor, 
             segment_ids: Tensor, 
             num_segments: Tensor, name: S
-        ) -> Result<UnsortedSegmentSum<'a>, ::Error> {
+        ) -> Result<UnsortedSegmentSum<'a>> {
             let output_type = data.dtype;
             Ok(
                 UnsortedSegmentSum {

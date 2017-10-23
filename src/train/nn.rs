@@ -8,13 +8,13 @@ pub fn in_top_k<C, Tx, Ty>(context: &mut C,
                             predictions: Tx,
                             targets: Ty,
                             k: u32)
-                            -> Result<Tensor, ::Error>
+                            -> Result<Tensor>
     where Tx: Into<Tensor>,
             Ty: Into<Tensor>
 {
 }
 
-pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor, ::Error>
+pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor>
     where Tx: Into<Tensor>
 {
 }
@@ -22,7 +22,7 @@ pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor, ::Error>
 pub fn sparse_softmax_cross_entropy_with_logits<C, Tx, Ty>(context: &mut C,
                                                             tensor: Tx,
                                                             logits: Ty)
-                                                            -> Result<Tensor, ::Error>
+                                                            -> Result<Tensor>
     where Tx: Into<Tensor>,
             Ty: Into<Tensor>
 {
@@ -55,7 +55,7 @@ pub fn bias_add<Tx, B, S>(
     bias: B,
     data_format: Option<&str>,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     B: Into<Tensor>,
@@ -109,7 +109,7 @@ pub fn log_softmax<L, S, TeS>(
     logits: L,
     dim: TeS,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     L: Into<Tensor>,
     S: AsRef<Path>,
@@ -139,7 +139,7 @@ add_new_op!(LogSoftmax,
 ///
 ///  Returns:
 ///    A `Tensor`. Has the same type as `features`.
-pub fn relu<F, S>(scope: &mut Scope, features: F, name: S) -> Result<Tensor, ::Error>
+pub fn relu<F, S>(scope: &mut Scope, features: F, name: S) -> Result<Tensor>
 where
     F: Into<Tensor>,
     S: AsRef<Path>,
@@ -180,7 +180,7 @@ pub fn softmax<L, S, TeS>(
     logits: L,
     dim: TeS,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     L: Into<Tensor>,
     S: AsRef<Path>,
@@ -224,7 +224,7 @@ fn softmax_helper(
     is_log_softmax: bool,
     dim: i32,
     name: &Path,
-) -> Result<Tensor, ::Error> {
+) -> Result<Tensor> {
 
     fn swap_axis(
         scope: &mut Scope,
@@ -232,7 +232,7 @@ fn softmax_helper(
         dim_index: i32,
         last_index: Tensor,
         name: &Path,
-    ) -> Result<Tensor, ::Error> {
+    ) -> Result<Tensor> {
         let r0 = ops::range(scope, 0_i32, dim_index, 1_i32, name)?;
         let r1 = ops::range(scope, 0_i32, dim_index + 1, 1_i32, name)?;
         let r2 = Constant::new(scope, &[dim_index], &[] as &[i32]).into();
@@ -245,7 +245,7 @@ fn softmax_helper(
     let ndims = if let Some(n) = shape.dims() {
         n as i32
     } else {
-        return Err(::Error::Msg("shape of logits tensor must be defined for softmax operation.".to_owned(),),);
+        return Err(Error::from("shape of logits tensor must be defined for softmax operation."));
     };
     let is_last_dim = dim == -1 || dim == ndims - 1;
     if (ndims == 2) && is_last_dim {
@@ -289,7 +289,7 @@ fn softmax_helper(
 }
 
 /// Flattens logits' outer dimensions and keep its last dimension.
-fn flatten_outer_dims(scope: &mut Scope, logits: Tensor) -> Result<Tensor, ::Error> {
+fn flatten_outer_dims(scope: &mut Scope, logits: Tensor) -> Result<Tensor> {
     let r = array_ops::rank(scope, logits, "")?;
     let last_dim_size = {
         let s0 = array_ops::shape(scope, logits, None, "")?;

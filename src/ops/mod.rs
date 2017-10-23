@@ -4,7 +4,9 @@ use std::path::{Path, PathBuf};
 
 use tf::TensorType;
 
-use super::{DataType, Graph, OperationData, Output, Status, TypedTensor};
+use super::{DataType, Graph, OperationData, Output, TypedTensor};
+use errors::*;
+
 pub use super::framework::*;
 pub(crate) use self::dtype_traits::*;
 
@@ -126,7 +128,7 @@ macro_rules! add_new_op {
     };
     // Generic constructor for unary ops.
     (UNARY CONSTRUCTOR: $name:ident, Init: [$($attr_name:ident: $attr_init:expr),*]) => {
-        fn new<S: AsRef<Path>>(x: Tensor, name: S) -> Result<$name<'a>, ::Error> {
+        fn new<S: AsRef<Path>>(x: Tensor, name: S) -> Result<$name<'a>> {
             Ok(
                 $name {
                     ident: NodeIdent::new(),
@@ -141,7 +143,7 @@ macro_rules! add_new_op {
     };
     // Generic constructor for binary ops.
     (BIN CONSTRUCTOR: $name:ident, Init: [$($attr_name:ident: $attr_init:expr),*]) => {
-        fn new<S: AsRef<Path>>(x: Tensor, y: Tensor, name: S) -> Result<$name<'a>, ::Error> {
+        fn new<S: AsRef<Path>>(x: Tensor, y: Tensor, name: S) -> Result<$name<'a>> {
             Ok(
                 $name {
                     ident: NodeIdent::new(),
@@ -162,7 +164,7 @@ macro_rules! add_new_op {
             self,
             context: &mut Scope,
             op: OperationData,
-        ) -> Result<Self::Outputs, ::Error> {
+        ) -> Result<Self::Outputs> {
             let (ident, idtype, dtype) = add_new_op!(
                 REGISTER_TENSOR: (self, context, op); $name, $infer_dtype);
             let tensor = Tensor {

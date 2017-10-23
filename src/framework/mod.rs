@@ -7,6 +7,7 @@ use uuid;
 use tf::TensorType;
 
 use super::{DataType, OperationData, OperationDescription, Shape, TypedTensor};
+use errors::*;
 
 // Macros:
 
@@ -61,7 +62,7 @@ where
     fn fetch_attributes<'s>(&'s self) -> &'s [(&str, bool, Attribute<'a>)];
     #[doc(hidden)]
     /// Consumes self and returns output. Used when installing the op into the context.
-    fn digest(self, context: &mut Scope, op: OperationData) -> Result<Self::Outputs, ::Error>;
+    fn digest(self, context: &mut Scope, op: OperationData) -> Result<Self::Outputs>;
 }
 
 pub(crate) fn add_control_input<I, T>(op: &mut OperationDescription, control_inputs: I)
@@ -156,7 +157,7 @@ pub struct Tensor {
 }
 
 impl Tensor {
-    pub fn get_initializer(&self, context: &Scope) -> Result<Tensor, ::Error> {
+    pub fn get_initializer(&self, context: &Scope) -> Result<Tensor> {
         if let Some(ref initializer) = self.initializer {
             let registry = &*context.registry.borrow();
             let init_data = &registry[&initializer];
@@ -168,7 +169,7 @@ impl Tensor {
                 initializer: None,
             })
         } else {
-            Err(::Error::Stub)
+            Err(Error::from(ErrorKind::Stub))
         }
     }
 
@@ -183,13 +184,13 @@ impl Tensor {
         registry[&self.ident].shape.clone()
     }
 
-    pub fn set_shape(self, context: &mut Scope, shape: Shape) -> Result<Tensor, ::Error> {
+    pub fn set_shape(self, context: &mut Scope, shape: Shape) -> Result<Tensor> {
         use framework::DefinedShape;
         if let Some(definition) = shape.definition_i64() {
             let shape = context.constant(&definition, &[definition.len() as i64], "")?;
             ::ops::array_ops::reshape(context, self, shape, "")
         } else {
-            Err(::Error::Stub)
+            Err(Error::from(ErrorKind::Stub))
         }
     }
 
@@ -202,7 +203,7 @@ impl Tensor {
     }
 
     #[doc(hidden)]
-    pub fn write(&mut self, context: &mut Scope, tensor: Tensor) -> Result<(), ::Error> {
+    pub fn write(&mut self, context: &mut Scope, tensor: Tensor) -> Result<()> {
         unimplemented!()
     }
 }
@@ -334,7 +335,7 @@ impl Variable {
     }
 
     /// Returns a Variable type if the Tensor is indeed a Variable, error otherwise.
-    pub fn from_tensor(scope: &Scope, tensor: &Tensor) -> Result<Variable, ::Error> {
+    pub fn from_tensor(scope: &Scope, tensor: &Tensor) -> Result<Variable> {
         let registry = &*scope.registry.borrow();
         let tensor_data = &registry[&tensor.ident];
         if let Some(initializer) = tensor.initializer {
@@ -345,7 +346,7 @@ impl Variable {
                 idx: tensor.idx,
             })
         } else {
-            Err(::Error::Stub)
+            Err(Error::from(ErrorKind::Stub))
         }
     }
 }
@@ -530,7 +531,7 @@ impl TensorContent {
         new_op: &mut OperationDescription,
         name: &str,
         val: &[TensorContent],
-    ) -> Result<(), ::Error> {
+    ) -> Result<()> {
         match val[0].get_datatype() {
             DataType::Bool => new_op.set_attr_tensor_list(name, collect_bool_tensor(val))?,
             DataType::Double => new_op.set_attr_tensor_list(name, collect_double_tensor(val))?,
@@ -552,7 +553,7 @@ impl TensorContent {
             DataType::Complex128 => {
                 new_op.set_attr_tensor_list(name, collect_complex128_tensor(val))?
             }
-            _ => return Err(::Error::Stub),
+            _ => return Err(Error::from(ErrorKind::Stub)),
         }
         Ok(())
     }
@@ -561,7 +562,7 @@ impl TensorContent {
         new_op: &mut OperationDescription,
         name: &str,
         val: &[TensorContent],
-    ) -> Result<(), ::Error> {
+    ) -> Result<()> {
         match val[0].get_datatype() {
             DataType::Bool => {
                 new_op.set_attr_tensor(name, collect_bool_tensor(val).pop().unwrap())?
@@ -607,7 +608,7 @@ impl TensorContent {
             DataType::Complex128 => {
                 new_op.set_attr_tensor(name, collect_complex128_tensor(val).pop().unwrap())?
             }
-            _ => return Err(::Error::Stub),
+            _ => return Err(Error::from(ErrorKind::Stub)),
         }
         Ok(())
     }

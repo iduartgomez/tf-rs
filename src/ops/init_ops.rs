@@ -1,11 +1,12 @@
 use super::*;
+
 use tf::Shape;
 
 pub fn constant_initializer<TeS, T>(
     context: &mut Scope,
     value: T,
     shape: &[TeS],
-) -> Result<Constant, ::Error>
+) -> Result<Constant>
 where
     T: TensorType,
     TeS: ShapeSize,
@@ -34,7 +35,7 @@ pub fn random_normal_initializer<TeS, F>(
     stddev: F,
     seed: Option<i32>,
     shape: &[TeS],
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     F: Float,
     TeS: ShapeSize,
@@ -127,7 +128,7 @@ pub fn zeros_initializer<'a, TeS>(
     context: &mut Scope,
     shape: &'a [TeS],
     dtype: DataType,
-) -> Result<Constant, ::Error>
+) -> Result<Constant>
 where
     TeS: ShapeSize + ::std::iter::Product<&'a TeS>,
 {
@@ -199,7 +200,7 @@ where
             let vals = vec![::Complex64::new(0., 0.); elem_num];
             context.constant(&vals, shape, "")
         }
-        _ => Err(::Error::Stub),
+        _ => Err(Error::from(ErrorKind::Stub)),
     }
 }
 
@@ -214,7 +215,7 @@ pub(crate) fn variable_<'a, I>(
     dtype: DataType,
     shape: &Shape,
     control_inputs: I,
-) -> Result<OperationData, Status>
+) -> Result<OperationData>
 where
     I: IntoIterator<Item = &'a OperationData>,
 {
@@ -222,7 +223,7 @@ where
     var.set_attr_type("dtype", dtype)?;
     var.set_attr_shape("shape", shape)?;
     super::add_control_input(&mut var, control_inputs);
-    var.finish()
+    Ok(var.finish()?)
 }
 
 /// The inputs are a handle to the underlying tensor and the data source operation.
@@ -232,7 +233,7 @@ pub(crate) fn assign_(
     reference: OperationData,
     data: (OperationData, i32),
     validate_shape: bool,
-) -> Result<OperationData, Status> {
+) -> Result<OperationData> {
     let mut var = graph.new_operation("Assign", name)?;
     var.set_attr_bool("validate_shape", validate_shape)?;
     var.add_input(Output {
@@ -243,5 +244,5 @@ pub(crate) fn assign_(
         operation: data.0,
         index: data.1,
     });
-    var.finish()
+    Ok(var.finish()?)
 }

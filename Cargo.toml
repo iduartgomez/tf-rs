@@ -7,3 +7,4 @@ authors = ["Ignacio Duart <iduart@gmail.com>"]
 tensorflow = { version = "0.6.0", git = "https://github.com/tensorflow/rust" }
 uuid = { version = "0.4", features = ["v4"] }
 num-complex = { version = "0.1.40", default-features = false }
+error-chain = "0.11.0"

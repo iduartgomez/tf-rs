@@ -11,7 +11,7 @@ pub fn concat<S, TeS>(
     values: Vec<Tensor>,
     axis: TeS,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     S: AsRef<Path>,
     TeS: ShapeSize,
@@ -24,11 +24,11 @@ type Concat<'a> = ConcatV2<'a>;
 
 add_new_op!(ConcatV2, 
     constructor: [
-        fn new<S: AsRef<Path>>(values: Vec<Tensor>, axis: Tensor, name: S,) -> Result<Concat<'a>, ::Error> {
+        fn new<S: AsRef<Path>>(values: Vec<Tensor>, axis: Tensor, name: S,) -> Result<Concat<'a>> {
             let output_type = values[0].dtype;
             for x in &values {
                 if &x.dtype != &output_type {
-                    return Err(::Error::Stub);
+                    return Err(Error::from(ErrorKind::Stub));
                 }
             }
 
@@ -127,7 +127,7 @@ pub fn expand_dims<Tx, S, TeS>(
     tensor: Tx,
     axis: TeS,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -148,7 +148,7 @@ add_new_op!(ExpandDims,
 
 ///// Fill /////
 
-pub fn fill<Tx, Ty, S>(context: &mut Scope, dims: Tx, value: Ty, name: S) -> Result<Tensor, ::Error>
+pub fn fill<Tx, Ty, S>(context: &mut Scope, dims: Tx, value: Ty, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: TensorType,
@@ -174,7 +174,7 @@ pub fn gather<Tx, Ty, S>(
     params: Tx,
     indices: Ty,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: Into<Tensor>,
@@ -182,7 +182,7 @@ where
 {
     let indices = indices.into();
     if indices.dtype != DataType::Int32 && indices.dtype != DataType::Int64 {
-        return Err(::Error::Stub);
+        return Err(Error::from(ErrorKind::Stub));
     }
     context.install(Gather::new(params.into(), indices, name)?)
 }
@@ -231,7 +231,7 @@ fn test_gather() {
 ///
 ///  Returns:
 ///    A `Tensor` of type `int32`.
-pub fn rank<Tx, S>(context: &mut Scope, input_tensor: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn rank<Tx, S>(context: &mut Scope, input_tensor: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -264,7 +264,7 @@ pub fn reshape<Tx, Ty, S>(
     tensor: Tx,
     shape: Ty,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Ty: TensorOps,
@@ -322,7 +322,7 @@ pub fn shape<Tx, S>(
     tensor: Tx,
     out_type: Option<DataType>,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -341,18 +341,18 @@ where
 add_new_op!(Shape,
     constructor: [
         fn new<S: AsRef<Path>>(tensor: Tensor, output_type: &'a [DataType], name: S) 
-            -> Result<Shape<'a>, ::Error> 
+            -> Result<Shape<'a>> 
         {
             let out;
             let attributes = if let Some(dtype) = output_type.get(0) {
                 match *dtype {
                     DataType::Int64 => out = DataType::Int64,
                     DataType::Int32 => out = DataType::Int32,
-                    _ => return Err(::Error::Stub),
+                    _ => return Err(Error::from(ErrorKind::Stub)),
                 }
                 vec![("out_type", false, Attribute::Type(output_type))]
             } else if output_type.len() > 0 {
-                return Err(::Error::Stub);
+                return Err(Error::from(ErrorKind::Stub));
             } else {
                 out = DataType::Int32;
                 Vec::with_capacity(0)
@@ -390,7 +390,7 @@ fn test_shape() {
 
 ///// Size /////
 
-pub fn size<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor, ::Error>
+pub fn size<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -424,7 +424,7 @@ pub fn squeeze<TeS, Tx, S>(
     tensor: Tx,
     axis: Option<&[TeS]>,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     S: AsRef<Path>,
@@ -506,7 +506,7 @@ pub fn slice<Tx, Tb, Ts, S>(
     begin: Tb,
     size: Ts,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Tb: TensorOps,
@@ -522,7 +522,7 @@ where
 add_new_op!(Slice,
     constructor: [
         fn new<S: AsRef<Path>>(input: Tensor, begin: Tensor, size: Tensor, name: S) 
-            -> Result<Slice<'a>, ::Error> 
+            -> Result<Slice<'a>> 
         {
             Ok(
                 Slice {
@@ -592,7 +592,7 @@ pub fn transpose<S, TeS, Tx>(
     a: Tx,
     perm: Option<TeS>,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     TeS: TensorOps,
@@ -636,17 +636,17 @@ pub fn where_cond<Tc, S>(
     x: Option<Tensor>,
     y: Option<Tensor>,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     Tc: Into<Tensor>,
     S: AsRef<Path>,
 {
     let cond = cond.into();
     if cond.dtype != DataType::Bool {
-        return Err(::Error::Stub);
+        return Err(Error::from(ErrorKind::Stub));
     }
     if (x.is_none() && y.is_some()) || (x.is_some() && y.is_none()) {
-        return Err(::Error::Stub);
+        return Err(Error::from(ErrorKind::Stub));
     } else if x.is_some() || y.is_some() {
         unimplemented!()
     } else {
@@ -676,7 +676,7 @@ pub fn zeros<S, TeS>(
     shape: TeS,
     dtype: DataType,
     name: S,
-) -> Result<Tensor, ::Error>
+) -> Result<Tensor>
 where
     S: AsRef<Path>,
     TeS: Into<Tensor>,
@@ -698,7 +698,7 @@ where
         DataType::BFloat16 => context.constant(&[::BFloat16::from(0.)], &[] as &[i32], "")?,
         DataType::Complex64 => context.constant(&[::Complex32::new(0., 0.)], &[] as &[i32], "")?, 
         DataType::Complex128 => context.constant(&[::Complex64::new(0., 0.)], &[] as &[i32], "")?,
-        _ => return Err(::Error::Stub),
+        _ => return Err(Error::from(ErrorKind::Stub)),
     };
     context.install(Fill::new(shape.into(), zero.into(), name)?)
 }
@@ -711,7 +711,7 @@ pub(crate) fn constant<'a, T, I>(
     name: &str,
     value: TypedTensor<T>,
     control_inputs: I,
-) -> Result<OperationData, Status>
+) -> Result<OperationData>
 where
     T: TensorType,
     I: IntoIterator<Item = &'a OperationData>,
@@ -720,7 +720,7 @@ where
     c.set_attr_tensor("value", value)?;
     c.set_attr_type("dtype", T::data_type())?;
     ::framework::add_control_input(&mut c, control_inputs);
-    c.finish()
+    Ok(c.finish()?)
 }
 
 pub(crate) fn identity<'a, I>(
@@ -728,7 +728,7 @@ pub(crate) fn identity<'a, I>(
     name: &str,
     input: (OperationData, i32),
     control_inputs: I,
-) -> Result<OperationData, Status>
+) -> Result<OperationData>
 where
     I: IntoIterator<Item = &'a OperationData>,
 {
@@ -738,15 +738,15 @@ where
         index: input.1,
     });
     super::add_control_input(&mut copy, control_inputs);
-    copy.finish()
+    Ok(copy.finish()?)
 }
 
 pub(crate) fn placeholder(
     graph: &mut Graph,
     name: &str,
     dtype: DataType,
-) -> Result<OperationData, Status> {
+) -> Result<OperationData> {
     let mut p = graph.new_operation("Placeholder", name)?;
     p.set_attr_type("dtype", dtype)?;
-    p.finish()
+    Ok(p.finish()?)
 }
