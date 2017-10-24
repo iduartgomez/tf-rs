@@ -1,8 +1,0 @@
-array_layout = "Block"
-fn_call_style = "Block"
-fn_args_layout = "Block"
-reorder_imported_names = true
-chain_split_single_child = false
-chain_one_line_max = 90
-where_style = "Rfc"
-control_style = "Rfc"

@@ -2,3 +2,4 @@
 *.log
 Cargo.lock
 target
+docs/book

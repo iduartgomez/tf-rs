@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["client","Types to perform computation sessions and graph evaluations."],["ops","Additional ops and models ported from TensorFlow Python lib."],["prelude",""],["train","Support for training models."]],"type":[["OperationData",""],["TypedTensor",""]]});

@@ -1,0 +1,242 @@
+<!DOCTYPE HTML>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title></title>
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <base href="">
+
+        <link rel="stylesheet" href="book.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <link rel="shortcut icon" href="favicon.png">
+
+        <!-- Font Awesome -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme -->
+        
+
+        
+
+        <!-- Fetch Clipboard.js from CDN but have a local fallback -->
+        <script src="https://cdn.jsdelivr.net/clipboard.js/1.6.1/clipboard.min.js"></script>
+        <script>
+            if (typeof Clipboard == 'undefined') {
+                document.write(unescape("%3Cscript src='clipboard.min.js'%3E%3C/script%3E"));
+            }
+        </script>
+
+        <!-- Fetch JQuery from CDN but have a local fallback -->
+        <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+        <script>
+            if (typeof jQuery == 'undefined') {
+                document.write(unescape("%3Cscript src='jquery.js'%3E%3C/script%3E"));
+            }
+        </script>
+
+        <!-- Fetch store.js from local - TODO add CDN when 2.x.x is available on cdnjs -->
+        <script src="store.js"></script>
+
+        <!-- Custom JS script -->
+        
+
+    </head>
+    <body class="light">
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme = store.get('mdbook-theme');
+            if (theme === null || theme === undefined) { theme = 'light'; }
+            $('body').removeClass().addClass(theme);
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var sidebar = store.get('mdbook-sidebar');
+            if (sidebar === "hidden") { $("html").addClass("sidebar-hidden") }
+            else if (sidebar === "visible") { $("html").addClass("sidebar-visible") }
+        </script>
+
+        <div id="sidebar" class="sidebar">
+            <ul class="chapter"><li><a href="./introduction.html"><strong>1.</strong> Introduction</a></li><li><a href="./guide-0.html"><strong>2.</strong> Getting started</a></li></ul>
+        </div>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page" tabindex="-1">
+                <div id="menu-bar" class="menu-bar">
+                    <div class="left-buttons">
+                        <i id="sidebar-toggle" class="fa fa-bars"></i>
+                        <i id="theme-toggle" class="fa fa-paint-brush"></i>
+                    </div>
+
+                    <h1 class="menu-title"></h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html">
+                            <i id="print-button" class="fa fa-print" title="Print this book"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div id="content" class="content">
+                    <a class="header" href="print.html#introduction" id="introduction"><h1>Introduction</h1></a>
+<p><code>tf-rs</code> is a library built on top of the TensorFlow C API that allows the composition and computation of data flow graphs.</p>
+<p>Documentation for the API can be found <a href="../doc/tf_rs/index.html">here</a>.</p>
+<a class="header" href="print.html#tensorflow" id="tensorflow"><h2>TensorFlow</h2></a>
+<p>TensorFlow™ is an open source software library for numerical computation using data flow graphs. To use <code>tf-rs</code> familiarity with the TensorFlow framework is required. Visit the <a href="https://www.tensorflow.org/">official website</a> for more information.</p>
+<a class="header" href="print.html#c-api" id="c-api"><h2>C API</h2></a>
+<p>For maximum compatibility and to avoid fragmentation and redundancy, the low level interaction is done through the <em>&quot;unoffficial-official&quot;</em> bindings, located at the <a href="https://github.com/tensorflow/rust">tensorflow/rust</a> repository. In order to use this library you must be able to build/install the requeriments.</p>
+<a class="header" href="print.html#getting-started" id="getting-started"><h1>Getting started</h1></a>
+<p>The API is designed to be simple and concise: graph operations are expressed using a &quot;functional&quot; construction style, including easy specification of names, etc., and the resulting graph can be efficiently run and the desired outputs fetched in a few lines of code. This guide explains the basic concepts and data structures needed to get started with TensorFlow graph construction and execution in Rust. This guide was &quot;translated&quot; from the original C++ guide.</p>
+<a class="header" href="print.html#the-basics" id="the-basics"><h2>The Basics</h2></a>
+<p>Let's start with a simple example that illustrates graph construction and execution using the Rust API.</p>
+<pre><code class="language-Rust">// examples/guide_0_0.rs
+extern crate tf_rs as tf;
+
+use tf::prelude::*;
+
+fn main() {
+    let root = &amp;mut Scope::new();
+    // Matrix A = [3, 2; -1, 0]
+    let A = Constant::new(root, &amp;[3.0_f32, 2., -1., 0.], &amp;[2, 2]);
+    // Vector b = [3, 5; 0, 0]
+    let b = Constant::new(root, &amp;[3.0_f32, 5., 0., 0.], &amp;[2, 2]);
+    // v = Ab^T
+    let v =  ops::matmul(
+            root, A, b, 
+            false, true, false, false, false, false, &quot;v&quot;)
+        .unwrap();
+
+    let outputs = {
+        let mut session = ClientSession::new(root).unwrap();
+        // Run and fetch v
+        session.fetch(&amp;[v]).run(None).unwrap()
+    };
+    let values = match outputs[0] {
+        TensorContent::Float(ref tensor) =&gt; {
+            tensor.iter().cloned().collect::&lt;Vec&lt;_&gt;&gt;()
+        }       
+        _ =&gt; panic!() 
+    };
+    println!(&quot;values: {:?}&quot;, &amp;values); // expect [19, 0; -3, 0]
+    ::std::process::exit(0)
+}
+</code></pre>
+<p>Build a cargo binary project and write this code in the main file. You should be able to run it using <code>cargo run</code>.</p>
+<p>This example shows some of the important features of the Rust API such as the following:</p>
+<ul>
+<li>Constructing tensor constants from a slice of values and a shape</li>
+<li>Constructing and naming of TensorFlow operations</li>
+<li>Executing and fetching the tensor values from the TensorFlow session.</li>
+</ul>
+<p>We will delve into the details of each below.</p>
+<a class="header" href="print.html#graph-construction" id="graph-construction"><h2>Graph Construction</h2></a>
+<a class="header" href="print.html#scope" id="scope"><h3>Scope</h3></a>
+<p>tensorflow::Scope is the main data structure that holds the current state of graph construction. A Scope acts as a handle to the graph being constructed, as well as storing TensorFlow operation properties. The Scope object is the first argument to operation constructors, and operations that use a given Scope as their first argument inherit that Scope's properties, such as a common name prefix. Multiple Scopes can refer to the same graph, as explained further below.</p>
+<p>Create a new Scope object by calling the Scope constructor <code>Scope::new</code>. This creates some resources such as a graph to which operations are added. It also creates a tensorflow::Status object which will be used to indicate errors encountered when constructing operations.</p>
+<p>The Scope object returned by Scope::new is referred to as the root scope. &quot;Child&quot; scopes can be constructed from the root scope by calling various methods of the Scope type, thus forming a hierarchy of scopes. A child scope inherits all of the properties of the parent scope and typically has one property added or changed. For instance, <code>scope.name_scope(&quot;name&quot;, None)</code> appends name to the prefix of names for operations created using the returned Scope object.</p>
+<p>Here are some of the properties controlled by a Scope object:</p>
+<ul>
+<li>Operation names</li>
+<li>Set of control dependencies for an operation</li>
+<li>Create new variables, constants or placeholders under the current scope</li>
+<li><em>Device placement for an operation</em> (not implemented yet)</li>
+<li><em>Kernel attribute for an operation</em> (not implemented yet)</li>
+</ul>
+<p>Please refer to <a href="../doc/tf_rs/prelude/struct.Scope.html">Scope</a> for the complete list of member functions that let you create child scopes with new properties.</p>
+<a class="header" href="print.html#operation-constructors" id="operation-constructors"><h3>Operation Constructors</h3></a>
+<p>You can create graph operations with operation constructors, one function per TensorFlow operation.</p>
+<p>The first parameter for all operation constructors is always a Scope object. Each operation requires a number of Tensor inputs and mandatory attributes form the rest of the arguments.</p>
+<p>For optional arguments, constructors have an optional parameters that allows optional attributes.</p>
+<p>The arguments and return values of operations are handled in different ways depending on their type. They can be either a single Tensor, a tuple of tensors or a vector of tensors.</p>
+<a class="header" href="print.html#graph-execution" id="graph-execution"><h3>Graph Execution</h3></a>
+<p>When executing a graph, you will need a session. The C++ API provides a tensorflow::ClientSession class that will execute ops created by the operation constructors. TensorFlow will automatically determine which parts of the graph need to be executed, and what values need feeding. For example:</p>
+<pre><code class="language-Rust">let mut root = Scope::new();
+let a = Const(root, &amp;[1, 1], &amp;[2]);
+let b = Const(root, &amp;[2, 2], &amp;[2]);
+let add = ops::add(root, a, b, &quot;&quot;).unwrap();
+
+let mut session = ClientSession::new(root).unwrap();
+let outputs = session.fetch(&amp;[add]).run(None).unwrap();
+// outputs[0] == [3, 3]
+</code></pre>
+<p>Similarly, the object returned by the operation constructor can be used as the argument to specify a value being fed when executing the graph. Furthermore, the value to feed can be specified with the different kinds of Rust values used to specify tensor constants. For example:</p>
+<pre><code class="language-Rust">// examples/guide_0_1.rs
+let root = &amp;mut Scope::new();
+let a = root.placeholder(DataType::Int32);
+let b = Constant::new(root, &amp;[3, 3, 3, 3], &amp;[2, 2]);
+// [[3, 3], [3, 3]]
+let add = ops::add(root, a, b, &quot;&quot;).unwrap();
+
+let mut session = ClientSession::new(root).unwrap();
+// Feed a &lt;- [[1, 2], [3, 4]]
+let feed_a = {
+    let mut t = TypedTensor::&lt;i32&gt;::new(&amp;[2, 2]);
+    for (i, x) in [1, 2, 3, 4].iter().enumerate() {
+        t[i] = *x;
+    }
+    t
+};
+session.feed(vec![(a, vec![TensorContent::Int32(feed_a)])]);
+let outputs = session.fetch(&amp;[add]).run(None).unwrap();
+let values = match outputs[0] {
+    TensorContent::Int32(ref tensor) =&gt; {
+        tensor.iter().collect::&lt;Vec&lt;_&gt;&gt;()
+    }       
+    _ =&gt; panic!() 
+};
+println!(&quot;values: {:?}&quot;, &amp;values); // expect [[4, 5], [6, 7]]
+</code></pre>
+<p>Please see the <a href="../doc/tf_rs/prelude/enum.TensorContent.html">Tensor</a> documentation for more information on how to use the execution output.</p>
+
+                </div>
+
+                <!-- Mobile navigation buttons -->
+                
+
+                
+
+            </div>
+
+            
+
+            
+
+        </div>
+
+
+        <!-- Local fallback for Font Awesome -->
+        <script>
+            if ($(".fa").css("font-family") !== "FontAwesome") {
+                $('<link rel="stylesheet" type="text/css" href="_FontAwesome/css/font-awesome.css">').prependTo('head');
+            }
+        </script>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        
+
+        
+
+        
+
+        
+        <script>
+            $(document).ready(function() {
+                window.print();
+            })
+        </script>
+        
+
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+    </body>
+</html>
