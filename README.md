@@ -1,16 +1,14 @@
 # TensorFlow-RS
 
-High level (Pythonic) API for the TensorFlow framework.
-
-Under development, targetting master branch.
+High level (_Pythonic_) API for the TensorFlow framework.
 
 ## Documentation
 
 ### Getting started
-Read a quick guide on how to get started at: 
+Read a quick guide on how to get started [here](https://iduartgomez.github.io/tf-rs/book/index.html). 
 
 ### API Reference
-The last compiled docs can be found at: [](). Getting started.
+The last compiled docs for the API can be found [here](https://iduartgomez.github.io/tf-rs/doc/tf_rs/index.html).
 
 ## Contributting
 
