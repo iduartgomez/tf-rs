@@ -126,6 +126,18 @@ impl<'a> Operation<'a> for Assert<'a> {
 
 impl_into_ident!(Assert);
 
+/// Assert the condition `x == y` holds element-wise.
+/// 
+/// Example of adding a dependency to an operation:
+/// 
+/// ```code
+/// let assert = assert_equal(root, x, y, "")?;
+/// let scope = &mut root.control_dependencies(&[assert]);
+/// let output = reduce_sum(scope, x, &[1_i32], false, "")?;
+/// ```
+///
+/// This condition holds if for every pair of (possibly broadcast) elements `x[i]`, `y[i]`, 
+/// we have `x[i] == y[i]`. If both `x` and `y` are empty, this is trivially satisfied.
 pub fn assert_eq<'a, Tx, Ty, S>(
     context: &mut Scope,
     x: Tx,
@@ -158,6 +170,18 @@ where
     Ok(assert)
 }
 
+/// Assert the condition `x > y` holds element-wise.
+/// 
+/// Example of adding a dependency to an operation:
+/// 
+/// ```code
+/// let assert = assert_equal(root, x, y, "")?;
+/// let scope = &mut root.control_dependencies(&[assert]);
+/// let output = reduce_sum(scope, x, &[1_i32], false, "")?;
+/// ```
+///
+/// This condition holds if for every pair of (possibly broadcast) elements `x[i]`, `y[i]`, 
+/// we have `x[i] > y[i]`. If both `x` and `y` are empty, this is trivially satisfied.
 pub fn assert_greater<'a, Tx, Ty, S>(
     context: &mut Scope,
     x: Tx,

@@ -6,6 +6,10 @@ use super::*;
 
 ///// Assign /////
 
+/// Update 'ref' by assigning 'value' to it.
+///
+/// This operation outputs a Tensor that holds the new value of 'ref' after the value has been assigned. 
+/// This makes it easier to chain operations that need to use the reset value.
 pub fn assign<Tx, Ty, S>(
     context: &mut Scope,
     ref_tensor: Tx,

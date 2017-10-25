@@ -583,8 +583,8 @@ add_new_op!(Squeeze,
 ///
 ///  ### Args
 ///    * input: A `Tensor`.
-///    * begin: An `int32` or `int64` `Tensor`.
-///    * size: An `int32` or `int64` `Tensor`.
+///    * begin: An `int32` or `int64` tensor.
+///    * size: An `int32` or `int64` tensor.
 ///    * name: A name for the operation (optional).
 ///
 ///  ### Returns

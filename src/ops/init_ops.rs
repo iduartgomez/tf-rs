@@ -2,6 +2,15 @@ use super::*;
 
 use tf::Shape;
 
+/// Initializer that generates tensors with constant values.
+/// 
+/// The resulting tensor is populated with values of type dtype, as specified by arguments value 
+/// following the desired shape of the new tensor (see examples below).
+/// 
+/// ### Args
+/// * value: All elements of the initialized variable will be set to the corresponding value 
+///          in the value argument.
+/// * shape: Shape of the initializer.
 pub fn constant_initializer<TeS, T>(
     context: &mut Scope,
     value: T,
@@ -29,6 +38,14 @@ fn test_constant_initializer_explicit() {
     test_suite!(results; assert: {[0;Int32] == [3_i32, 3, 3, 3, 3, 3, 3, 3]});
 }
 
+/// Initializer that generates tensors with a normal distribution.
+///
+/// ### Args
+/// * mean: A scalar float. Mean of the random values to generate.
+/// * stddev: A scalar float. Standard deviation of the random values to generate.
+/// * seed: Optional value used to create random seeds. 
+///         See [set_random_seed](../prelude/struct.Scope.html#method.set_random_seed) for behavior.
+/// * shape: Shape of the initializer.  
 pub fn random_normal_initializer<TeS, F>(
     context: &mut Scope,
     mean: F,
@@ -67,20 +84,6 @@ where
     add(scope, mul, mean_tensor, "")
 }
 
-/// Outputs random values from a normal distribution.
-///
-/// The generated values will have mean 0 and standard deviation 1.
-///
-/// The generated values will have mean 0 and standard deviation 1.
-///
-/// shape: The shape of the output tensor.
-/// dtype: The type of the output.
-/// seed: If either `seed` or `seed2` are set to be non-zero, the random number
-///   generator is seeded by the given seed.  Otherwise, it is seeded by a
-///   random seed.
-/// seed2: A second seed to avoid seed collision.
-///
-/// output: A tensor of the specified shape filled with random normal values.
 add_new_op!(RandomStandardNormal,
     constructor: [add_new_op!(
         UNARY CONSTRUCTOR: RandomStandardNormal, Init: [output_type: DataType::Float]

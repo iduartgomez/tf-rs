@@ -86,8 +86,8 @@ When executing a graph, you will need a session. The C++ API provides a tensorfl
 
 ```Rust
 let mut root = Scope::new();
-let a = Const(root, &[1, 1], &[2]);
-let b = Const(root, &[2, 2], &[2]);
+let a = Constant::new(root, &[1, 1], &[2]);
+let b = Constant::new(root, &[2, 2], &[2]);
 let add = ops::add(root, a, b, "").unwrap();
 
 let mut session = ClientSession::new(root).unwrap();
@@ -102,7 +102,7 @@ Similarly, the object returned by the operation constructor can be used as the a
 let root = &mut Scope::new();
 let a = root.placeholder(DataType::Int32);
 let b = Constant::new(root, &[3, 3, 3, 3], &[2, 2]);
-// [[3, 3], [3, 3]]
+// b = [[3, 3], [3, 3]]
 let add = ops::add(root, a, b, "").unwrap();
 
 let mut session = ClientSession::new(root).unwrap();
