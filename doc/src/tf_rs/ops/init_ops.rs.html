@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/home/nacho/develop/workspace/tf-rs/src/ops/init_ops.rs`.">
+    <meta name="description" content="Source to the Rust file `src/ops/init_ops.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>init_ops.rs.html -- source</title>
@@ -291,11 +291,23 @@
 <span id="246">246</span>
 <span id="247">247</span>
 <span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
 </pre><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">use</span> <span class="ident">tf</span>::<span class="ident">Shape</span>;
 
+<span class="doccomment">/// Initializer that generates tensors with constant values.</span>
+<span class="doccomment">/// </span>
+<span class="doccomment">/// The resulting tensor is populated with values of type dtype, as specified by arguments value </span>
+<span class="doccomment">/// following the desired shape of the new tensor (see examples below).</span>
+<span class="doccomment">/// </span>
+<span class="doccomment">/// ### Args</span>
+<span class="doccomment">/// * value: All elements of the initialized variable will be set to the corresponding value </span>
+<span class="doccomment">///          in the value argument.</span>
+<span class="doccomment">/// * shape: Shape of the initializer.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">constant_initializer</span><span class="op">&lt;</span><span class="ident">TeS</span>, <span class="ident">T</span><span class="op">&gt;</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Scope</span>,
     <span class="ident">value</span>: <span class="ident">T</span>,
@@ -323,6 +335,14 @@
     <span class="macro">test_suite</span><span class="macro">!</span>(<span class="ident">results</span>; <span class="ident">assert</span>: {[<span class="number">0</span>;<span class="ident">Int32</span>] <span class="op">==</span> [<span class="number">3_i32</span>, <span class="number">3</span>, <span class="number">3</span>, <span class="number">3</span>, <span class="number">3</span>, <span class="number">3</span>, <span class="number">3</span>, <span class="number">3</span>]});
 }
 
+<span class="doccomment">/// Initializer that generates tensors with a normal distribution.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ### Args</span>
+<span class="doccomment">/// * mean: A scalar float. Mean of the random values to generate.</span>
+<span class="doccomment">/// * stddev: A scalar float. Standard deviation of the random values to generate.</span>
+<span class="doccomment">/// * seed: Optional value used to create random seeds. </span>
+<span class="doccomment">///         See [set_random_seed](../prelude/struct.Scope.html#method.set_random_seed) for behavior.</span>
+<span class="doccomment">/// * shape: Shape of the initializer.  </span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_normal_initializer</span><span class="op">&lt;</span><span class="ident">TeS</span>, <span class="ident">F</span><span class="op">&gt;</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Scope</span>,
     <span class="ident">mean</span>: <span class="ident">F</span>,
@@ -361,20 +381,6 @@
     <span class="ident">add</span>(<span class="ident">scope</span>, <span class="ident">mul</span>, <span class="ident">mean_tensor</span>, <span class="string">&quot;&quot;</span>)
 }
 
-<span class="doccomment">/// Outputs random values from a normal distribution.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The generated values will have mean 0 and standard deviation 1.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// The generated values will have mean 0 and standard deviation 1.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// shape: The shape of the output tensor.</span>
-<span class="doccomment">/// dtype: The type of the output.</span>
-<span class="doccomment">/// seed: If either `seed` or `seed2` are set to be non-zero, the random number</span>
-<span class="doccomment">///   generator is seeded by the given seed.  Otherwise, it is seeded by a</span>
-<span class="doccomment">///   random seed.</span>
-<span class="doccomment">/// seed2: A second seed to avoid seed collision.</span>
-<span class="doccomment">///</span>
-<span class="doccomment">/// output: A tensor of the specified shape filled with random normal values.</span>
 <span class="macro">add_new_op</span><span class="macro">!</span>(<span class="ident">RandomStandardNormal</span>,
     <span class="ident">constructor</span>: [<span class="macro">add_new_op</span><span class="macro">!</span>(
         <span class="ident">UNARY</span> <span class="ident">CONSTRUCTOR</span>: <span class="ident">RandomStandardNormal</span>, <span class="ident">Init</span>: [<span class="ident">output_type</span>: <span class="ident">DataType</span>::<span class="ident">Float</span>]

@@ -48,8 +48,19 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../../src/tf_rs/ops/init_ops.rs.html#5-17' title='goto source code'>[src]</a></span></h1>
-<pre class='rust fn'>pub fn constant_initializer&lt;TeS, T&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;context: &amp;mut <a class="struct" href="../../tf_rs/ops/struct.Scope.html" title="struct tf_rs::ops::Scope">Scope</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;value: T, <br>&nbsp;&nbsp;&nbsp;&nbsp;shape: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[TeS]</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Constant.html" title="struct tf_rs::ops::Constant">Constant</a>, <a class="struct" href="../../tf_rs/prelude/struct.TFError.html" title="struct tf_rs::prelude::TFError">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../../tensorflow/trait.TensorType.html" title="trait tensorflow::TensorType">TensorType</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;TeS: <a class="trait" href="../../tf_rs/ops/trait.ShapeSize.html" title="trait tf_rs::ops::ShapeSize">ShapeSize</a>,&nbsp;</span></pre></section>
+               </span><a class='srclink' href='../../src/tf_rs/ops/init_ops.rs.html#14-26' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn constant_initializer&lt;TeS, T&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;context: &amp;mut <a class="struct" href="../../tf_rs/ops/struct.Scope.html" title="struct tf_rs::ops::Scope">Scope</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;value: T, <br>&nbsp;&nbsp;&nbsp;&nbsp;shape: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[TeS]</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Constant.html" title="struct tf_rs::ops::Constant">Constant</a>, <a class="struct" href="../../tf_rs/prelude/struct.TFError.html" title="struct tf_rs::prelude::TFError">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;T: <a class="trait" href="../../tensorflow/trait.TensorType.html" title="trait tensorflow::TensorType">TensorType</a>,<br>&nbsp;&nbsp;&nbsp;&nbsp;TeS: <a class="trait" href="../../tf_rs/ops/trait.ShapeSize.html" title="trait tf_rs::ops::ShapeSize">ShapeSize</a>,&nbsp;</span></pre><div class='docblock'><p>Initializer that generates tensors with constant values.</p>
+
+<p>The resulting tensor is populated with values of type dtype, as specified by arguments value 
+following the desired shape of the new tensor (see examples below).</p>
+
+<h3 id='args' class='section-header'><a href='#args'>Args</a></h3>
+<ul>
+<li>value: All elements of the initialized variable will be set to the corresponding value 
+     in the value argument.</li>
+<li>shape: Shape of the initializer.</li>
+</ul>
+</div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

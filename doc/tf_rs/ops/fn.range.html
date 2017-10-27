@@ -48,14 +48,13 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../../src/tf_rs/ops/math_ops.rs.html#1032-1050' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../../src/tf_rs/ops/math_ops.rs.html#1146-1164' title='goto source code'>[src]</a></span></h1>
 <pre class='rust fn'>pub fn range&lt;Ts, Tl, Td, S&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;context: &amp;mut <a class="struct" href="../../tf_rs/ops/struct.Scope.html" title="struct tf_rs::ops::Scope">Scope</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;start: Ts, <br>&nbsp;&nbsp;&nbsp;&nbsp;limit: Tl, <br>&nbsp;&nbsp;&nbsp;&nbsp;delta: Td, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: S<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>, <a class="struct" href="../../tf_rs/prelude/struct.TFError.html" title="struct tf_rs::prelude::TFError">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Ts: TensorOps,<br>&nbsp;&nbsp;&nbsp;&nbsp;Tl: TensorOps,<br>&nbsp;&nbsp;&nbsp;&nbsp;Td: TensorOps,<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html" title="struct std::path::Path">Path</a>&gt;,&nbsp;</span></pre><div class='docblock'><p>Creates a sequence of numbers.</p>
 
 <p>Creates a sequence of numbers that begins at <code>start</code> and extends by
 increments of <code>delta</code> up to but not including <code>limit</code>.</p>
 
-<p>The dtype of the resulting tensor is inferred from the inputs unless
-it is provided explicitly.</p>
+<p>The dtype of the resulting tensor is inferred from the start tensor.</p>
 
 <p>Like the Python builtin <code>range</code>, <code>start</code> defaults to 0, so that
 <code>range(n) = range(0, n)</code>.</p>
@@ -76,15 +75,18 @@ tf.range(start, limit, delta) ==&gt; [3, 2.5, 2, 1.5]
 tf.range(limit) ==&gt; [0, 1, 2, 3, 4]
 </code></pre>
 
-<p>Args:
-  start: A 0-D <code>Tensor</code> (scalar). First entry in the range.
-  limit: A 0-D <code>Tensor</code> (scalar). Upper limit of sequence, exclusive.
-  delta: A 0-D <code>Tensor</code> (scalar). Number that increments <code>start</code>.
-  dtype: The type of the elements of the resulting tensor.
-  name: A name for the operation. Defaults to &quot;range&quot;.</p>
+<h3 id='args' class='section-header'><a href='#args'>Args</a></h3>
+<ul>
+<li>start: A 0-D <code>Tensor</code> (scalar). First entry in the range.</li>
+<li>limit: A 0-D <code>Tensor</code> (scalar). Upper limit of sequence, exclusive.</li>
+<li>delta: A 0-D <code>Tensor</code> (scalar). Number that increments <code>start</code>.</li>
+<li>name: A name for the operation (if empty defaults to &quot;Range&quot;).</li>
+</ul>
 
-<p>Returns:
-  An 1-D <code>Tensor</code> of type <code>dtype</code>.</p>
+<h3 id='returns' class='section-header'><a href='#returns'>Returns</a></h3>
+<ul>
+<li>An 1-D <code>Tensor</code> of type of <code>start</code>.</li>
+</ul>
 </div></section>
     <section id='search' class="content hidden"></section>
 

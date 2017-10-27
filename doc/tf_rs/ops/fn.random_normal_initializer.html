@@ -48,8 +48,18 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../../src/tf_rs/ops/init_ops.rs.html#32-68' title='goto source code'>[src]</a></span></h1>
-<pre class='rust fn'>pub fn random_normal_initializer&lt;TeS, F&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;context: &amp;mut <a class="struct" href="../../tf_rs/ops/struct.Scope.html" title="struct tf_rs::ops::Scope">Scope</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;mean: F, <br>&nbsp;&nbsp;&nbsp;&nbsp;stddev: F, <br>&nbsp;&nbsp;&nbsp;&nbsp;seed: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>&gt;, <br>&nbsp;&nbsp;&nbsp;&nbsp;shape: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[TeS]</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>, <a class="struct" href="../../tf_rs/prelude/struct.TFError.html" title="struct tf_rs::prelude::TFError">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;F: Float,<br>&nbsp;&nbsp;&nbsp;&nbsp;TeS: <a class="trait" href="../../tf_rs/ops/trait.ShapeSize.html" title="trait tf_rs::ops::ShapeSize">ShapeSize</a>,&nbsp;</span></pre></section>
+               </span><a class='srclink' href='../../src/tf_rs/ops/init_ops.rs.html#49-85' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn random_normal_initializer&lt;TeS, F&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;context: &amp;mut <a class="struct" href="../../tf_rs/ops/struct.Scope.html" title="struct tf_rs::ops::Scope">Scope</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;mean: F, <br>&nbsp;&nbsp;&nbsp;&nbsp;stddev: F, <br>&nbsp;&nbsp;&nbsp;&nbsp;seed: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.i32.html">i32</a>&gt;, <br>&nbsp;&nbsp;&nbsp;&nbsp;shape: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[TeS]</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>, <a class="struct" href="../../tf_rs/prelude/struct.TFError.html" title="struct tf_rs::prelude::TFError">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;F: Float,<br>&nbsp;&nbsp;&nbsp;&nbsp;TeS: <a class="trait" href="../../tf_rs/ops/trait.ShapeSize.html" title="trait tf_rs::ops::ShapeSize">ShapeSize</a>,&nbsp;</span></pre><div class='docblock'><p>Initializer that generates tensors with a normal distribution.</p>
+
+<h3 id='args' class='section-header'><a href='#args'>Args</a></h3>
+<ul>
+<li>mean: A scalar float. Mean of the random values to generate.</li>
+<li>stddev: A scalar float. Standard deviation of the random values to generate.</li>
+<li>seed: Optional value used to create random seeds. 
+    See <a href="../prelude/struct.Scope.html#method.set_random_seed">set_random_seed</a> for behavior.</li>
+<li>shape: Shape of the initializer.<br></li>
+</ul>
+</div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

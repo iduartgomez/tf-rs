@@ -48,8 +48,23 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../../src/tf_rs/ops/math_ops.rs.html#1218-1224' title='goto source code'>[src]</a></span></h1>
-<pre class='rust fn'>pub fn stop_gradient&lt;Tx, S&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;context: &amp;mut <a class="struct" href="../../tf_rs/ops/struct.Scope.html" title="struct tf_rs::ops::Scope">Scope</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;tensor: Tx, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: S<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>, <a class="struct" href="../../tf_rs/prelude/struct.TFError.html" title="struct tf_rs::prelude::TFError">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Tx: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html" title="struct std::path::Path">Path</a>&gt;,&nbsp;</span></pre></section>
+               </span><a class='srclink' href='../../src/tf_rs/ops/math_ops.rs.html#1360-1366' title='goto source code'>[src]</a></span></h1>
+<pre class='rust fn'>pub fn stop_gradient&lt;Tx, S&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;context: &amp;mut <a class="struct" href="../../tf_rs/ops/struct.Scope.html" title="struct tf_rs::ops::Scope">Scope</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;tensor: Tx, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: S<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>, <a class="struct" href="../../tf_rs/prelude/struct.TFError.html" title="struct tf_rs::prelude::TFError">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Tx: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html" title="struct std::path::Path">Path</a>&gt;,&nbsp;</span></pre><div class='docblock'><p>Stops gradient computation.</p>
+
+<p>When executed in a graph, this op outputs its input tensor as-is.</p>
+
+<p>When building ops to compute gradients, this op prevents the contribution of its inputs to be taken into account. 
+Normally, the gradient generator adds ops to a graph to compute the derivatives of a specified &#39;loss&#39;
+by recursively finding out inputs that contributed to its computation.
+If you insert this op in the graph it inputs are masked from the gradient generator.
+They are not taken into account for computing gradients.</p>
+
+<p>This is useful any time you want to compute a value with TensorFlow but need to pretend 
+that the value was a constant. Some examples include:
+* The <strong>EM</strong> algorithm where the <strong>M-step</strong> should not involve backpropagation through the output of the <strong>E-step</strong>.
+* Contrastive divergence training of Boltzmann machines where, when differentiating the energy function, the training must not backpropagate through the graph that generated the samples from the model.
+* Adversarial training, where no backprop should happen through the adversarial example generation process.</p>
+</div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

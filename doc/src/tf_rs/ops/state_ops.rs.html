@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/home/nacho/develop/workspace/tf-rs/src/ops/state_ops.rs`.">
+    <meta name="description" content="Source to the Rust file `src/ops/state_ops.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>state_ops.rs.html -- source</title>
@@ -189,6 +189,10 @@
 <span id="144">144</span>
 <span id="145">145</span>
 <span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! State operations.</span>
 
@@ -198,6 +202,10 @@
 
 <span class="comment">///// Assign /////</span>
 
+<span class="doccomment">/// Update &#39;ref&#39; by assigning &#39;value&#39; to it.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This operation outputs a Tensor that holds the new value of &#39;ref&#39; after the value has been assigned. </span>
+<span class="doccomment">/// This makes it easier to chain operations that need to use the reset value.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">assign</span><span class="op">&lt;</span><span class="ident">Tx</span>, <span class="ident">Ty</span>, <span class="ident">S</span><span class="op">&gt;</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Scope</span>,
     <span class="ident">ref_tensor</span>: <span class="ident">Tx</span>,

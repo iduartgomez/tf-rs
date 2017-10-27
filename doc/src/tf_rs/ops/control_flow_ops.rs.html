@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="generator" content="rustdoc">
-    <meta name="description" content="Source to the Rust file `/home/nacho/develop/workspace/tf-rs/src/ops/control_flow_ops.rs`.">
+    <meta name="description" content="Source to the Rust file `src/ops/control_flow_ops.rs`.">
     <meta name="keywords" content="rust, rustlang, rust-lang">
 
     <title>control_flow_ops.rs.html -- source</title>
@@ -1452,6 +1452,30 @@
 <span id="1407">1407</span>
 <span id="1408">1408</span>
 <span id="1409">1409</span>
+<span id="1410">1410</span>
+<span id="1411">1411</span>
+<span id="1412">1412</span>
+<span id="1413">1413</span>
+<span id="1414">1414</span>
+<span id="1415">1415</span>
+<span id="1416">1416</span>
+<span id="1417">1417</span>
+<span id="1418">1418</span>
+<span id="1419">1419</span>
+<span id="1420">1420</span>
+<span id="1421">1421</span>
+<span id="1422">1422</span>
+<span id="1423">1423</span>
+<span id="1424">1424</span>
+<span id="1425">1425</span>
+<span id="1426">1426</span>
+<span id="1427">1427</span>
+<span id="1428">1428</span>
+<span id="1429">1429</span>
+<span id="1430">1430</span>
+<span id="1431">1431</span>
+<span id="1432">1432</span>
+<span id="1433">1433</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! Control Flow Operations.</span>
 
@@ -1581,6 +1605,18 @@
 
 <span class="macro">impl_into_ident</span><span class="macro">!</span>(<span class="ident">Assert</span>);
 
+<span class="doccomment">/// Assert the condition `x == y` holds element-wise.</span>
+<span class="doccomment">/// </span>
+<span class="doccomment">/// Example of adding a dependency to an operation:</span>
+<span class="doccomment">/// </span>
+<span class="doccomment">/// ```code</span>
+<span class="doccomment">/// let assert = assert_equal(root, x, y, &quot;&quot;)?;</span>
+<span class="doccomment">/// let scope = &amp;mut root.control_dependencies(&amp;[assert]);</span>
+<span class="doccomment">/// let output = reduce_sum(scope, x, &amp;[1_i32], false, &quot;&quot;)?;</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This condition holds if for every pair of (possibly broadcast) elements `x[i]`, `y[i]`, </span>
+<span class="doccomment">/// we have `x[i] == y[i]`. If both `x` and `y` are empty, this is trivially satisfied.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">assert_eq</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Tx</span>, <span class="ident">Ty</span>, <span class="ident">S</span><span class="op">&gt;</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Scope</span>,
     <span class="ident">x</span>: <span class="ident">Tx</span>,
@@ -1613,6 +1649,18 @@
     <span class="prelude-val">Ok</span>(<span class="ident">assert</span>)
 }
 
+<span class="doccomment">/// Assert the condition `x &gt; y` holds element-wise.</span>
+<span class="doccomment">/// </span>
+<span class="doccomment">/// Example of adding a dependency to an operation:</span>
+<span class="doccomment">/// </span>
+<span class="doccomment">/// ```code</span>
+<span class="doccomment">/// let assert = assert_equal(root, x, y, &quot;&quot;)?;</span>
+<span class="doccomment">/// let scope = &amp;mut root.control_dependencies(&amp;[assert]);</span>
+<span class="doccomment">/// let output = reduce_sum(scope, x, &amp;[1_i32], false, &quot;&quot;)?;</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This condition holds if for every pair of (possibly broadcast) elements `x[i]`, `y[i]`, </span>
+<span class="doccomment">/// we have `x[i] &gt; y[i]`. If both `x` and `y` are empty, this is trivially satisfied.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">assert_greater</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span>, <span class="ident">Tx</span>, <span class="ident">Ty</span>, <span class="ident">S</span><span class="op">&gt;</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Scope</span>,
     <span class="ident">x</span>: <span class="ident">Tx</span>,

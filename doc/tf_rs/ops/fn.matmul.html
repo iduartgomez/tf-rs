@@ -48,7 +48,7 @@
                    <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
                        [<span class='inner'>&#x2212;</span>]
                    </a>
-               </span><a class='srclink' href='../../src/tf_rs/ops/math_ops.rs.html#435-533' title='goto source code'>[src]</a></span></h1>
+               </span><a class='srclink' href='../../src/tf_rs/ops/math_ops.rs.html#452-550' title='goto source code'>[src]</a></span></h1>
 <pre class='rust fn'>pub fn matmul&lt;Tx, Ty, S&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;context: &amp;mut <a class="struct" href="../../tf_rs/ops/struct.Scope.html" title="struct tf_rs::ops::Scope">Scope</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;a: Tx, <br>&nbsp;&nbsp;&nbsp;&nbsp;b: Ty, <br>&nbsp;&nbsp;&nbsp;&nbsp;transpose_a: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;transpose_b: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;adjoint_a: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;adjoint_b: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;a_is_sparse: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;b_is_sparse: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: S<br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>, <a class="struct" href="../../tf_rs/prelude/struct.TFError.html" title="struct tf_rs::prelude::TFError">Error</a>&gt; <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;Tx: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;Ty: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;<a class="struct" href="../../tf_rs/ops/struct.Tensor.html" title="struct tf_rs::ops::Tensor">Tensor</a>&gt;,<br>&nbsp;&nbsp;&nbsp;&nbsp;S: <a class="trait" href="https://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html" title="trait core::convert::AsRef">AsRef</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/std/path/struct.Path.html" title="struct std::path::Path">Path</a>&gt;,&nbsp;</span></pre><div class='docblock'><p>Multiplies matrix <code>a</code> by matrix <code>b</code>, producing <code>a</code> * <code>b</code>.</p>
 
 <p>The inputs must be matrices (or tensors of rank &gt; 2, representing batches of
@@ -101,29 +101,31 @@ c = tf.matmul(a, b) =&gt; [[[ 94 100]
                          [697 730]]]
 </code></pre>
 
-<p>Args:
-  a: <code>Tensor</code> of type <code>float16</code>, <code>float32</code>, <code>float64</code>, <code>int32</code>, <code>complex64</code>,
-    <code>complex128</code> and rank &gt; 1.
-  b: <code>Tensor</code> with same type and rank as <code>a</code>.
-  transpose_a: If <code>True</code>, <code>a</code> is transposed before multiplication.
-  transpose_b: If <code>True</code>, <code>b</code> is transposed before multiplication.
-  adjoint_a: If <code>True</code>, <code>a</code> is conjugated and transposed before
-    multiplication.
-  adjoint_b: If <code>True</code>, <code>b</code> is conjugated and transposed before
-    multiplication.
-  a_is_sparse: If <code>True</code>, <code>a</code> is treated as a sparse matrix.
-  b_is_sparse: If <code>True</code>, <code>b</code> is treated as a sparse matrix.
-  name: Name for the operation (optional).</p>
+<h3 id='args' class='section-header'><a href='#args'>Args</a></h3>
+<ul>
+<li>a: <code>Tensor</code> of type <code>float16</code>, <code>float32</code>, <code>float64</code>, <code>int32</code>, <code>complex64</code>,
+<code>complex128</code> and rank &gt; 1.</li>
+<li>b: <code>Tensor</code> with same type and rank as <code>a</code>.</li>
+<li>transpose_a: If <code>true</code>, <code>a</code> is transposed before multiplication.</li>
+<li>transpose_b: If <code>true</code>, <code>b</code> is transposed before multiplication.</li>
+<li>adjoint_a: If <code>true</code>, <code>a</code> is conjugated and transposed before
+multiplication.</li>
+<li>adjoint_b: If <code>true</code>, <code>b</code> is conjugated and transposed before
+multiplication.</li>
+<li>a_is_sparse: If <code>true</code>, <code>a</code> is treated as a sparse matrix.</li>
+<li>b_is_sparse: If <code>true</code>, <code>b</code> is treated as a sparse matrix.</li>
+<li>name: A name for the operation (empty string slice for autogenerated name).</li>
+</ul>
 
-<p>Returns:
-  A <code>Tensor</code> of the same type as <code>a</code> and <code>b</code> where each inner-most matrix is
+<h3 id='returns' class='section-header'><a href='#returns'>Returns</a></h3>
+<p>A <code>Tensor</code> of the same type as <code>a</code> and <code>b</code> where each inner-most matrix is
   the product of the corresponding matrices in <code>a</code> and <code>b</code>, e.g. if all
   transpose or adjoint attributes are <code>False</code>:</p>
 
 <p><code>output</code>[..., i, j] = sum_k (<code>a</code>[..., i, k] * <code>b</code>[..., k, j]),
   for all indices i, j.</p>
 
-<p>Note: This is matrix product, not element-wise product.</p>
+<p><strong>Note:</strong> This is matrix product, not element-wise product.</p>
 
 <p>Error: If transpose_a and adjoint_a, or transpose_b and adjoint_b
     are both set to True.</p>
