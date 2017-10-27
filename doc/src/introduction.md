@@ -2,7 +2,7 @@
 
 `tf-rs` is a library built on top of the TensorFlow C API that allows the composition and computation of data flow graphs.
 
-Documentation for the API can be found [here](../doc/tf_rs/index.html).
+Documentation for the API can be found [here](https://docs.rs/tf-rs/).
 
 ## TensorFlow
 

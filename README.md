@@ -1,4 +1,4 @@
-# TensorFlow-RS
+# TensorFlow-RS [![Build Status](https://travis-ci.org/iduartgomez/tf-rs.svg?branch=master)](https://travis-ci.org/iduartgomez/tf-rs)
 
 High level (_Pythonic_) API for the TensorFlow framework.
 
@@ -8,7 +8,7 @@ High level (_Pythonic_) API for the TensorFlow framework.
 Read a quick guide on how to get started [here](https://iduartgomez.github.io/tf-rs/book/index.html). 
 
 ### API Reference
-The last compiled docs for the API can be found [here](https://iduartgomez.github.io/tf-rs/doc/tf_rs/index.html).
+The last compiled docs for the API can be found [here](https://docs.rs/tf-rs/).
 
 ## Contributting
 
