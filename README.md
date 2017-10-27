@@ -17,3 +17,15 @@ If you want to contribute any contribution is helpful and welcome! Look at issue
 Additions and improvements to documentation, examples, guides, etc. are welcome.
 
 Contributing guidelines can be found at the [CONTRIBUTING](CONTRIBUTING.md) page.
+
+## License
+
+Licensed under either of
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
+  http://www.apache.org/licenses/LICENSE-2.0)
+- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+
+### Contribution
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you shall be dual licensed as above, without any additional terms or conditions.
