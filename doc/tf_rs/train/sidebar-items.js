@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["nn","Neural network support."]],"struct":[["ExponentialMovingAverage","Maintains moving averages of variables by employing an exponential decay."]]});

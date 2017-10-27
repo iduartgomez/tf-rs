@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["ClientSession","A ClientSession object lets the caller drive the evaluation of the TensorFlow graph constructed with the Rust API."]]});

@@ -152,7 +152,7 @@ fn main() {
 <li><em>Device placement for an operation</em> (not implemented yet)</li>
 <li><em>Kernel attribute for an operation</em> (not implemented yet)</li>
 </ul>
-<p>Please refer to <a href="../doc/tf_rs/prelude/struct.Scope.html">Scope</a> for the complete list of member functions that let you create child scopes with new properties.</p>
+<p>Please refer to Scope documentation in the API docs for the complete list of member functions that let you create child scopes with new properties.</p>
 <a class="header" href="print.html#operation-constructors" id="operation-constructors"><h3>Operation Constructors</h3></a>
 <p>You can create graph operations with operation constructors, one function per TensorFlow operation.</p>
 <p>The first parameter for all operation constructors is always a Scope object. Each operation requires a number of Tensor inputs and mandatory attributes form the rest of the arguments.</p>
@@ -161,8 +161,8 @@ fn main() {
 <a class="header" href="print.html#graph-execution" id="graph-execution"><h3>Graph Execution</h3></a>
 <p>When executing a graph, you will need a session. The C++ API provides a tensorflow::ClientSession class that will execute ops created by the operation constructors. TensorFlow will automatically determine which parts of the graph need to be executed, and what values need feeding. For example:</p>
 <pre><code class="language-Rust">let mut root = Scope::new();
-let a = Const(root, &amp;[1, 1], &amp;[2]);
-let b = Const(root, &amp;[2, 2], &amp;[2]);
+let a = Constant::new(root, &amp;[1, 1], &amp;[2]);
+let b = Constant::new(root, &amp;[2, 2], &amp;[2]);
 let add = ops::add(root, a, b, &quot;&quot;).unwrap();
 
 let mut session = ClientSession::new(root).unwrap();
@@ -174,7 +174,7 @@ let outputs = session.fetch(&amp;[add]).run(None).unwrap();
 let root = &amp;mut Scope::new();
 let a = root.placeholder(DataType::Int32);
 let b = Constant::new(root, &amp;[3, 3, 3, 3], &amp;[2, 2]);
-// [[3, 3], [3, 3]]
+// b = [[3, 3], [3, 3]]
 let add = ops::add(root, a, b, &quot;&quot;).unwrap();
 
 let mut session = ClientSession::new(root).unwrap();
@@ -196,7 +196,7 @@ let values = match outputs[0] {
 };
 println!(&quot;values: {:?}&quot;, &amp;values); // expect [[4, 5], [6, 7]]
 </code></pre>
-<p>Please see the <a href="../doc/tf_rs/prelude/enum.TensorContent.html">Tensor</a> documentation for more information on how to use the execution output.</p>
+<p>Please see the Tensor documentation in the API docs for more information on how to use the execution output.</p>
 
                 </div>
 

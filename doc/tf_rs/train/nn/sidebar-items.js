@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["bias_add","Adds `bias` to `value`."],["log_softmax","Computes log softmax activations."],["relu","Computes rectified linear: `max(features, 0)`."],["softmax","Computes softmax activations."]]});
