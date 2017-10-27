@@ -68,7 +68,7 @@ Here are some of the properties controlled by a Scope object:
 * _Device placement for an operation_ (not implemented yet)
 * _Kernel attribute for an operation_ (not implemented yet)
 
-Please refer to [Scope](../doc/tf_rs/prelude/struct.Scope.html) for the complete list of member functions that let you create child scopes with new properties.
+Please refer to Scope documentation in the API docs for the complete list of member functions that let you create child scopes with new properties.
 
 ### Operation Constructors
 
@@ -125,4 +125,4 @@ let values = match outputs[0] {
 println!("values: {:?}", &values); // expect [[4, 5], [6, 7]]
 ```
 
-Please see the [Tensor](../doc/tf_rs/prelude/enum.TensorContent.html) documentation for more information on how to use the execution output.
+Please see the Tensor documentation in the API docs for more information on how to use the execution output.
