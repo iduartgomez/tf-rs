@@ -10,7 +10,7 @@ Read a quick guide on how to get started [here](https://iduartgomez.github.io/tf
 ### API Reference
 The last compiled docs for the API can be found [here](https://docs.rs/tf-rs/).
 
-## Contributting
+## Contributing
 
 If you want to contribute any contribution is helpful and welcome! Look at issues, and if there aren't any that you can contribute to feel free to open issues for feature requests, discussion or fixes.
 
