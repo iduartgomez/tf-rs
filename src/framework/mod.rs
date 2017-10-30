@@ -415,6 +415,10 @@ impl TensorArray {
     pub fn from_flow(scope: &Scope, flow: &Tensor) -> Self {
         unimplemented!()
     }
+
+    pub fn gather(&self, scope: &Scope, indices: Tensor) -> Tensor {
+        unimplemented!()
+    }
 }
 
 impl Into<NodeIdent> for TensorArray {
