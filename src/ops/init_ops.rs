@@ -7,7 +7,7 @@ use tf::Shape;
 /// The resulting tensor is populated with values of type dtype, as specified by arguments value 
 /// following the desired shape of the new tensor (see examples below).
 /// 
-/// ### Args
+/// ### Args:
 /// * value: All elements of the initialized variable will be set to the corresponding value 
 ///          in the value argument.
 /// * shape: Shape of the initializer.
@@ -40,7 +40,7 @@ fn test_constant_initializer_explicit() {
 
 /// Initializer that generates tensors with a normal distribution.
 ///
-/// ### Args
+/// ### Args:
 /// * mean: A scalar float. Mean of the random values to generate.
 /// * stddev: A scalar float. Standard deviation of the random values to generate.
 /// * seed: Optional value used to create random seeds. 

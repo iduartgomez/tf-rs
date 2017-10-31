@@ -40,7 +40,7 @@ pub use self::scope::*;
 
 mod tensor_types;
 pub(crate) use self::tensor_types::*;
-pub use self::tensor_types::{DefinedShape, ShapeSize};
+pub use self::tensor_types::{DefinedShape, ShapeSize, TensorDef};
 
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.

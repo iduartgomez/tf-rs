@@ -106,12 +106,7 @@ add_new_op!(BiasAdd,
 ///  Returns:
 ///    A `Tensor`. Has the same type as `logits`. Same shape as `logits`.
 ///    Error if `logits` is empty or `dim` is beyond the last dimension of `logits`.
-pub fn log_softmax<L, S, TeS>(
-    context: &mut Scope,
-    logits: L,
-    dim: TeS,
-    name: S,
-) -> Result<Tensor>
+pub fn log_softmax<L, S, TeS>(context: &mut Scope, logits: L, dim: TeS, name: S) -> Result<Tensor>
 where
     L: Into<Tensor>,
     S: AsRef<Path>,
@@ -177,12 +172,7 @@ add_new_op!(Relu,
 ///  Returns:
 ///    A `Tensor`. Has the same type as `logits`. Same shape as `logits`.
 ///    Error: if `logits` is empty or `dim` is beyond the last dimension of `logits`.
-pub fn softmax<L, S, TeS>(
-    context: &mut Scope,
-    logits: L,
-    dim: TeS,
-    name: S,
-) -> Result<Tensor>
+pub fn softmax<L, S, TeS>(context: &mut Scope, logits: L, dim: TeS, name: S) -> Result<Tensor>
 where
     L: Into<Tensor>,
     S: AsRef<Path>,
@@ -247,7 +237,9 @@ fn softmax_helper(
     let ndims = if let Some(n) = shape.dims() {
         n as i32
     } else {
-        return Err(Error::from("shape of logits tensor must be defined for softmax operation."));
+        return Err(Error::from(
+            "shape of logits tensor must be defined for softmax operation.",
+        ));
     };
     let is_last_dim = dim == -1 || dim == ndims - 1;
     if (ndims == 2) && is_last_dim {
@@ -323,4 +315,88 @@ fn flatten_outer_dims(scope: &mut Scope, logits: Tensor) -> Result<Tensor> {
         }
     }
     Ok(output)
+}
+
+///  Calculate the mean and variance of `x`.
+///
+///  The mean and variance are calculated by aggregating the contents of `x`
+///  across `axes`.  If `x` is 1-D and `axes = [0]` this is just the mean
+///  and variance of a vector.
+///
+///  __Note:__ for numerical stability, when shift=None, the true mean
+///  would be computed and used as shift.
+///
+///  When using these moments for batch normalization (see
+///  `tf.nn.batch_normalization`):
+///   * for so-called "global normalization", used with convolutional filters with
+///     shape `[batch, height, width, depth]`, pass `axes=[0, 1, 2]`.
+///   * for simple batch normalization pass `axes=[0]` (batch only).
+///
+///  ### Args:
+///    *x: A `Tensor`.
+///    *axes: Array of ints.  Axes along which to compute mean and
+///      variance.
+///    *shift: A `Tensor` containing the value by which to shift the data for
+///      numerical stability, or `None` in which case the true mean of the data is
+///      used as shift. A shift close to the true mean provides the most
+///      numerically stable results.
+///    *name: Name used to scope the operations that compute the moments.
+///    *keep_dims: produce moments with the same dimensionality as the input.
+///
+///  ### Returns:
+///    Two `Tensor` objects: `mean` and `variance`.
+pub fn moments<S, Tx, TeS>(
+    scope: &mut Scope,
+    x: Tx,
+    axes: &[TeS],
+    shift: Option<Tensor>,
+    keep_dims: bool,
+    name: S,
+) -> Result<(Tensor, Tensor)>
+where
+    S: AsRef<Path>,
+    Tx: Into<Tensor>,
+    TeS: ShapeSize,
+{
+    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("moments"));
+    let x = x.into();
+    // The dynamic range of fp16 is too limited to support the collection of
+    // sufficient statistics. As a workaround we simply perform the operations
+    // on 32-bit floats before converting the mean and variance back to fp16
+    let y = if let DataType::BFloat16 = x.dtype {
+        math_ops::cast(scope, x, DataType::Float, "")?
+    } else {
+        x
+    };
+    let shift = if let Some(s) = shift {
+        math_ops::cast(scope, x, y.dtype, "")?
+    } else {
+        // Compute true mean while keeping the dims for proper broadcasting.
+        let rm = math_ops::reduce_mean(scope, y, axes, true, "")?;
+        array_ops::stop_gradient(scope, rm, "")?
+    };
+    let shifted_mean = {
+        let s = math_ops::sub(scope, y, shift, "")?;
+        math_ops::reduce_mean(scope, s, axes, true, "shifted_mean")?
+    };
+
+    let mut variance = {
+        let a = math_ops::squared_difference(scope, y, shift, "")?;
+        let rm = math_ops::reduce_mean(scope, a, axes, true, "")?;
+        let sm = math_ops::square(scope, shifted_mean, "")?;
+        math_ops::sub(scope, rm, sm, "variance")?
+    };
+    let mut mean = math_ops::add(scope, shifted_mean, shift, "mean")?;
+    if !keep_dims {
+        mean = array_ops::squeeze(scope, mean, Some(axes), "")?;
+        variance = array_ops::squeeze(scope, mean, Some(axes), "")?;
+    }
+    if x.dtype == DataType::BFloat16 {
+        Ok((
+            math_ops::cast(scope, mean, DataType::BFloat16, "")?,
+            math_ops::cast(scope, mean, DataType::BFloat16, "")?,
+        ))
+    } else {
+        Ok((mean, variance))
+    }
 }

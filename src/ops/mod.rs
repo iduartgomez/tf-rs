@@ -7,7 +7,7 @@ use tf::TensorType;
 use super::{DataType, Graph, OperationData, Output, TypedTensor};
 use errors::*;
 
-pub use super::framework::*;
+pub(crate) use super::framework::*;
 pub(crate) use self::dtype_traits::*;
 
 pub(crate) mod dtype_traits {

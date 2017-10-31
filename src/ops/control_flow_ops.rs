@@ -162,7 +162,7 @@ where
 
     let scope = &mut context.name_scope(name.as_ref(), Some("assert_equal".as_ref()));
     let eq = equal(scope, x, y, "")?;
-    let cond = reduce_all(scope, eq, &[], false, "")?;
+    let cond = reduce_all(scope, eq, &[] as &[i32], false, "")?;
     let mut assert = Assert::new(cond, data, "")?;
     if let Some(summarize) = summarize {
         assert = assert.summarize(summarize);
@@ -206,7 +206,7 @@ where
     
     let scope = &mut context.name_scope(name.as_ref(), Some("assert_greater".as_ref()));
     let eq = greater(scope, x, y, "")?;
-    let cond = reduce_all(scope, eq, &[], false, "")?;
+    let cond = reduce_all(scope, eq, &[] as &[i32], false, "")?;
     let mut assert = Assert::new(cond, data, "")?;
     if let Some(summarize) = summarize {
         assert = assert.summarize(summarize);
