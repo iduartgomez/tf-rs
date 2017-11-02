@@ -985,7 +985,7 @@ where
     }
 
     let reduce_max = reduce_max(scope, input, axis, true, "")?;
-    let my_max = stop_gradient(scope, reduce_max, "")?;
+    let my_max = array_ops::stop_gradient(scope, reduce_max, "")?;
 
     let sub = sub(scope, input, my_max, "")?;
     let exp = exp(scope, sub, "")?;
@@ -1223,9 +1223,9 @@ where
     S: AsRef<Path>,
 {
     let scope = &mut context.name_scope(name.as_ref(), Some("Range".as_ref()));
-    let start = start.into_tensor(scope, "start");
-    let limit = start.into_tensor(scope, "limit");
-    let delta = start.into_tensor(scope, "delta");
+    let start = start.into_tensor(scope);
+    let limit = start.into_tensor(scope);
+    let delta = start.into_tensor(scope);
     scope.install(Range::new(start, limit, delta, name)?)
 }
 
@@ -1515,42 +1515,6 @@ add_new_op!(Rsqrt,
 );
 
 
-///// Stop Gradient /////
-
-/// Stops gradient computation.
-///
-/// When executed in a graph, this op outputs its input tensor as-is.
-///
-/// When building ops to compute gradients, this op prevents the contribution of its inputs to be taken into account.
-/// Normally, the gradient generator adds ops to a graph to compute the derivatives of a specified 'loss'
-/// by recursively finding out inputs that contributed to its computation.
-/// If you insert this op in the graph it inputs are masked from the gradient generator.
-/// They are not taken into account for computing gradients.
-///
-/// This is useful any time you want to compute a value with TensorFlow but need to pretend
-/// that the value was a constant. Some examples include:
-/// * The __EM__ algorithm where the __M-step__ should not involve backpropagation through the output of the __E-step__.
-/// * Contrastive divergence training of Boltzmann machines where, when differentiating the energy function, the training must not backpropagate through the graph that generated the samples from the model.
-/// * Adversarial training, where no backprop should happen through the adversarial example generation process.
-pub fn stop_gradient<Tx, S>(context: &mut Scope, tensor: Tx, name: S) -> Result<Tensor>
-where
-    Tx: Into<Tensor>,
-    S: AsRef<Path>,
-{
-    context.install(StopGradient::new(tensor.into(), name)?)
-}
-
-add_new_op!(StopGradient, 
-    constructor: [
-        add_new_op!(UNARY CONSTRUCTOR: StopGradient, Init: []);
-    ],
-    digest: [DEFAULT_DIGEST: StopGradient, INPUT0],
-    extra_funcs: [], 
-    extra_attr: [],
-    output: [Tensor],
-);
-
-
 ///// Sub /////
 
 /// Returns x - y element-wise.
@@ -1568,8 +1532,8 @@ where
     Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let x = x.into_tensor(context, "");
-    let y = y.into_tensor(context, "");
+    let x = x.into_tensor(context);
+    let y = y.into_tensor(context);
     context.install(Sub::new(x, y, name)?)
 }
 
@@ -1610,7 +1574,7 @@ where
     Tx: TensorOps,
     S: AsRef<Path>,
 {
-    let x = x.into_tensor(context, "");
+    let x = x.into_tensor(context);
     context.install(Square::new(x, name)?)
 }
 
@@ -1643,8 +1607,8 @@ where
     Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let x = x.into_tensor(context, "");
-    let y = y.into_tensor(context, "");
+    let x = x.into_tensor(context);
+    let y = y.into_tensor(context);
     context.install(SquaredDifference::new(x, y, name)?)
 }
 

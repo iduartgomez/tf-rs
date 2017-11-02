@@ -4,7 +4,7 @@ use tf::TensorType;
 use super::*;
 
 pub trait TensorOps {
-    fn into_tensor<S: AsRef<Path>>(self, scope: &mut Scope, name: S) -> Tensor;
+    fn into_tensor(self, scope: &mut Scope) -> Tensor;
 }
 
 pub type TensorDef<'a, T, TeS> = (&'a [T], &'a [TeS]);
@@ -13,20 +13,20 @@ macro_rules! impl_tensor_ops {
     ($T:ty) => {
         impl TensorOps for $T
         {
-            fn into_tensor<S: AsRef<Path>>(self, scope: &mut Scope, name: S) -> Tensor {
-                scope.constant(&[self], &[] as &[i32], name).unwrap().into()
+            fn into_tensor(self, scope: &mut Scope) -> Tensor {
+                scope.constant(&[self], &[] as &[i32], "").unwrap().into()
             }
         }
 
         impl<'a> TensorOps for &'a [$T] {
-            fn into_tensor<S: AsRef<Path>>(self, scope: &mut Scope, name: S) -> Tensor {
-                scope.constant(self, &[self.len() as i32] as &[i32], name).unwrap().into()
+            fn into_tensor(self, scope: &mut Scope) -> Tensor {
+                scope.constant(self, &[self.len() as i32] as &[i32], "").unwrap().into()
             }
         }
 
         impl<'a, TeS: ShapeSize> TensorOps for TensorDef<'a, $T, TeS> {
-            fn into_tensor<S: AsRef<Path>>(self, scope: &mut Scope, name: S) -> Tensor {
-                scope.constant(self.0, self.1, name).unwrap().into()
+            fn into_tensor(self, scope: &mut Scope) -> Tensor {
+                scope.constant(self.0, self.1, "").unwrap().into()
             }
         }
     }
@@ -34,10 +34,10 @@ macro_rules! impl_tensor_ops {
 
 impl_tensor_ops!(f32);
 impl_tensor_ops!(f64);
-impl_tensor_ops!(i32);
-impl_tensor_ops!(u8); 
 impl_tensor_ops!(i16); 
+impl_tensor_ops!(i32);
 impl_tensor_ops!(i64);
+impl_tensor_ops!(u8); 
 impl_tensor_ops!(i8); 
 impl_tensor_ops!(String); 
 impl_tensor_ops!(::Complex32); 
@@ -49,19 +49,19 @@ impl_tensor_ops!(::QInt32);
 impl_tensor_ops!(::BFloat16); 
 
 impl TensorOps for Tensor {
-    fn into_tensor<S: AsRef<Path>>(self, _scope: &mut Scope, _name: S) -> Tensor {
+    fn into_tensor(self, _scope: &mut Scope) -> Tensor {
         self
     }
 }
 
 impl TensorOps for Constant {
-    fn into_tensor<S: AsRef<Path>>(self, _scope: &mut Scope, _name: S) -> Tensor {
+    fn into_tensor(self, _scope: &mut Scope) -> Tensor {
         self.into()
     }
 }
 
 impl TensorOps for Variable {
-    fn into_tensor<S: AsRef<Path>>(self, _scope: &mut Scope, _name: S) -> Tensor {
+    fn into_tensor(self, _scope: &mut Scope) -> Tensor {
         self.into()
     }
 }

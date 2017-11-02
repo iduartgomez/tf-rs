@@ -90,7 +90,7 @@ where
 {
     let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("batchnorm"));
     let mut inv = {
-        let a = variance_epsilon.into_tensor(scope, "");
+        let a = variance_epsilon.into_tensor(scope);
         let sum = math_ops::add(scope, variance, a, "")?;
         math_ops::rsqrt(scope, sum, "")?
     };

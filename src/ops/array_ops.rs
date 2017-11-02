@@ -337,7 +337,7 @@ where
         context.constant("", shape, dims)?
     };
     */
-    let shape = shape.into_tensor(context, "");
+    let shape = shape.into_tensor(context);
     context.install(Reshape::new(tensor.into(), shape, name)?)
 }
 
@@ -592,8 +592,8 @@ where
     Ts: TensorOps,
     S: AsRef<Path>,
 {
-    let begin = begin.into_tensor(context, "");
-    let size = size.into_tensor(context, "");
+    let begin = begin.into_tensor(context);
+    let size = size.into_tensor(context);
     let input = input.into();
     context.install(Slice::new(input, begin, size, name)?)
 }
@@ -730,7 +730,7 @@ where
     let a = a.into();
     if let Some(perm) = perm {
         //let perm = scope.constant(perm, &[1] as &[i32], "")?.into();
-        let perm = perm.into_tensor(scope, "");
+        let perm = perm.into_tensor(scope);
         scope.install(Transpose::new(a, perm, "")?)
     } else {
         let rank = rank(scope, a, "")?;
