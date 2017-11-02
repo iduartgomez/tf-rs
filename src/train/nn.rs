@@ -31,6 +31,88 @@ pub fn sparse_softmax_cross_entropy_with_logits<C, Tx, Ty>(context: &mut C,
 }
 */
 
+///  # Batch normalization.
+///
+///  As described in http://arxiv.org/abs/1502.03167.
+///  Normalizes a tensor by `mean` and `variance`, and applies (optionally) a
+///  `scale` `gamma` to it, as well as an `offset` `beta`:
+///
+///  `((gamma * (x - mu)) \ sigma ) + beta`
+///
+///  `mean`, `variance`, `offset` and `scale` are all expected to be of one of two
+///  shapes:
+///
+///    * In all generality, they can have the same number of dimensions as the
+///      input `x`, with identical sizes as `x` for the dimensions that are not
+///      normalized over (the 'depth' dimension(s)), and dimension 1 for the
+///      others which are being normalized over.
+///      `mean` and `variance` in this case would typically be the outputs of
+///      `tf.nn.moments(..., keep_dims=True)` during training, or running averages
+///      thereof during inference.
+///    * In the common case where the 'depth' dimension is the last dimension in
+///      the input tensor `x`, they may be one dimensional tensors of the same
+///      size as the 'depth' dimension.
+///      This is the case for example for the common `[batch, depth]` layout of
+///      fully-connected layers, and `[batch, height, width, depth]` for
+///      convolutions.
+///      `mean` and `variance` in this case would typically be the outputs of
+///      `tf.nn.moments(..., keep_dims=False)` during training, or running averages
+///      thereof during inference.
+///
+///  ### Args:
+///    * x: Input `Tensor` of arbitrary dimensionality.
+///    * mean: A mean `Tensor`.
+///    * variance: A variance `Tensor`.
+///    * offset: An offset `Tensor`, often denoted `beta` in equations, or
+///      None. If present, will be added to the normalized tensor.
+///    * scale: A scale `Tensor`, often denoted `gamma` in equations, or
+///      `None`. If present, the scale is applied to the normalized tensor.
+///    * variance_epsilon: A small float number to avoid dividing by 0.
+///    * name: A name for this operation (optional).
+///
+///  ### Returns:
+///    The normalized, scaled, offset tensor.
+pub fn batch_normalization<Tx, Tm, Tv, S>(
+    scope: &mut Scope,
+    x: Tx,
+    mean: Tm,
+    variance: Tv,
+    offset: Option<Tensor>,
+    scale: Option<Tensor>,
+    variance_epsilon: f32,
+    name: S,
+) -> Result<Tensor> 
+where
+    Tx: Into<Tensor>,
+    Tm: Into<Tensor>,
+    Tv: Into<Tensor>,
+    S: AsRef<Path>,
+{
+    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("batchnorm"));
+    let mut inv = {
+        let a = variance_epsilon.into_tensor(scope, "");
+        let sum = math_ops::add(scope, variance, a, "")?;
+        math_ops::rsqrt(scope, sum, "")?
+    };
+    if let Some(scale) = scale {
+        inv = math_ops::multiply(scope, scale, inv, "")?;
+    }
+    if let Some(offset) = offset {
+        let b = {
+            let b = math_ops::multiply(scope, mean, inv, "")?;
+            math_ops::sub(scope, offset, b, "")?
+        };
+        let a = math_ops::multiply(scope, x, inv, "")?;
+        math_ops::add(scope, a, b, "")
+    } else {
+        let m = math_ops::negative(scope, mean, "")?;
+        let b = math_ops::multiply(scope, m, inv, "")?;
+        let a = math_ops::multiply(scope, x, inv, "")?;
+        math_ops::add(scope, a, b, "")
+    }
+}
+
+
 ///// BiasAdd /////
 
 ///  Adds `bias` to `value`.

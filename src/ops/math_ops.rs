@@ -574,6 +574,36 @@ add_new_op!(MatMul,
     output: [Tensor],
 );
 
+
+///// Neg /////
+
+///   Computes numerical negative value element-wise.
+/// 
+///   I.e., `y = -x`.
+/// 
+///   ### Args:
+///     *x: A `Tensor`. Must be one of the following types: `half`, `float32`, `float64`, `int32`, `int64`, `complex64`, `complex128`.
+///     *name: A name for the operation (optional).
+/// 
+///   ### Returns:
+///     A `Tensor`. Has the same type as `x`.
+pub fn negative<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+{
+    context.install(Neg::new(x.into(), name)?)
+}
+
+add_new_op!(Neg,
+    constructor: [add_new_op!(UNARY CONSTRUCTOR: Neg, Init: []);],
+    digest: [DEFAULT_DIGEST: Neg, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
 /// Multiply matrix "a" by matrix "b".
 ///
 /// The inputs must be two-dimensional matrices and the inner dimension of "a" must
@@ -1454,6 +1484,35 @@ fn test_minimum() {
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32, 3]});
 }
+
+
+///// Rsqrt /////
+
+/// Computes reciprocal of square root of x element-wise.
+///
+/// I.e., `y = 1 / sqrt{x}`.
+///
+/// ### Args:
+///   * x: A `Tensor`. Must be one of the following types: `half`, `float32`, `float64`, `complex64`, `complex128`.
+///   * name: A name for the operation (optional).
+///
+/// ### Returns:
+///   A `Tensor`. Has the same type as `x`.
+pub fn rsqrt<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+{
+    context.install(Rsqrt::new(x.into(), name)?)
+}
+
+add_new_op!(Rsqrt,
+    constructor: [add_new_op!(UNARY CONSTRUCTOR: Rsqrt, Init: []);],
+    digest: [DEFAULT_DIGEST: Rsqrt, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
 
 
 ///// Stop Gradient /////
