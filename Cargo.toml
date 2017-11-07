@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = ["Ignacio Duart <iduart@gmail.com>"]
 
 description = "High level (Pythonic) API for the TensorFlow framework."
-documentation = "https://iduartgomez.github.io/tf-rs/book/index.html"
+documentation = "https://docs.rs/tf-rs"
 homepage = "https://github.com/iduartgomez/tf-rs"
 repository = "https://github.com/iduartgomez/tf-rs"
 readme = "README.md"

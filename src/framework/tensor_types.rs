@@ -7,7 +7,7 @@ pub trait TensorOps {
     fn into_tensor(self, scope: &mut Scope) -> Tensor;
 }
 
-pub type TensorDef<'a, T, TeS> = (&'a [T], &'a [TeS]);
+//pub type TensorDef<'a, T, TeS> = (&'a [T], &'a [TeS]);
 
 macro_rules! impl_tensor_ops {
     ($T:ty) => {
@@ -20,17 +20,29 @@ macro_rules! impl_tensor_ops {
 
         impl<'a> TensorOps for &'a [$T] {
             fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(self, &[self.len() as i32] as &[i32], "").unwrap().into()
+                scope.constant(self, &[self.len() as i64], "").unwrap().into()
             }
         }
 
-        impl<'a, TeS: ShapeSize> TensorOps for TensorDef<'a, $T, TeS> {
+        impl<'a, TeS: ShapeSize> TensorOps for (&'a [$T], &'a [TeS]) {
             fn into_tensor(self, scope: &mut Scope) -> Tensor {
                 scope.constant(self.0, self.1, "").unwrap().into()
             }
         }
     }
 }
+
+/*
+#[test]
+fn tensor_def() {
+    use framework::tensor_types::TensorOps;
+    let ctxt = &mut Scope::new();
+    let def0 = ([0_i32, 1].as_ref(), [2_i32].as_ref()); // as TensorDef<i32, i32>;
+    let def1 = 3_i32;
+    def0.into_tensor(ctxt);
+    def1.into_tensor(ctxt);
+}
+*/
 
 impl_tensor_ops!(f32);
 impl_tensor_ops!(f64);

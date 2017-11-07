@@ -50,7 +50,7 @@ pub fn random_normal_initializer<TeS, F>(
     context: &mut Scope,
     mean: F,
     stddev: F,
-    seed: Option<i32>,
+    seed: Option<i64>,
     shape: &[TeS],
 ) -> Result<Tensor>
 where

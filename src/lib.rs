@@ -26,7 +26,8 @@ use num_complex::{Complex32, Complex64};
 
 pub mod prelude {
     pub use super::framework::{Attribute, Constant, DefinedShape, GetIdent, NodeIdent, Operation,
-                               Scope, Tensor, TensorArray, TensorContent, TensorDef, Variable};
+                               Scope, Tensor, TensorArray, TensorContent, TensorOps,
+                               Variable};
     pub use super::client::ClientSession;
     pub use super::{OperationData, TypedTensor};
     pub use super::errors::Error as TFError;

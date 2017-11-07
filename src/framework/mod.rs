@@ -12,19 +12,19 @@ use errors::*;
 // Macros:
 
 macro_rules! to_typed_tensor {
-    [$values:expr; $shape:expr] => {{
+    [$val:expr; $shape:expr] => {{
+        //TypedTensor::<T>::new($shape).with_values(&$val).unwrap()
         let mut tensor = TypedTensor::<T>::new($shape);
-        for (i, v) in $values.iter().enumerate() {
+        for (i, v) in $val.iter().enumerate() {
             tensor[i] = v.clone();
         }
         tensor
     }};
 }
 
-// TODO: this is very inefficient, implement efficient Clone for type
-// at the very least don't initialize with zeros
 macro_rules! clone_tensor {
     ($val:ident) => {{
+        //TypedTensor::new($val.dims()).with_values(&$val).unwrap()
         let mut copy = TypedTensor::new($val.dims());
         for (i, x) in $val.iter().enumerate() { 
             copy[i] = x.clone();
@@ -40,7 +40,7 @@ pub use self::scope::*;
 
 mod tensor_types;
 pub(crate) use self::tensor_types::*;
-pub use self::tensor_types::{DefinedShape, ShapeSize, TensorDef};
+pub use self::tensor_types::{DefinedShape, ShapeSize, TensorOps};
 
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.

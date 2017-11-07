@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use super::*;
-use ops::{ControlFlow, array_ops, math_ops};
+use ops::{ControlFlow, array_ops, math_ops, random_ops};
 
 /*
 pub fn in_top_k<C, Tx, Ty>(context: &mut C,
@@ -81,7 +81,7 @@ pub fn batch_normalization<Tx, Tm, Tv, S>(
     scale: Option<Tensor>,
     variance_epsilon: f32,
     name: S,
-) -> Result<Tensor> 
+) -> Result<Tensor>
 where
     Tx: Into<Tensor>,
     Tm: Into<Tensor>,
@@ -169,6 +169,75 @@ add_new_op!(BiasAdd,
     extra_attr: [],
     output: [Tensor],
 );
+
+
+///// Dropout /////
+
+///   Computes dropout.
+///
+///   With probability `keep_prob`, outputs the input element scaled up by
+///   `1 / keep_prob`, otherwise outputs `0`.  The scaling is so that the expected
+///   sum is unchanged.
+///
+///   By default, each element is kept or dropped independently.  If `noise_shape`
+///   is specified, it must be
+///   [broadcastable](http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html)
+///   to the shape of `x`, and only dimensions with `noise_shape[i] == shape(x)[i]`
+///   will make independent decisions.  For example, if `shape(x) = [k, l, m, n]`
+///   and `noise_shape = [k, 1, 1, n]`, each batch and channel component will be
+///   kept independently and each row and column will be kept or not kept together.
+///
+///   ### Args:
+///     * x: A tensor.
+///     * keep_prob: A scalar `Tensor` with the same type as x. The probability
+///       that each element is kept.
+///     * noise_shape: A 1-D `Tensor` of type `int32`, representing the
+///       shape for randomly generated keep/drop flags.
+///     * seed: Used to create random seeds.
+///     * name: A name for this operation (optional, empty string if none).
+///
+///   ### Returns:
+///     A Tensor of the same shape of `x`.
+pub fn dropout<Tz, Tx, Ty, S>(
+    scope: &mut Scope,
+    x: Tx,
+    keep_prob: Ty,
+    noise_shape: Option<Tz>,
+    seed: Option<i64>,
+    name: S,
+) -> Result<Tensor>
+where
+    Tx: TensorOps,
+    Ty: TensorOps,
+    Tz: TensorOps,
+    S: AsRef<Path>,
+{
+    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("dropout"));
+    let x = x.into_tensor(scope);
+    let keep_prob = x.into_tensor(scope);
+
+    let noise_shape = if let Some(noise_shape) = noise_shape {
+        noise_shape.into_tensor(scope)
+    } else {
+        array_ops::shape(scope, x, None, "")?
+    };
+
+    // uniform [keep_prob, 1.0 + keep_prob)
+    let random_tensor = {
+        let a =
+            random_ops::random_uniform(scope, noise_shape, 0_f32, 1_f32, Some(x.dtype), seed, "")?;
+        math_ops::add(scope, a, keep_prob, "")?
+    };
+
+    // 0. if [keep_prob, 1.0) and 1. if [1.0, 1.0 + keep_prob)
+    let ret = { 
+        let binary_tensor = math_ops::floor(scope, random_tensor, "")?;
+        let a = math_ops::divide(scope, x, keep_prob, "")?;
+        math_ops::multiply(scope, a, binary_tensor, "")?
+    };
+    let shape = x.get_shape(scope);
+    ret.set_shape(scope, shape)
+}
 
 
 ///// LogSoftmax /////

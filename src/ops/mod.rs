@@ -315,6 +315,9 @@ pub use self::math_ops::*;
 pub(crate) mod state_ops;
 pub use self::state_ops::*;
 
+pub(crate) mod random_ops;
+pub use self::random_ops::*;
+
 trait DTypeOps {
     /// Returns whether this is a (non-quantized, real) floating point type.
     fn is_floating(&self) -> bool;

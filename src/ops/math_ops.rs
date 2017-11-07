@@ -316,6 +316,28 @@ fn test_exp() {
 }
 
 
+///// Floor /////
+
+/// Returns element-wise largest integer not greater than x.
+pub fn floor<Tx, S>(context: &mut Scope, x: Tx, name: S) -> Result<Tensor>
+where
+    Tx: Into<Tensor>,
+    S: AsRef<Path>,
+{
+    context.install(Floor::new(x.into(), name)?)
+}
+
+add_new_op!(Floor, 
+    constructor: [
+        add_new_op!(UNARY CONSTRUCTOR: Floor, Init: []);
+    ],
+    digest: [DEFAULT_DIGEST: Floor, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+
 ///// Greater /////
 
 /// Returns the truth value of (x > y) element-wise.

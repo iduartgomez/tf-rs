@@ -10,7 +10,7 @@ use super::IntoShape;
 use errors::*;
 use ops::*;
 
-const DEFAULT_GRAPH_SEED: i32 = 87_654_321;
+const DEFAULT_GRAPH_SEED: i64 = 87_654_321;
 
 /// Master context manager for building TensorFlow graphs and managing session execution.
 #[derive(Debug)]
@@ -28,7 +28,7 @@ pub struct Scope {
     ignore_deps: bool,
     locked: Rc<RefCell<bool>>,
     parent_lock: Option<Rc<RefCell<bool>>>,
-    seed: Option<i32>,
+    seed: Option<i64>,
 }
 
 impl Scope {
@@ -1020,7 +1020,7 @@ impl Scope {
     ///       determine the random sequence.
     ///     4. If both the graph-level and the operation seed are set:
     ///       Both seeds are used in conjunction to determine the random sequence.
-    pub fn set_random_seed(&mut self, value: Option<i32>) {
+    pub fn set_random_seed(&mut self, value: Option<i64>) {
         if self.parent_lock.is_some() {
             panic!("random seed can only be set at the root scope");
         }
@@ -1033,7 +1033,7 @@ impl Scope {
     /// derived from graph-level and op-level seeds. Many random operations internally
     /// use the two seeds to allow user to change the seed globally for a graph, or
     /// for only specific operations.
-    pub fn get_seed(&self, op_seed: Option<i32>) -> (Option<i32>, Option<i32>) {
+    pub fn get_seed(&self, op_seed: Option<i64>) -> (Option<i64>, Option<i64>) {
         let seeds;
         if let Some(g_seed) = self.seed {
             let op_seed = if let Some(seed) = op_seed {
@@ -1049,7 +1049,7 @@ impl Scope {
             seeds = (None, None);
         }
         if let (Some(0), Some(0)) = seeds {
-            (Some(0), Some(::std::i32::MAX))
+            (Some(0), Some(::std::i64::MAX))
         } else {
             seeds
         }
