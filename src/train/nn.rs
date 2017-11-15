@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use super::*;
-use ops::{ControlFlow, array_ops, math_ops, random_ops};
+use ops::{ControlFlow, array_ops, math_ops, nn_ops, random_ops};
 
 /*
 pub fn in_top_k<C, Tx, Ty>(context: &mut C,
@@ -11,22 +11,13 @@ pub fn in_top_k<C, Tx, Ty>(context: &mut C,
                             targets: Ty,
                             k: u32)
                             -> Result<Tensor>
-    where Tx: Into<Tensor>,
-            Ty: Into<Tensor>
+    where Tx: TensorOps,
+            Ty: TensorOps
 {
 }
 
 pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor>
-    where Tx: Into<Tensor>
-{
-}
-
-pub fn sparse_softmax_cross_entropy_with_logits<C, Tx, Ty>(context: &mut C,
-                                                            tensor: Tx,
-                                                            logits: Ty)
-                                                            -> Result<Tensor>
-    where Tx: Into<Tensor>,
-            Ty: Into<Tensor>
+    where Tx: TensorOps
 {
 }
 */
@@ -83,12 +74,15 @@ pub fn batch_normalization<Tx, Tm, Tv, S>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
-    Tm: Into<Tensor>,
-    Tv: Into<Tensor>,
+    Tx: TensorOps,
+    Tm: TensorOps,
+    Tv: TensorOps,
     S: AsRef<Path>,
 {
     let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("batchnorm"));
+    let x = x.into_tensor(scope);
+    let mean = mean.into_tensor(scope);
+    let variance = variance.into_tensor(scope);
     let mut inv = {
         let a = variance_epsilon.into_tensor(scope);
         let sum = math_ops::add(scope, variance, a, "")?;
@@ -141,20 +135,20 @@ pub fn bias_add<Tx, B, S>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
-    B: Into<Tensor>,
+    Tx: TensorOps,
+    B: TensorOps,
     S: AsRef<Path>,
 {
-    context.name_scope(name.as_ref(), Some("BiasAdd".as_ref()));
-    let value = value.into();
-    let bias = bias.into();
+    let scope = &mut context.name_scope(name.as_ref(), Some("BiasAdd".as_ref()));
+    let value = value.into_tensor(scope);
+    let bias = bias.into_tensor(scope);
     let d_id: &mut [&str] = &mut [""];
     let mut bias_add = BiasAdd::new(value, bias, name)?;
     if let Some(data_format) = data_format {
         d_id[0] = validate_convnet_data_dormat(data_format)?;
         bias_add = bias_add.data_format(&d_id);
     }
-    context.install(bias_add)
+    scope.install(bias_add)
 }
 
 add_new_op!(BiasAdd,
@@ -230,7 +224,7 @@ where
     };
 
     // 0. if [keep_prob, 1.0) and 1. if [1.0, 1.0 + keep_prob)
-    let ret = { 
+    let ret = {
         let binary_tensor = math_ops::floor(scope, random_tensor, "")?;
         let a = math_ops::divide(scope, x, keep_prob, "")?;
         math_ops::multiply(scope, a, binary_tensor, "")?
@@ -259,11 +253,12 @@ where
 ///    Error if `logits` is empty or `dim` is beyond the last dimension of `logits`.
 pub fn log_softmax<L, S, TeS>(context: &mut Scope, logits: L, dim: TeS, name: S) -> Result<Tensor>
 where
-    L: Into<Tensor>,
+    L: TensorOps,
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
-    softmax_helper(context, logits.into(), true, dim.as_i32(), name.as_ref())
+    let logits = logits.into_tensor(context);
+    softmax_helper(context, logits, true, dim.as_i32(), name.as_ref())
 }
 
 add_new_op!(LogSoftmax, 
@@ -289,10 +284,11 @@ add_new_op!(LogSoftmax,
 ///    A `Tensor`. Has the same type as `features`.
 pub fn relu<F, S>(scope: &mut Scope, features: F, name: S) -> Result<Tensor>
 where
-    F: Into<Tensor>,
+    F: TensorOps,
     S: AsRef<Path>,
 {
-    scope.install(Relu::new(features.into(), name)?)
+    let features = features.into_tensor(scope);
+    scope.install(Relu::new(features, name)?)
 }
 
 add_new_op!(Relu, 
@@ -325,11 +321,12 @@ add_new_op!(Relu,
 ///    Error: if `logits` is empty or `dim` is beyond the last dimension of `logits`.
 pub fn softmax<L, S, TeS>(context: &mut Scope, logits: L, dim: TeS, name: S) -> Result<Tensor>
 where
-    L: Into<Tensor>,
+    L: TensorOps,
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
-    softmax_helper(context, logits.into(), false, dim.as_i32(), name.as_ref())
+    let logits = logits.into_tensor(context);
+    softmax_helper(context, logits, false, dim.as_i32(), name.as_ref())
 }
 
 add_new_op!(Softmax, 
@@ -506,11 +503,11 @@ pub fn moments<S, Tx, TeS>(
 ) -> Result<(Tensor, Tensor)>
 where
     S: AsRef<Path>,
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     TeS: ShapeSize,
 {
     let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("moments"));
-    let x = x.into();
+    let x = x.into_tensor(scope);
     // The dynamic range of fp16 is too limited to support the collection of
     // sufficient statistics. As a workaround we simply perform the operations
     // on 32-bit floats before converting the mean and variance back to fp16
@@ -549,5 +546,148 @@ where
         ))
     } else {
         Ok((mean, variance))
+    }
+}
+
+///  Computes sparse softmax cross entropy between `logits` and `labels`.
+///
+///  Measures the probability error in discrete classification tasks in which the
+///  classes are mutually exclusive (each entry is in exactly one class).  For
+///  example, each CIFAR-10 image is labeled with one and only one label: an image
+///  can be a dog or a truck, but not both.
+///
+///  **NOTE:**  For this operation, the probability of a given label is considered
+///  exclusive.  That is, soft classes are not allowed, and the `labels` vector
+///  must provide a single specific index for the true class for each row of
+///  `logits` (each minibatch entry).  For soft softmax classification with
+///  a probability distribution for each entry, see `softmax_cross_entropy_with_logits`.
+///
+///  **WARNING:** This op expects unscaled logits, since it performs a `softmax`
+///  on `logits` internally for efficiency.  Do not call this op with the
+///  output of `softmax`, as it will produce incorrect results.
+///
+///  A common use case is to have logits of shape `[batch_size, num_classes]` and
+///  labels of shape `[batch_size]`. But higher dimensions are supported.
+///
+///  **Note that to avoid confusion, it is required to pass only named arguments to
+///  this function.**
+///
+///  ### Args:
+///    * labels: `Tensor` of shape `[d_0, d_1, ..., d_{r-1}]` (where `r` is rank of
+///      `labels` and result) and dtype `int32` or `int64`. Each entry in `labels`
+///      must be an index in `[0, num_classes)`. Other values will raise an
+///      exception when this op is run on CPU, and return `NaN` for corresponding
+///      loss and gradient rows on GPU.
+///    * logits: Unscaled log probabilities of shape
+///      `[d_0, d_1, ..., d_{r-1}, num_classes]` and dtype `float32` or `float64`.
+///    * name: A name for the operation (optional).
+///
+///  ### Returns:
+///    * A `Tensor` of the same shape as `labels` and of the same type as `logits`
+///    with the softmax cross entropy loss.
+///    * ValueError: If logits are scalars (need to have rank >= 1) or if the rank
+///      of the labels is not equal to the rank of the labels minus one.
+pub fn sparse_softmax_cross_entropy_with_logits<Tx, Ty, S>(
+    scope: &mut Scope,
+    labels: Tx,
+    logits: Ty,
+    name: S,
+) -> Result<Tensor>
+where
+    Tx: TensorOps,
+    Ty: TensorOps,
+    S: AsRef<Path>,
+{
+    // Reshape logits and labels to rank 2.
+    let scope = &mut scope.name_scope(
+        name.as_ref().to_str().unwrap(),
+        Some("SparseSoftmaxCrossEntropyWithLogits"),
+    );
+    let labels = labels.into_tensor(scope);
+    let logits = labels.into_tensor(scope);
+    let precise_logits = if let DataType::BFloat16 = logits.dtype {
+        math_ops::cast(scope, logits, DataType::Float, "")?
+    } else {
+        logits
+    };
+
+    // Store label shape for result later.
+    let labels_static_shape = labels.get_shape(scope);
+    let labels_shape = array_ops::shape(scope, labels, None, "")?;
+    {
+        if let Some(dims) = logits.get_shape(scope).dims() {
+            if dims == 0 {
+                return Err(Error::from(format!(
+                    "Logits cannot be scalars - received shape: {:?}.",
+                    logits.get_shape(scope)
+                )));
+            }
+            if let Some(ss_dims) = labels_static_shape.dims() {
+                if ss_dims != dims - 1 {
+                    return Err(Error::from(format!(
+                        "Rank mismatch: Rank of labels (received {}) should equal rank of logits minus 1 (received {}).",
+                        ss_dims,
+                        dims
+                    )));
+                }
+            }
+        }
+    }
+
+    // Check if no reshapes are required.
+    if let Some(dims) = logits.get_shape(scope).dims() {
+        if dims == 2 {
+            let (cost, _) = scope.install(nn_ops::SparseSoftmaxCrossEntropyWithLogits::new(
+                precise_logits,
+                labels,
+                name,
+            )?)?;
+            if let DataType::BFloat16 = logits.dtype {
+                return math_ops::cast(scope, cost, DataType::BFloat16, "");
+            } else {
+                return Ok(cost);
+            }
+        }
+    }
+
+    // Reshape logits to 2 dim, labels to 1 dim.
+    let num_classes = {
+        let r = array_ops::rank(scope, logits, "")?;
+        let a = math_ops::sub(scope, r, 1, "")?;
+        let shape = array_ops::shape(scope, logits, None, "")?;
+        array_ops::strided_slice(
+            scope,
+            shape,
+            a,
+            [std::i32::MAX].as_ref(),
+            [1_i32].as_ref(),
+            None,
+            None,
+            None,
+            None,
+            None,
+            "",
+        )?
+    };
+    let precise_logits = {
+        let c = (-1).into_tensor(scope);
+        let l = array_ops::concat(scope, vec![c, num_classes], 0, "")?;
+        array_ops::reshape(scope, precise_logits, l, "")?
+    };
+    let labels = array_ops::reshape(scope, labels, [-1].as_ref(), "")?;
+    // The second output tensor contains the gradients.  We use it in
+    // _CrossEntropyGrad() in nn_grad but not here.
+    let (mut cost, _) = scope.install(nn_ops::SparseSoftmaxCrossEntropyWithLogits::new(
+        precise_logits,
+        labels,
+        name,
+    )?)?;
+
+    cost = array_ops::reshape(scope, cost, labels_shape, "")?;
+    cost = cost.set_shape(scope, labels_static_shape)?;
+    if let DataType::BFloat16 = logits.dtype {
+        return math_ops::cast(scope, cost, DataType::BFloat16, "");
+    } else {
+        return Ok(cost);
     }
 }

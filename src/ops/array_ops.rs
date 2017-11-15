@@ -119,7 +119,7 @@ fn test_concat() {
 ///   This operation is related to `squeeze()`, which removes dimensions of
 ///   size 1.
 ///
-///   
+///
 ///     * input: A `Tensor`.
 ///     * axis: 0-D (scalar). Specifies the dimension index at which to
 ///       expand the shape of `input`.
@@ -162,7 +162,7 @@ add_new_op!(ExpandDims,
 ///
 /// This operation creates a tensor of shape dims and fills it with value.
 ///
-/// 
+///
 /// * dims: A Tensor of type int32. 1-D. Represents the shape of the output tensor.
 /// * value: A Tensor. 0-D (scalar). Value to fill the returned tensor.
 /// * name: A name for the operation (optional).
@@ -210,7 +210,7 @@ add_new_op!(Fill,
 ///     params[a_0, ..., a_n, indices[i, ..., j], b_0, ..., b_n]
 /// ```
 ///
-/// 
+///
 /// * params: The tensor from which to gather values. Must be at least rank axis + 1.
 /// * indices: A `Tensor`. Must be one of the following types: int32, int64. Index tensor.
 ///       Must be in range [0, params.shape[axis]).
@@ -273,7 +273,7 @@ fn test_gather() {
 ///  rank of a tensor is the number of indices required to uniquely select each
 ///  element of the tensor. Rank is also known as "order", "degree", or "ndims."
 ///
-///  
+///
 ///    * input: A `Tensor` or `SparseTensor`.
 ///    * name: A name for the operation (optional).
 ///
@@ -320,7 +320,7 @@ add_new_op!(Rank,
 /// with the values of `tensor`. In this case, the number of elements implied by `shape` must
 /// be the same as the number of elements in `tensor`.
 ///
-/// 
+///
 ///  * tensor: A Tensor.
 ///  * shape: A Tensor. Must be one of the following types: int32, int64.
 ///    Defines the shape of the output tensor.
@@ -489,7 +489,7 @@ fn test_size() {
 /// all dimensions of size 1 removed. If you don't want to remove all size 1 dimensions,
 /// you can remove specific size 1 dimensions by specifying `axis`.
 ///
-/// 
+///
 /// * input: A Tensor. The input to squeeze.
 /// * axis: An optional list of ints. If specified, only squeezes the dimensions listed.
 ///    The dimension index starts at 0. It is an error to squeeze a dimension that is not 1.
@@ -571,7 +571,7 @@ add_new_op!(Squeeze,
 ///                                             [[5, 5, 5]]]
 ///  ```
 ///
-///  
+///
 ///    * input: A `Tensor`.
 ///    * begin: An `int32` or `int64` tensor.
 ///    * size: An `int32` or `int64` tensor.
@@ -669,6 +669,178 @@ add_new_op!(StopGradient,
     output: [Tensor],
 );
 
+///  Extracts a strided slice of a tensor (generalized python array indexing).
+///
+///  To a first order, this operation extracts a slice of size `end - begin`
+///  from a tensor `input`
+///  starting at the location specified by `begin`. The slice continues by adding
+///  `stride` to the `begin` index until all dimensions are not less than `end`.
+///  Note that components of stride can be negative, which causes a reverse
+///  slice.
+///
+///  This operation can be thought of an encoding of a numpy style sliced
+///  range. Given a python slice input[<spec0>, <spec1>, ..., <specn>]
+///  this function will be called as follows.
+///
+///  `begin`, `end`, and `strides` will be all length n. n is in general
+///  not the same dimensionality as `input`.
+///
+///  For the ith spec,
+///  `begin_mask`, `end_mask`, `ellipsis_mask`, `new_axis_mask`,
+///  and `shrink_axis_mask` will have the ith bit corresponding to
+///  the ith spec.
+///
+///  If the ith bit of `begin_mask` is non-zero, `begin[i]` is ignored and
+///  the fullest possible range in that dimension is used instead.
+///  `end_mask` works analogously, except with the end range.
+///
+///  `foo[5:,:,:3]` on a 7x8x9 tensor is equivalent to `foo[5:7,0:8,0:3]`.
+///  `foo[::-1]` reverses a tensor with shape 8.
+///
+///
+///  If the ith bit of `ellipsis_mask` is non-zero, as many unspecified dimensions
+///  as needed will be inserted between other dimensions. Only one
+///  non-zero bit is allowed in `ellipsis_mask`.
+///
+///  For example `foo[3:5,...,4:5]` on a shape 10x3x3x10 tensor is
+///  equivalent to `foo[3:5,:,:,4:5]` and
+///  `foo[3:5,...]` is equivalent to `foo[3:5,:,:,:]`.
+///
+///  If the ith bit of `new_axis_mask` is one, then `begin`,
+///  `end`, and `stride` are ignored and a new length 1 dimension is
+///  added at this point in the output tensor.
+///
+///  For example `foo[3:5,4]` on a 10x8 tensor produces a shape 2 tensor
+///  whereas `foo[3:5,4:5]` produces a shape 2x1 tensor with shrink_mask
+///  being 1<<1 == 2.
+///
+///  If the ith bit of `shrink_axis_mask` is one, then `begin`,
+///  `end[i]`, and `stride[i]` are used to do a slice in the appropriate
+///  dimension, but the output tensor will be reduced in dimensionality
+///  by one. This is only valid if the ith entry of slice[i]==1.
+///
+///  NOTE: `begin` and `end` are zero-indexed`.
+///  `strides` entries must be non-zero.
+///
+///
+///  ```python
+///  # 'input' is [[[1, 1, 1], [2, 2, 2]],
+///  #             [[3, 3, 3], [4, 4, 4]],
+///  #             [[5, 5, 5], [6, 6, 6]]]
+///  tf.strided_slice(input, [1, 0, 0], [2, 1, 3], [1, 1, 1]) ==> [[[3, 3, 3]]]
+///  tf.strided_slice(input, [1, 0, 0], [2, 2, 3], [1, 1, 1]) ==> [[[3, 3, 3],
+///                                                                 [4, 4, 4]]]
+///  tf.strided_slice(input, [1, -1, 0], [2, -3, 3], [1, -1, 1]) ==>[[[4, 4, 4],
+///                                                                   [3, 3, 3]]]
+///  ```
+///
+///  ### Args:
+///    * input_: A `Tensor`.
+///    * begin: An `int32` or `int64` `Tensor`.
+///    * end: An `int32` or `int64` `Tensor`.
+///    * strides: An `int32` or `int64` `Tensor`.
+///    * begin_mask: An `int32` mask.
+///    * end_mask: An `int32` mask.
+///    * ellipsis_mask: An `int32` mask.
+///    * new_axis_mask: An `int32` mask.
+///    * shrink_axis_mask: An `int32` mask.
+///    * name: A name for the operation (optional).
+///
+///  ### Returns:
+///    * A `Tensor` the same type as `input`.
+pub fn strided_slice<Ti, Tb, Te, Ts, S>(
+    scope: &mut Scope,
+    input: Ti,
+    begin: Tb,
+    end: Te,
+    strides: Ts,
+    begin_mask: Option<i32>,
+    end_mask: Option<i32>,
+    ellipsis_mask: Option<i32>,
+    new_axis_mask: Option<i32>,
+    shrink_axis_mask: Option<i32>,
+    name: S,
+) -> Result<Tensor>
+where
+    Ti: TensorOps,
+    Tb: TensorOps,
+    Te: TensorOps,
+    Ts: TensorOps,
+    S: AsRef<Path>,
+{
+    let input = input.into_tensor(scope);
+    let begin = begin.into_tensor(scope);
+    let end = end.into_tensor(scope);
+    let strides = strides.into_tensor(scope);
+    let begin_mask = if let Some(val) = begin_mask { val } else { 0 };
+    let end_mask = if let Some(val) = end_mask { val } else { 0 };
+    let ellipsis_mask = if let Some(val) = ellipsis_mask {
+        val
+    } else {
+        0
+    };
+    let new_axis_mask = if let Some(val) = new_axis_mask {
+        val
+    } else {
+        0
+    };
+    let shrink_axis_mask = if let Some(val) = shrink_axis_mask {
+        val
+    } else {
+        0
+    };
+    scope.install(StridedSlice::new(input, begin, end, strides, name)?)
+}
+
+add_new_op!(StridedSlice,
+    constructor: [
+        pub(crate) fn new<S: AsRef<Path>>(
+            input: Tensor, 
+            begin: Tensor, 
+            end: Tensor, 
+            strides: Tensor, 
+            name: S
+        ) 
+            -> Result<StridedSlice<'a>> 
+        {
+            Ok(
+                StridedSlice {
+                    ident: NodeIdent::new(),
+                    elements: vec![input, begin, end, strides],
+                    name: generate_name!(is_none: name),
+                    input_lists: Vec::with_capacity(0),
+                    attributes: vec![],
+                },
+            )
+        } 
+    ],
+    digest: [DEFAULT_DIGEST: StridedSlice, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);
+
+#[test]
+#[cfg(test)]
+fn test_stride() {
+    let mut context = &mut Scope::new();
+    let op1 = strided_slice(
+        context,
+        [0_i32, 1, 2, 3].as_ref(),
+        [-1_i32].as_ref(),
+        [::std::i32::MAX].as_ref(),
+        [1_i32].as_ref(),
+        None,
+        None,
+        None,
+        None,
+        None,
+        "",
+    ).unwrap();
+    let results = test_suite!(run_op: [op1]; context, input: {});
+    test_suite!(results; assert: {[0;Int32] == [3]});
+}
+
 
 ///// Transpose /////
 
@@ -708,7 +880,7 @@ add_new_op!(StopGradient,
 ///                                        [9 12]]]
 ///  ```
 ///
-///  
+///
 ///    * a: A `Tensor`.
 ///    * perm: A permutation of the dimensions of `a`.
 ///    * name: A name for the operation (optional).
@@ -778,7 +950,7 @@ add_new_op!(Transpose,
 /// (outer dimension) to copy from `x` and `y`. If `condition` has the same shape as `x` and `y`,
 /// then it chooses which element to copy from `x` and `y`.
 ///
-/// 
+///
 /// * `condition`: A `Tensor` of type `bool`.
 /// * `x`: A Tensor which may have the same shape as condition. If condition is rank 1,
 ///   `x` may have higher rank, but its first dimension must match the size of condition.

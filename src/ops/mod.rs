@@ -103,7 +103,7 @@ macro_rules! add_new_op {
         output: [$($output:tt)*],
     ) => {
         #[derive(Debug, Clone)]
-        struct $name<'a> {
+        pub(crate) struct $name<'a> {
             ident: NodeIdent,
             elements: Vec<Tensor>,
             name: Option<PathBuf>,
@@ -143,7 +143,7 @@ macro_rules! add_new_op {
     };
     // Generic constructor for binary ops.
     (BIN CONSTRUCTOR: $name:ident, Init: [$($attr_name:ident: $attr_init:expr),*]) => {
-        fn new<S: AsRef<Path>>(x: Tensor, y: Tensor, name: S) -> Result<$name<'a>> {
+        pub(crate) fn new<S: AsRef<Path>>(x: Tensor, y: Tensor, name: S) -> Result<$name<'a>> {
             Ok(
                 $name {
                     ident: NodeIdent::new(),
@@ -317,6 +317,8 @@ pub use self::state_ops::*;
 
 pub(crate) mod random_ops;
 pub use self::random_ops::*;
+
+pub(crate) mod nn_ops;
 
 trait DTypeOps {
     /// Returns whether this is a (non-quantized, real) floating point type.

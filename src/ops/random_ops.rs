@@ -22,11 +22,11 @@ use super::*;
 ///
 /// ### Returns:
 /// * A tensor of the specified shape filled with random uniform values.
-pub fn random_uniform<S, Ts, Tmin, Tmax>(
+pub fn random_uniform<S, Ts, Tval>(
     scope: &mut Scope,
     shape: Ts,
-    minval: Tmin,
-    maxval: Tmax,
+    minval: Tval,
+    maxval: Tval,
     dtype: Option<DataType>,
     seed: Option<i64>,
     name: S,
@@ -34,8 +34,7 @@ pub fn random_uniform<S, Ts, Tmin, Tmax>(
 where
     S: AsRef<Path>,
     Ts: TensorOps,
-    Tmin: TensorOps,
-    Tmax: TensorOps,
+    Tval: TensorOps
 {
     let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("random_uniform"));
     let shape = shape.into_tensor(scope);
@@ -104,7 +103,7 @@ fn test_random_uniform() {
     let init = random_uniform(
         &mut context,
         [2, 2].as_ref(),
-        0.,
+        0.0_f32,
         1.,
         None,
         None,
