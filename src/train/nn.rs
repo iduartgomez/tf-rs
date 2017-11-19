@@ -6,16 +6,6 @@ use super::*;
 use ops::{ControlFlow, array_ops, math_ops, nn_ops, random_ops};
 
 /*
-pub fn in_top_k<C, Tx, Ty>(context: &mut C,
-                            predictions: Tx,
-                            targets: Ty,
-                            k: u32)
-                            -> Result<Tensor>
-    where Tx: TensorOps,
-            Ty: TensorOps
-{
-}
-
 pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor>
     where Tx: TensorOps
 {
@@ -690,4 +680,50 @@ where
     } else {
         return Ok(cost);
     }
+}
+
+///  Says whether the targets are in the top `K` predictions.
+///
+///  This outputs a `batch_size` bool array, an entry `out[i]` is `true` if the
+///  prediction for the target class is among the top `k` predictions among
+///  all predictions for example `i`. Note that the behavior of `InTopK` differs
+///  from the `TopK` op in its handling of ties; if multiple classes have the
+///  same prediction value and straddle the top-`k` boundary, all of those
+///  classes are considered to be in the top `k`.
+///
+///  More formally, let
+///
+///    * `predictions_i` be the predictions for all classes for example `i`,
+///    * `targets_i` be the target class for example `i`,
+///    * `out_i` be the output for example `i`,
+///
+///  `out_i` = `predictions_{i, targets_i}` in `TopKIncludingTies(predictions_i)`
+///
+///  ### Args:
+///    * predictions: A `Tensor` of type `float32`.
+///      A `batch_size` x `classes` tensor.
+///    * targets: A `Tensor`. Must be one of the following types: `int32`, `int64`.
+///      A `batch_size` vector of class ids.
+///    * k: An `int`. Number of top elements to look at for computing precision.
+///    * name: A name for the operation (optional).
+///
+///  ### Returns:
+///    * A `Tensor` of type `bool`. Computed Precision at `k` as a `bool Tensor`.
+pub fn in_top_k<Tx, Ty, S>(
+    scope: &mut Scope,
+    predictions: Tx,
+    targets: Ty,
+    k: i32,
+    name: S,
+) -> Result<Tensor>
+where
+    Tx: TensorOps,
+    Ty: TensorOps,
+    S: AsRef<Path>,
+{
+    let predictions = predictions.into_tensor(scope);
+    let targets = targets.into_tensor(scope);
+    let k = k.into_tensor(scope);
+    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("in_top_k"));
+    scope.install(nn_ops::InTopKV2::new(predictions, targets, k, name)?)
 }

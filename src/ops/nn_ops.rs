@@ -103,3 +103,29 @@ add_new_op!(SparseSoftmaxCrossEntropyWithLogits,
     extra_attr: [],
     output: [(Tensor, Tensor)],
 );
+
+add_new_op!(InTopKV2, 
+    constructor: [
+        pub(crate) fn new<S: AsRef<Path>>(
+            predictions: Tensor, 
+            targets: Tensor, 
+            k: Tensor, 
+            name: S
+        ) -> Result<InTopKV2<'a>> {
+            Ok(
+                InTopKV2 {
+                    ident: NodeIdent::new(),
+                    elements: vec![predictions, targets, k],
+                    name: generate_name!(is_none: name),
+                    attributes: vec![],
+                    input_lists: vec![],
+                    output_type: DataType::Bool,
+                },
+            )
+        }
+    ],
+    digest: [DEFAULT_DIGEST: InTopKV2, DTYPE_ATTR],
+    extra_funcs: [], 
+    extra_attr: [output_type: DataType],
+    output: [Tensor],
+);
