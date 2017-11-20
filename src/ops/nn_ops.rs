@@ -129,3 +129,11 @@ add_new_op!(InTopKV2,
     extra_attr: [output_type: DataType],
     output: [Tensor],
 );
+
+add_new_op!(L2Loss, 
+    constructor: [add_new_op!(UNARY CONSTRUCTOR: L2Loss, Init: []);],
+    digest: [DEFAULT_DIGEST: L2Loss, INPUT0],
+    extra_funcs: [], 
+    extra_attr: [],
+    output: [Tensor],
+);

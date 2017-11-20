@@ -128,7 +128,7 @@ macro_rules! add_new_op {
     };
     // Generic constructor for unary ops.
     (UNARY CONSTRUCTOR: $name:ident, Init: [$($attr_name:ident: $attr_init:expr),*]) => {
-        fn new<S: AsRef<Path>>(x: Tensor, name: S) -> Result<$name<'a>> {
+        pub(crate) fn new<S: AsRef<Path>>(x: Tensor, name: S) -> Result<$name<'a>> {
             Ok(
                 $name {
                     ident: NodeIdent::new(),

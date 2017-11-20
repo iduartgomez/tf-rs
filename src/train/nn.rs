@@ -5,13 +5,6 @@ use std::path::{Path, PathBuf};
 use super::*;
 use ops::{ControlFlow, array_ops, math_ops, nn_ops, random_ops};
 
-/*
-pub fn l2_loss<C, Tx>(context: &mut C, tensor: Tx) -> Result<Tensor>
-    where Tx: TensorOps
-{
-}
-*/
-
 ///  # Batch normalization.
 ///
 ///  As described in http://arxiv.org/abs/1502.03167.
@@ -726,4 +719,26 @@ where
     let k = k.into_tensor(scope);
     let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("in_top_k"));
     scope.install(nn_ops::InTopKV2::new(predictions, targets, k, name)?)
+}
+
+///  L2 Loss.
+///
+///  Computes half the L2 norm of a tensor without the `sqrt`:
+///
+///      `output = sum(t ** 2) / 2`
+///
+///  ### Args:
+///    * t: A `Tensor`. Must be one of the following types: `half`, `float32`, `float64`.
+///      Typically 2-D, but may have any dimensions.
+///    * name: A name for the operation (optional).
+///
+///  ### Returns:
+///    A `Tensor`. Has the same type as `t`. 0-D.
+pub fn l2_loss<Tx, S>(scope: &mut Scope, t: Tx, name: S) -> Result<Tensor>
+where
+    Tx: TensorOps,
+    S: AsRef<Path>
+{
+    let t = t.into_tensor(scope);
+    scope.install(nn_ops::L2Loss::new(t, name)?)
 }
