@@ -40,7 +40,7 @@ pub use self::scope::*;
 
 mod tensor_types;
 pub(crate) use self::tensor_types::*;
-pub use self::tensor_types::{DefinedShape, ShapeSize, TensorOps};
+pub use self::tensor_types::{ShapeOps, ShapeSize, TensorOps};
 
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.
@@ -179,19 +179,18 @@ impl Tensor {
         op.name().unwrap()
     }
 
-    pub fn get_shape(&self, context: &Scope) -> Shape {
+    pub fn get_shape(&self, context: &mut Scope) -> Shape {
+        //::ops::array_ops::shape(context, *self, None, "")
         let registry = &*context.registry.borrow();
         registry[&self.ident].shape.clone()
     }
 
-    pub fn set_shape(self, context: &mut Scope, shape: Shape) -> Result<Tensor> {
-        use framework::DefinedShape;
-        if let Some(definition) = shape.definition_i64() {
-            let shape = context.constant(&definition, &[definition.len() as i64], "")?;
-            ::ops::array_ops::reshape(context, self, shape, "")
-        } else {
-            Err(Error::from(ErrorKind::Stub))
-        }
+    pub fn set_shape<Tx>(self, context: &mut Scope, shape: Tx) -> Result<Tensor>
+    where
+        Tx: TensorOps,
+    {
+        let shape = shape.into_tensor(context);
+        ::ops::array_ops::reshape(context, self, shape, "")
     }
 
     pub fn is_ref(&self) -> bool {

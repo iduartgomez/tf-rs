@@ -118,7 +118,7 @@ add_new_op!(InTopKV2,
                     elements: vec![predictions, targets, k],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
-                    input_lists: vec![],
+                    input_lists: Vec::with_capacity(0),
                     output_type: DataType::Bool,
                 },
             )

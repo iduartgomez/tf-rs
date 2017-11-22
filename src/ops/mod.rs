@@ -135,7 +135,7 @@ macro_rules! add_new_op {
                     elements: vec![x],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
-                    input_lists: vec![],
+                    input_lists: Vec::with_capacity(0),
                     $($attr_name: $attr_init),*
                 },
             )
@@ -150,7 +150,7 @@ macro_rules! add_new_op {
                     elements: vec![x, y],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
-                    input_lists: vec![],
+                    input_lists: Vec::with_capacity(0),
                     $($attr_name: $attr_init),*
                 },
             )
@@ -301,24 +301,25 @@ macro_rules! test_suite {
 }
 
 pub(crate) mod array_ops;
-pub use self::array_ops::*;
-
 pub(crate) mod control_flow_ops;
-pub use self::control_flow_ops::*;
-
+pub(crate) mod clip_ops;
+pub(crate) mod data_flow_ops;
+pub(crate) mod embedding_ops;
 pub(crate) mod init_ops;
-pub use self::init_ops::*;
-
-pub(crate) mod math_ops;
-pub use self::math_ops::*;
-
-pub(crate) mod state_ops;
-pub use self::state_ops::*;
-
-pub(crate) mod random_ops;
-pub use self::random_ops::*;
-
 pub(crate) mod nn_ops;
+pub(crate) mod math_ops;
+pub(crate) mod random_ops;
+pub(crate) mod state_ops;
+
+pub use self::array_ops::*;
+pub use self::control_flow_ops::*;
+pub use self::clip_ops::*;
+pub use self::data_flow_ops::*;
+pub use self::embedding_ops::*;
+pub use self::init_ops::*;
+pub use self::math_ops::*;
+pub use self::random_ops::*;
+pub use self::state_ops::*;
 
 trait DTypeOps {
     /// Returns whether this is a (non-quantized, real) floating point type.
@@ -341,12 +342,8 @@ impl DTypeOps for DataType {
 
     fn is_integer(&self) -> bool {
         match *self {
-            DataType::Int32 |
-            DataType::UInt8 |
-            DataType::Int16 |
-            DataType::Int8 |
-            DataType::Int64 |
-            DataType::UInt16 => true,
+            DataType::Int32 | DataType::UInt8 | DataType::Int16 | DataType::Int8 |
+            DataType::Int64 | DataType::UInt16 => true,
             _ => false,
         }
     }

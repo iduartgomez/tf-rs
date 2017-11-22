@@ -499,23 +499,24 @@ fn test_size() {
 /// * A Tensor with the same type as input. Contains the same data as input,
 ///   but has one or more dimensions of size 1 removed.
 pub fn squeeze<TeS, Tx, S>(
-    context: &mut Scope,
-    tensor: Tx,
+    scope: &mut Scope,
+    input: Tx,
     axis: Option<&[TeS]>,
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
     let dims: Vec<i64>;
-    let mut squeeze = Squeeze::new(tensor.into(), name)?;
+    let input = input.into_tensor(scope);
+    let mut squeeze = Squeeze::new(input, name)?;
     if let Some(axis) = axis {
         dims = shape_as_i64(axis);
         squeeze = squeeze.squeeze_dims(&dims);
     }
-    context.install(squeeze)
+    scope.install(squeeze)
 }
 
 add_new_op!(Squeeze,
@@ -609,7 +610,7 @@ add_new_op!(Slice,
                     elements: vec![input, begin, size],
                     name: generate_name!(is_none: name),
                     attributes: vec![],
-                    input_lists: vec![],
+                    input_lists: Vec::with_capacity(0),
                 },
             )
         }
@@ -619,6 +620,107 @@ add_new_op!(Slice,
     extra_attr: [],
     output: [Tensor],
 );
+
+
+///// Stack /////
+
+///  Stacks a list of rank-`R` tensors into one rank-`(R+1)` tensor.
+///
+///  Packs the list of tensors in `values` into a tensor with rank one higher than
+///  each tensor in `values`, by packing them along the `axis` dimension.
+///  Given a list of length `N` of tensors of shape `(A, B, C)`;
+///
+///  if `axis == 0` then the `output` tensor will have the shape `(N, A, B, C)`.
+///  if `axis == 1` then the `output` tensor will have the shape `(A, N, B, C)`.
+///  Etc.
+///
+///  For example:
+///
+///  ```python
+///  x = tf.constant([1, 4])
+///  y = tf.constant([2, 5])
+///  z = tf.constant([3, 6])
+///  tf.stack([x, y, z])  # [[1, 4], [2, 5], [3, 6]] (Pack along first dim.)
+///  tf.stack([x, y, z], axis=1)  # [[1, 2, 3], [4, 5, 6]]
+///  ```
+///
+///  This is the opposite of unstack.  The numpy equivalent is
+///
+///  ```python
+///  tf.stack([x, y, z]) = np.stack([x, y, z])
+///  ```
+///
+///  ### Args:
+///    * values: A list of `Tensor` objects with the same shape and type.
+///    * axis: An `int`. The axis to stack along. Defaults to the first dimension.
+///      Negative values wrap around, so the valid range is `[-(R+1), R+1)`.
+///    * name: A name for this operation (optional).
+///
+///  ### Returns:
+///    * output: A stacked `Tensor` with the same type as `values`.
+pub fn stack<Tx, TeS, S>(scope: &mut Scope, input: Vec<Tx>, axis: TeS, name: S) -> Result<Tensor>
+where
+    Tx: TensorOps,
+    TeS: ShapeSize,
+    S: AsRef<Path>,
+{
+    let input: Vec<_> = input.into_iter().map(|x| x.into_tensor(scope)).collect();
+    let n = input.len() as i64;
+    let axis = axis.as_i64();
+    scope.install(Pack::new(input, name)?.axis(&[axis]).input_len(&[n]))
+}
+
+add_new_op!(
+    Pack,
+    constructor: [
+        fn new<S: AsRef<Path>>(values: Vec<Tensor>, name: S,) -> Result<Pack<'a>> {
+            let output_type = values[0].dtype;
+            for x in &values {
+                if &x.dtype != &output_type {
+                    return Err(Error::from(ErrorKind::Stub));
+                }
+            }
+
+            Ok(
+                Pack {
+                    ident: NodeIdent::new(),
+                    input_lists: vec![(0, values)],
+                    elements: Vec::with_capacity(0),
+                    name: generate_name!(is_none: name),
+                    attributes: Vec::with_capacity(1),
+                    output_type,
+                },
+            )
+        }
+    ],
+    digest: [DEFAULT_DIGEST: Pack, DTYPE_ATTR],
+    extra_funcs: [
+        fn axis(mut self, val: &'a [i64]) -> Self {
+            self.attributes.push(("axis", false, Attribute::Int(val)));
+            self
+        }
+
+        fn input_len(mut self, val: &'a [i64]) -> Self {
+            self.attributes.push(("N", false, Attribute::Int(val)));
+            self
+        }
+    ], 
+    extra_attr: [output_type: DataType],
+    output: [Tensor],
+);
+
+#[test]
+#[cfg(test)]
+fn test_stack() {
+    let mut scope = &mut Scope::new();
+    let x = [1, 4].as_ref();
+    let y = [2, 5].as_ref();
+    let z = [3, 6].as_ref();
+
+    let op = stack(scope, vec![x, y, z], 0, "").unwrap();
+    let results = test_suite!(run_op: [op]; scope, input: {});
+    test_suite!(results; assert: {[0;Int32] == [1, 4, 2, 5, 3, 6]});
+}
 
 
 ///// Stop Gradient /////

@@ -212,7 +212,7 @@ where
         let a = math_ops::divide(scope, x, keep_prob, "")?;
         math_ops::multiply(scope, a, binary_tensor, "")?
     };
-    let shape = x.get_shape(scope);
+    let shape = array_ops::shape(scope, x, None, "")?;
     ret.set_shape(scope, shape)
 }
 
@@ -322,7 +322,6 @@ add_new_op!(Softmax,
     output: [Tensor],
 );
 
-
 ///  Helper function for softmax and log_softmax.
 ///
 ///  It reshapes and transposes the input logits into a 2-D Tensor and then invokes
@@ -364,8 +363,8 @@ fn softmax_helper(
     }
 
     // We need its original shape for shape inference.
-    let shape = logits.get_shape(context);
-    let ndims = if let Some(n) = shape.dims() {
+    let shape = array_ops::shape(context, logits, None, "")?;
+    let ndims = if let Some(n) = shape.get_shape(context).dims() {
         n as i32
     } else {
         return Err(Error::from(
@@ -667,7 +666,8 @@ where
     )?)?;
 
     cost = array_ops::reshape(scope, cost, labels_shape, "")?;
-    cost = cost.set_shape(scope, labels_static_shape)?;
+    let labels_static_shape = labels_static_shape.definition_i64().unwrap();
+    cost = cost.set_shape(scope, labels_static_shape.as_slice())?;
     if let DataType::BFloat16 = logits.dtype {
         return math_ops::cast(scope, cost, DataType::BFloat16, "");
     } else {
@@ -724,7 +724,6 @@ where
 ///  L2 Loss.
 ///
 ///  Computes half the L2 norm of a tensor without the `sqrt`:
-///
 ///      `output = sum(t ** 2) / 2`
 ///
 ///  ### Args:
@@ -737,7 +736,7 @@ where
 pub fn l2_loss<Tx, S>(scope: &mut Scope, t: Tx, name: S) -> Result<Tensor>
 where
     Tx: TensorOps,
-    S: AsRef<Path>
+    S: AsRef<Path>,
 {
     let t = t.into_tensor(scope);
     scope.install(nn_ops::L2Loss::new(t, name)?)

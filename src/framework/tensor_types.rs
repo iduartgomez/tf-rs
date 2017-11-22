@@ -29,7 +29,27 @@ macro_rules! impl_tensor_ops {
                 scope.constant(self.0, self.1, "").unwrap().into()
             }
         }
-    }
+    };
+    (Trait: $TR:tt) => {
+        impl<T: $TR> TensorOps for T
+        {
+            fn into_tensor(self, scope: &mut Scope) -> Tensor {
+                scope.constant(&[self], &[] as &[i32], "").unwrap().into()
+            }
+        }
+
+        impl<'a, T: $TR> TensorOps for &'a [T] {
+            fn into_tensor(self, scope: &mut Scope) -> Tensor {
+                scope.constant(self, &[self.len() as i64], "").unwrap().into()
+            }
+        }
+
+        impl<'a, T: $TR, TeS: ShapeSize> TensorOps for (&'a [T], &'a [TeS]) {
+            fn into_tensor(self, scope: &mut Scope) -> Tensor {
+                scope.constant(self.0, self.1, "").unwrap().into()
+            }
+        }
+    };
 }
 
 /*
@@ -46,19 +66,18 @@ fn tensor_def() {
 
 impl_tensor_ops!(f32);
 impl_tensor_ops!(f64);
-impl_tensor_ops!(i16); 
-impl_tensor_ops!(i32);
-impl_tensor_ops!(i64);
-impl_tensor_ops!(u8); 
-impl_tensor_ops!(i8); 
-impl_tensor_ops!(String); 
-impl_tensor_ops!(::Complex32); 
-impl_tensor_ops!(::Complex64); 
-impl_tensor_ops!(::QUInt8); 
-impl_tensor_ops!(::QUInt16); 
-impl_tensor_ops!(::QInt16); 
-impl_tensor_ops!(::QInt32); 
-impl_tensor_ops!(::BFloat16); 
+impl_tensor_ops!(i16);
+impl_tensor_ops!(Trait: ShapeSize);
+impl_tensor_ops!(u8);
+impl_tensor_ops!(i8);
+impl_tensor_ops!(String);
+impl_tensor_ops!(::Complex32);
+impl_tensor_ops!(::Complex64);
+impl_tensor_ops!(::QUInt8);
+impl_tensor_ops!(::QUInt16);
+impl_tensor_ops!(::QInt16);
+impl_tensor_ops!(::QInt32);
+impl_tensor_ops!(::BFloat16);
 
 impl TensorOps for Tensor {
     fn into_tensor(self, _scope: &mut Scope) -> Tensor {
@@ -117,13 +136,32 @@ impl ShapeSize for i64 {
 }
 
 /// Methods to determine and get the shape of a tensor if it's actually defined.
-pub trait DefinedShape {
+pub trait ShapeOps
+where
+    Self: Sized,
+{
+    fn is_compatible_with(&self, other: &Self) -> bool;
+    fn merge_with<Idx>(&self, other: &Shape, range: Option<::std::ops::Range<Idx>>)
+        -> Result<Self>;
     fn is_fully_defined(&self) -> bool;
-    fn definition_u64(&self) -> Option<Vec<u64>>;
+    fn get_dim_size(&self, idx: usize) -> Option<i64>;
     fn definition_i64(&self) -> Option<Vec<i64>>;
+    fn definition_u64(&self) -> Option<Vec<u64>>;
 }
 
-impl DefinedShape for Shape {
+impl ShapeOps for Shape {
+    fn is_compatible_with(&self, other: &Shape) -> bool {
+        unimplemented!()
+    }
+
+    fn merge_with<Idx>(
+        &self,
+        other: &Shape,
+        range: Option<::std::ops::Range<Idx>>,
+    ) -> Result<Self> {
+        unimplemented!()
+    }
+
     fn is_fully_defined(&self) -> bool {
         if let Some(dim_num) = self.dims() {
             for dim in 0..dim_num {
@@ -137,17 +175,13 @@ impl DefinedShape for Shape {
         }
     }
 
-    fn definition_u64(&self) -> Option<Vec<u64>> {
-        let mut def = vec![];
+    fn get_dim_size(&self, idx: usize) -> Option<i64> {
         if let Some(dim_num) = self.dims() {
-            for dim in 0..dim_num {
-                if let Some(n) = self[dim] {
-                    def.push(n as u64);
-                } else {
-                    return None;
-                }
+            if let Some(n) = self[idx] {
+                Some(n)
+            } else {
+                None
             }
-            Some(def)
         } else {
             None
         }
@@ -159,6 +193,22 @@ impl DefinedShape for Shape {
             for dim in 0..dim_num {
                 if let Some(n) = self[dim] {
                     def.push(n);
+                } else {
+                    return None;
+                }
+            }
+            Some(def)
+        } else {
+            None
+        }
+    }
+
+    fn definition_u64(&self) -> Option<Vec<u64>> {
+        let mut def = vec![];
+        if let Some(dim_num) = self.dims() {
+            for dim in 0..dim_num {
+                if let Some(n) = self[dim] {
+                    def.push(n as u64);
                 } else {
                     return None;
                 }
