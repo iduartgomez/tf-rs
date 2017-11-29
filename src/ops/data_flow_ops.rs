@@ -172,7 +172,7 @@ fn test_dynamic_partition() {
 ///     merged[indices[m][i, ..., j], ...] = data[m][i, ..., j, ...]
 /// ```
 ///
-/// For example, if each indices[m] is scalar or vector, we have
+/// For example, if each `indices[m]` is scalar or vector, we have
 ///
 /// ```python
 ///     # Scalar indices:
@@ -191,9 +191,15 @@ fn test_dynamic_partition() {
 ///     merged.shape = [max(indices)] + constant
 /// ```
 ///
-/// Values are merged in order, so if an index appears in both indices[m][i] and indices[n][j] for (m,i) < (n,j) the slice data[n][j] will appear in the merged result.
+/// Values are merged in order, so if an index appears in both 
+/// ```python
+/// indices[m][i] and indices[n][j] 
+/// for (m,i) < (n,j) the slice data[n][j]
+/// ``` 
+/// will appear in the merged result.
 ///
 /// For example:
+///
 /// ```python
 ///     indices[0] = 6
 ///     indices[1] = [4, 1]
@@ -211,7 +217,7 @@ fn test_dynamic_partition() {
 ///     * name: A name for the operation (optional).
 ///
 /// ### Returns:
-///     * A Tensor. Has the same type as data.
+///     A Tensor. Has the same type as data.
 pub fn dynamic_stitch<Tx, Ty, S>(
     scope: &mut Scope,
     indices: Vec<Ty>,
