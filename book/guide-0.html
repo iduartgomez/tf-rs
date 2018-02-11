@@ -6,6 +6,7 @@
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
 
         <base href="">
 
@@ -35,62 +36,93 @@
             }
         </script>
 
-        <!-- Fetch JQuery from CDN but have a local fallback -->
-        <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-        <script>
-            if (typeof jQuery == 'undefined') {
-                document.write(unescape("%3Cscript src='jquery.js'%3E%3C/script%3E"));
-            }
-        </script>
-
-        <!-- Fetch store.js from local - TODO add CDN when 2.x.x is available on cdnjs -->
-        <script src="store.js"></script>
-
-        <!-- Custom JS script -->
-        
-
     </head>
     <body class="light">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
         <!-- Set the theme before any content is loaded, prevents flash -->
         <script type="text/javascript">
-            var theme = store.get('mdbook-theme');
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { } 
             if (theme === null || theme === undefined) { theme = 'light'; }
-            $('body').removeClass().addClass(theme);
+            document.body.className = theme;
+            document.querySelector('html').className = theme;
         </script>
 
         <!-- Hide / unhide sidebar before it is displayed -->
         <script type="text/javascript">
-            var sidebar = store.get('mdbook-sidebar');
-            if (sidebar === "hidden") { $("html").addClass("sidebar-hidden") }
-            else if (sidebar === "visible") { $("html").addClass("sidebar-visible") }
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            document.querySelector('html').classList.add("sidebar-" + sidebar);
         </script>
 
-        <div id="sidebar" class="sidebar">
-            <ul class="chapter"><li><a href="./introduction.html"><strong>1.</strong> Introduction</a></li><li><a href="./guide-0.html" class="active"><strong>2.</strong> Getting started</a></li></ul>
-        </div>
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="guide-0.html" class="active"><strong aria-hidden="true">2.</strong> Getting started</a></li></ol>
+        </nav>
 
         <div id="page-wrapper" class="page-wrapper">
 
-            <div class="page" tabindex="-1">
+            <div class="page">
+                
                 <div id="menu-bar" class="menu-bar">
-                    <div class="left-buttons">
-                        <i id="sidebar-toggle" class="fa fa-bars"></i>
-                        <i id="theme-toggle" class="fa fa-paint-brush"></i>
-                    </div>
+                    <div id="menu-bar-sticky-container">
+                        <div class="left-buttons">
+                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                                <i class="fa fa-bars"></i>
+                            </button>
+                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                                <i class="fa fa-paint-brush"></i>
+                            </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="submenu">
+                                <li><button class="theme" id="light">Light <span class="default">(default)</span></button></li>
+                                <li><button class="theme" id="rust">Rust</button></li>
+                                <li><button class="theme" id="coal">Coal</button></li>
+                                <li><button class="theme" id="navy">Navy</button></li>
+                                <li><button class="theme" id="ayu">Ayu</button></li>
+                            </ul>
+                        </div>
 
-                    <h1 class="menu-title"></h1>
+                        <h1 class="menu-title"></h1>
 
-                    <div class="right-buttons">
-                        <a href="print.html">
-                            <i id="print-button" class="fa fa-print" title="Print this book"></i>
-                        </a>
+                        <div class="right-buttons">
+                            <a href="print.html" title="Print this book" aria-label="Print this book">
+                                <i id="print-button" class="fa fa-print"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
                 <div id="content" class="content">
-                    <a class="header" href="./guide-0.html#getting-started" id="getting-started"><h1>Getting started</h1></a>
+                    <main>
+                        <a class="header" href="guide-0.html#getting-started" id="getting-started"><h1>Getting started</h1></a>
 <p>The API is designed to be simple and concise: graph operations are expressed using a &quot;functional&quot; construction style, including easy specification of names, etc., and the resulting graph can be efficiently run and the desired outputs fetched in a few lines of code. This guide explains the basic concepts and data structures needed to get started with TensorFlow graph construction and execution in Rust. This guide was &quot;translated&quot; from the original C++ guide.</p>
-<a class="header" href="./guide-0.html#the-basics" id="the-basics"><h2>The Basics</h2></a>
+<a class="header" href="guide-0.html#the-basics" id="the-basics"><h2>The Basics</h2></a>
 <p>Let's start with a simple example that illustrates graph construction and execution using the Rust API.</p>
 <pre><code class="language-Rust">// examples/guide_0_0.rs
 extern crate tf_rs as tf;
@@ -132,8 +164,8 @@ fn main() {
 <li>Executing and fetching the tensor values from the TensorFlow session.</li>
 </ul>
 <p>We will delve into the details of each below.</p>
-<a class="header" href="./guide-0.html#graph-construction" id="graph-construction"><h2>Graph Construction</h2></a>
-<a class="header" href="./guide-0.html#scope" id="scope"><h3>Scope</h3></a>
+<a class="header" href="guide-0.html#graph-construction" id="graph-construction"><h2>Graph Construction</h2></a>
+<a class="header" href="guide-0.html#scope" id="scope"><h3>Scope</h3></a>
 <p>tensorflow::Scope is the main data structure that holds the current state of graph construction. A Scope acts as a handle to the graph being constructed, as well as storing TensorFlow operation properties. The Scope object is the first argument to operation constructors, and operations that use a given Scope as their first argument inherit that Scope's properties, such as a common name prefix. Multiple Scopes can refer to the same graph, as explained further below.</p>
 <p>Create a new Scope object by calling the Scope constructor <code>Scope::new</code>. This creates some resources such as a graph to which operations are added. It also creates a tensorflow::Status object which will be used to indicate errors encountered when constructing operations.</p>
 <p>The Scope object returned by Scope::new is referred to as the root scope. &quot;Child&quot; scopes can be constructed from the root scope by calling various methods of the Scope type, thus forming a hierarchy of scopes. A child scope inherits all of the properties of the parent scope and typically has one property added or changed. For instance, <code>scope.name_scope(&quot;name&quot;, None)</code> appends name to the prefix of names for operations created using the returned Scope object.</p>
@@ -146,12 +178,12 @@ fn main() {
 <li><em>Kernel attribute for an operation</em> (not implemented yet)</li>
 </ul>
 <p>Please refer to Scope documentation in the API docs for the complete list of member functions that let you create child scopes with new properties.</p>
-<a class="header" href="./guide-0.html#operation-constructors" id="operation-constructors"><h3>Operation Constructors</h3></a>
+<a class="header" href="guide-0.html#operation-constructors" id="operation-constructors"><h3>Operation Constructors</h3></a>
 <p>You can create graph operations with operation constructors, one function per TensorFlow operation.</p>
 <p>The first parameter for all operation constructors is always a Scope object. Each operation requires a number of Tensor inputs and mandatory attributes form the rest of the arguments.</p>
 <p>For optional arguments, constructors have an optional parameters that allows optional attributes.</p>
 <p>The arguments and return values of operations are handled in different ways depending on their type. They can be either a single Tensor, a tuple of tensors or a vector of tensors.</p>
-<a class="header" href="./guide-0.html#graph-execution" id="graph-execution"><h3>Graph Execution</h3></a>
+<a class="header" href="guide-0.html#graph-execution" id="graph-execution"><h3>Graph Execution</h3></a>
 <p>When executing a graph, you will need a session. The C++ API provides a tensorflow::ClientSession class that will execute ops created by the operation constructors. TensorFlow will automatically determine which parts of the graph need to be executed, and what values need feeding. For example:</p>
 <pre><code class="language-Rust">let mut root = Scope::new();
 let a = Constant::new(root, &amp;[1, 1], &amp;[2]);
@@ -172,13 +204,7 @@ let add = ops::add(root, a, b, &quot;&quot;).unwrap();
 
 let mut session = ClientSession::new(root).unwrap();
 // Feed a &lt;- [[1, 2], [3, 4]]
-let feed_a = {
-    let mut t = TypedTensor::&lt;i32&gt;::new(&amp;[2, 2]);
-    for (i, x) in [1, 2, 3, 4].iter().enumerate() {
-        t[i] = *x;
-    }
-    t
-};
+let feed_a = TypedTensor::&lt;i32&gt;::new(&amp;[2, 2]).with_values(&amp;[1, 2, 3, 4]);
 session.feed(vec![(a, vec![TensorContent::Int32(feed_a)])]);
 let outputs = session.fetch(&amp;[add]).run(None).unwrap();
 let values = match outputs[0] {
@@ -191,38 +217,47 @@ println!(&quot;values: {:?}&quot;, &amp;values); // expect [[4, 5], [6, 7]]
 </code></pre>
 <p>Please see the Tensor documentation in the API docs for more information on how to use the execution output.</p>
 
-                </div>
+                    </main>
 
-                <!-- Mobile navigation buttons -->
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="introduction.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="./introduction.html" class="mobile-nav-chapters previous">
+                    <a href="introduction.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-
-            </div>
-
-            
-                <a href="./introduction.html" class="nav-chapters previous" title="You can navigate through the chapters using the arrow keys">
-                    <i class="fa fa-angle-left"></i>
-                </a>
-            
-
-            
+            </nav>
 
         </div>
 
 
         <!-- Local fallback for Font Awesome -->
         <script>
-            if ($(".fa").css("font-family") !== "FontAwesome") {
-                $('<link rel="stylesheet" type="text/css" href="_FontAwesome/css/font-awesome.css">').prependTo('head');
+            if (getComputedStyle(document.querySelector(".fa")).fontFamily !== "FontAwesome") {
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.type = 'text/css';
+                link.href = '_FontAwesome/css/font-awesome.css';
+                document.head.insertBefore(link, document.head.firstChild)
             }
         </script>
 
-        <!-- Livereload script (if served using the cli tool) -->
         
 
         
@@ -233,5 +268,9 @@ println!(&quot;values: {:?}&quot;, &amp;values); // expect [[4, 5], [6, 7]]
 
         <script src="highlight.js"></script>
         <script src="book.js"></script>
+
+        <!-- Custom JS script -->
+        
+
     </body>
 </html>
