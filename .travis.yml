@@ -13,8 +13,8 @@ rust:
 env:
   global:
     - RUST_BACKTRACE=1
-    - CC="gcc-4.9"
-    - CXX="g++-4.9"
+    #- CC="gcc-4.9"
+    #- CXX="g++-4.9"
 
 os:
   - linux
@@ -31,8 +31,8 @@ addons:
       - ubuntu-toolchain-r-test
 
     packages:
-      - g++-4.9
-      - gcc-4.9
+      #- g++-4.9
+      #- gcc-4.9
 
 notifications:
   email: false
