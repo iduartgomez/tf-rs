@@ -1,3 +1,5 @@
+use std::iter::IntoIterator;
+
 use Shape;
 use tf::TensorType;
 
@@ -65,18 +67,6 @@ macro_rules! impl_tensor_ops {
     }
 }
 
-/*
-#[test]
-fn tensor_def() {
-    use framework::tensor_types::TensorOps;
-    let ctxt = &mut Scope::new();
-    let def0 = ([0_i32, 1].as_ref(), [2_i32].as_ref()); // as TensorDef<i32, i32>;
-    let def1 = 3_i32;
-    def0.into_tensor(ctxt);
-    def1.into_tensor(ctxt);
-}
-*/
-
 impl_tensor_ops!(f32);
 impl_tensor_ops!(f64);
 impl_tensor_ops!(i16);
@@ -137,26 +127,106 @@ pub trait ShapeOps
 where
     Self: Sized,
 {
-    fn is_compatible_with(&self, other: &Self) -> bool;
-    fn merge_with<Idx>(&self, other: &Shape, range: Option<::std::ops::Range<Idx>>)
-        -> Result<Self>;
+    /// Returns True iff self is compatible with other.
+    ///
+    /// Two possibly-partially-defined shapes are compatible if there exists a fully-defined shape
+    /// that both shapes can represent. Thus, compatibility allows the shape inference code
+    /// to reason about partially-defined shapes. For example:
+    ///
+    /// TensorShape(None) is compatible with all shapes.
+    ///
+    /// TensorShape([None, None]) is compatible with all two-dimensional shapes,
+    /// such as TensorShape([32, 784]), and also TensorShape(None).
+    /// It is not compatible with, for example, TensorShape([None])
+    /// or TensorShape([None, None, None]).
+    ///
+    /// TensorShape([32, None]) is compatible with all two-dimensional shapes with size 32
+    /// in the 0th dimension, and also TensorShape([None, None]) and TensorShape(None).
+    /// It is not compatible with, for example, TensorShape([32]), TensorShape([32, None, 1])
+    /// or TensorShape([64, None]).
+    ///
+    /// TensorShape([32, 784]) is compatible with itself, and also TensorShape([32, None]),
+    /// TensorShape([None, 784]), TensorShape([None, None]) and TensorShape(None).
+    /// It is not compatible with, for example, TensorShape([32, 1, 784]) or TensorShape([None]).
+    ///
+    /// The compatibility relation is reflexive and symmetric, but not transitive.
+    /// For example, TensorShape([32, 784]) is compatible with TensorShape(None),
+    /// and TensorShape(None) is compatible with TensorShape([4, 4]),
+    /// but TensorShape([32, 784]) is not compatible with TensorShape([4, 4]).
+    fn is_compatible_with(&self, other: &Shape) -> bool;
+    fn merge_with(&self, other: &Shape) -> Result<Shape>;
     fn is_fully_defined(&self) -> bool;
+
     fn get_dim_size(&self, idx: usize) -> Option<i64>;
     fn definition_i64(&self) -> Option<Vec<i64>>;
     fn definition_u64(&self) -> Option<Vec<u64>>;
+    fn to_shape(&self) -> Shape;
+    fn slice(&self, start: usize, end: Option<usize>) -> Result<Shape>;
 }
 
 impl ShapeOps for Shape {
     fn is_compatible_with(&self, other: &Shape) -> bool {
-        unimplemented!()
+        let o_dnum = other.dims();
+        let s_dnum = self.dims();
+        if o_dnum.is_none() || s_dnum.is_none() {
+            return true;
+        }
+
+        let o_def = o_dnum.unwrap();
+        let s_def = s_dnum.unwrap();
+        if o_def != s_def {
+            return false;
+        }
+
+        let any_diff = (0..s_def).into_iter().any(|idx| {
+            let s_dim = self[idx];
+            let o_dim = other[idx];
+            if s_dim.is_none() || o_dim.is_none() {
+                false
+            } else {
+                let s_dim = s_dim.unwrap();
+                let o_dim = o_dim.unwrap();
+                s_dim != o_dim
+            }
+        });
+        !any_diff
     }
 
-    fn merge_with<Idx>(
-        &self,
-        other: &Shape,
-        range: Option<::std::ops::Range<Idx>>,
-    ) -> Result<Self> {
-        unimplemented!()
+    fn merge_with(&self, other: &Shape) -> Result<Shape> {
+        let s_def: Option<Vec<_>> = self.clone().into();
+        let o_def: Option<Vec<_>> = other.clone().into();
+        if s_def.is_none() {
+            return Ok(other.clone());
+        } else if o_def.is_none() {
+            return Ok(self.clone());
+        }
+
+        let s_def = s_def.unwrap();
+        let o_def = o_def.unwrap();
+        let def: Result<_> = s_def
+            .into_iter()
+            .zip(o_def.into_iter())
+            .map(|(s_dim, o_dim)| {
+                if let Some(s_dim) = s_dim {
+                    if let Some(o_dim) = o_dim {
+                        if s_dim == o_dim {
+                            Ok(Some(s_dim))
+                        } else {
+                            Err(Error::from(
+                                "cannot merge dimensions of a shape with unequal values.",
+                            ))
+                        }
+                    } else {
+                        Ok(Some(s_dim))
+                    }
+                } else if let Some(o_dim) = o_dim {
+                    Ok(Some(o_dim))
+                } else {
+                    Ok(None)
+                }
+            })
+            .collect();
+        Ok(Shape::from(Some(def?)))
     }
 
     fn is_fully_defined(&self) -> bool {
@@ -215,25 +285,71 @@ impl ShapeOps for Shape {
             None
         }
     }
-}
 
-/// Return a tensor shape from self.
-pub trait IntoShape {
-    fn to_shape(&self) -> Shape;
-}
-
-impl<'a, TeS> IntoShape for &'a [TeS]
-where
-    TeS: ShapeSize,
-{
     fn to_shape(&self) -> Shape {
-        Shape::from(Some(self.iter().map(|x| Some(x.as_i64())).collect()))
+        self.clone()
+    }
+
+    fn slice(&self, start: usize, end: Option<usize>) -> Result<Shape> {
+        let def: Option<Vec<Option<i64>>> = self.clone().into();
+        if let Some(def) = def {
+            if let Some(end) = end {
+                Ok(Shape::from(Some((&def[start..]).to_vec())))
+            } else {
+                Ok(Shape::from(Some((&def[start..]).to_vec())))
+            }
+        } else {
+            Err(Error::from(ErrorKind::UndefinedTensorShape))
+        }
     }
 }
 
-impl IntoShape for Shape {
+impl<'a, TeS> ShapeOps for &'a [TeS]
+where
+    TeS: ShapeSize,
+{
+    fn is_compatible_with(&self, other: &Shape) -> bool {
+        let self_shape = self.to_shape();
+        self_shape.is_compatible_with(other)
+    }
+
+    fn merge_with(&self, other: &Shape) -> Result<Shape> {
+        let s_shape: Shape = self.to_shape();
+        s_shape.merge_with(other)
+    }
+
+    fn is_fully_defined(&self) -> bool {
+        true
+    }
+
+    fn get_dim_size(&self, idx: usize) -> Option<i64> {
+        if let Some(dim) = self.get(idx) {
+            Some(dim.as_i64())
+        } else {
+            None
+        }
+    }
+
+    fn definition_i64(&self) -> Option<Vec<i64>> {
+        Some(self.iter().map(|x| x.as_i64()).collect())
+    }
+
+    fn definition_u64(&self) -> Option<Vec<u64>> {
+        Some(self.iter().map(|x| x.as_u64()).collect())
+    }
+
     fn to_shape(&self) -> Shape {
-        self.clone()
+        Shape::from(Some(self.iter().map(|x| Some(x.as_i64())).collect()))
+    }
+
+    fn slice(&self, start: usize, end: Option<usize>) -> Result<Shape> {
+        if let Some(end) = end {
+            let def = self[start..end].iter().map(|x| Some(x.as_i64())).collect();
+            Ok(Shape::from(Some(def)))
+        } else {
+            let def = self[start..].iter().map(|x| Some(x.as_i64())).collect();
+            Ok(Shape::from(Some(def)))
+        }
     }
 }
 

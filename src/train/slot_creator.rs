@@ -74,7 +74,7 @@ where
         let initializer = init_ops::zeros_initializer(
             scope,
             &shape_as_i64(slot_shape_arr.definition_i64().as_ref().unwrap()),
-            primary.dtype
+            primary.dtype,
         )?;
         create_slot(
             scope,
@@ -88,3 +88,33 @@ where
         create_slot(scope, primary, val, name, colocate_with_primary)
     }
 }
+
+/*
+///  Creates a slot initialized using an `Initializer`.
+///
+///  The type of the slot is determined by the given value.
+///
+///  Args:
+///    primary: The primary `Variable` or `Tensor`.
+///    initializer: An `Initializer`.  The initial value of the slot.
+///    shape: Shape of the initial value of the slot.
+///    dtype: Type of the value of the slot.
+///    name: Name to use for the slot variable.
+///    colocate_with_primary: Boolean.  If True the slot is located
+///      on the same device as `primary`.
+///
+///  Returns:
+///    A `Variable` object.
+/// 
+pub(crate) fn create_slot_with_initializer<S>(
+    scope: &mut Scope,
+    primary: Tensor,
+    name: S,
+    colocate_with_primary: bool,
+) -> Result<Variable>
+where
+    S: AsRef<str>,
+{
+    unimplemented!()
+}
+*/

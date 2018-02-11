@@ -3,9 +3,10 @@
 use tf::Status;
 
 error_chain! {
-    errors { 
-        Stub 
-        UnimplementedTraitMethod 
+    errors {
+        Stub
+        UndefinedTensorShape
+        UnimplementedTraitMethod
     }
 
     foreign_links {

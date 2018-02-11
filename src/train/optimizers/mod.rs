@@ -5,6 +5,9 @@ use super::{DataType, Error, ErrorKind, NodeIdent, Result, Scope, Tensor, Tensor
 use ops::{array_ops, control_flow_ops, math_ops, state_ops};
 use ops::gradients_impl as gradients;
 
+/// {slot_name: {variable_to_train: slot_for_the_variable}}
+//type SlotDict = HashMap<String, HashMap<Variable, i32>>;
+
 //mod gradient_descent;
 //pub use self::gradient_descent::GradientDescentOptimizer;
 

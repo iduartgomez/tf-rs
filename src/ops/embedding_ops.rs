@@ -84,9 +84,13 @@ where
 
     let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("embedding_lookup"));
     let np = params.len() as i32; // Number of partitions
-    // Preserve the resource variable status to avoid accidental dense reads.
+                                  // Preserve the resource variable status to avoid accidental dense reads.
     let dims = if let Some(dims) = ids.get_shape(scope).dims() {
-        if dims == 1 { true } else { false }
+        if dims == 1 {
+            true
+        } else {
+            false
+        }
     } else {
         false
     };
@@ -239,11 +243,13 @@ where
     let element_shape_s = if transform_fn.is_none() {
         let mut element_shape_s = params[0].get_shape(scope);
         for p in &params[1..] {
-            element_shape_s = element_shape_s.merge_with(&p.get_shape(scope), Some(0..1))?;
+            let s = p.get_shape(scope).slice(1, None)?;
+            element_shape_s = element_shape_s.merge_with(&s)?;
         }
         element_shape_s
     } else {
-        ret.get_shape(scope)
+        let s = ret.get_shape(scope);
+        s.slice(1, None)?
     };
 
     // Compute the dynamic element shape.
@@ -253,6 +259,7 @@ where
     } else if transform_fn.is_none() {
         // TODO: It's important that we compute params[0].shape on the right device
         // to avoid data motion.
+        // with ops.colocate_with(params[0]):
         let params_shape = array_ops::shape(scope, params[0], None, "")?;
         array_ops::strided_slice(
             scope,
@@ -334,22 +341,22 @@ fn clip(
     let axes = if ids_static && params_static {
         let ids_rank = match ids_rank {
             RankVal::S(t) => t as i64,
-            _ => return Err(Error::from(ErrorKind::Stub)), 
+            _ => return Err(Error::from(ErrorKind::Stub)),
         };
         let params_rank = match params_rank {
             RankVal::S(t) => t as i64,
-            _ => return Err(Error::from(ErrorKind::Stub)), 
+            _ => return Err(Error::from(ErrorKind::Stub)),
         };
         let r: Vec<_> = (ids_rank..params_rank).collect();
         (&r).into_tensor(scope)
     } else {
         let ids_rank = match ids_rank {
             RankVal::T(t) => t,
-            _ => return Err(Error::from(ErrorKind::Stub)), 
+            _ => return Err(Error::from(ErrorKind::Stub)),
         };
         let params_rank = match params_rank {
             RankVal::T(t) => t,
-            _ => return Err(Error::from(ErrorKind::Stub)), 
+            _ => return Err(Error::from(ErrorKind::Stub)),
         };
         math_ops::range(scope, ids_rank, params_rank, 1, "")?
     };

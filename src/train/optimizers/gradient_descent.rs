@@ -1,10 +1,16 @@
 //! Gradient descent optimizer
 
 use super::*;
+use std::path::PathBuf;
 
 #[derive(Clone)]
 /// Optimizer that implements the gradient descent algorithm.
-pub struct GradientDescentOptimizer;
+pub struct GradientDescentOptimizer {
+    learning_rate: Tensor,
+    use_locking: bool,
+    name: PathBuf,
+    slots: SlotDict,
+}
 
 impl GradientDescentOptimizer {
     pub fn new<V, S>(learning_rate: V, use_locking: bool, name: S) -> Self

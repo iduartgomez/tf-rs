@@ -6,7 +6,6 @@ use std::rc::Rc;
 use tf::TensorType;
 
 use super::super::{DataType, Graph, OperationData, Output, Shape, TypedTensor};
-use super::IntoShape;
 use errors::*;
 use ops::*;
 
@@ -82,7 +81,12 @@ impl Scope {
                         }
                     }
                     IdType::Operation(_) => {
-                        if self.own_scope.ops.iter().find(|&&(ref x, _)| x == &name).is_some() {
+                        if self.own_scope
+                            .ops
+                            .iter()
+                            .find(|&&(ref x, _)| x == &name)
+                            .is_some()
+                        {
                             name = self.own_scope.name.join(format!(
                                 "{}_{}",
                                 given_name.display(),
@@ -199,7 +203,7 @@ impl Scope {
             let scope_name = format!("{}", self.own_scope.name.display());
             let scope_name = match scope_name.as_str() {
                 "" => format!("{}", "root"),
-                _ => scope_name, 
+                _ => scope_name,
             };
             static MSG_0: &str = "tried to write at scope `";
             static MSG_1: &str = "` while an other child scope was open";
@@ -301,7 +305,10 @@ impl Scope {
 
     #[allow(dead_code)]
     pub(crate) fn get_src_op<Op: Into<NodeIdent>>(&self, op: Op) -> (OperationData, i32) {
-        let &TensorData { data_origin: (ref op, idx), .. } = &self.registry.borrow()[&op.into()];
+        let &TensorData {
+            data_origin: (ref op, idx),
+            ..
+        } = &self.registry.borrow()[&op.into()];
         (op.clone(), idx)
     }
 
@@ -373,8 +380,7 @@ impl Scope {
                         (data.data_origin.0.clone(), data.data_origin.1)
                     }
                 }
-                ControlFlow::None |
-                ControlFlow::WhileContext(_) => {
+                ControlFlow::None | ControlFlow::WhileContext(_) => {
                     let data = &reg_c.borrow()[&input.ident];
                     (data.data_origin.0.clone(), data.data_origin.1)
                 }
@@ -451,15 +457,15 @@ impl Scope {
     /// reuse during variable creation.
     ///
     /// Reuse is set during `variable_scope` creation.
-    pub fn get_variable<IS, S>(
+    pub fn get_variable<Sh, S>(
         &mut self,
         dtype: Option<DataType>,
-        shape: Option<IS>,
+        shape: Option<Sh>,
         name: S,
     ) -> Result<Variable>
     where
         S: AsRef<Path>,
-        IS: IntoShape,
+        Sh: ShapeOps,
     {
         fn get_initial_value(
             g: &mut Graph,
@@ -481,22 +487,22 @@ impl Scope {
                 }
                 DataType::QUInt8 => {
                     array_ops::constant(g, n, TypedTensor::<::QUInt8>::new(shape), &[])?
-                } 
+                }
                 DataType::QInt16 => {
                     array_ops::constant(g, n, TypedTensor::<::QInt16>::new(shape), &[])?
-                } 
+                }
                 DataType::QUInt16 => {
                     array_ops::constant(g, n, TypedTensor::<::QUInt16>::new(shape), &[])?
-                } 
+                }
                 DataType::QInt32 => {
                     array_ops::constant(g, n, TypedTensor::<::QInt32>::new(shape), &[])?
-                } 
+                }
                 DataType::BFloat16 => {
                     array_ops::constant(g, n, TypedTensor::<::BFloat16>::new(shape), &[])?
                 }
                 DataType::Complex64 => {
                     array_ops::constant(g, n, TypedTensor::<::Complex32>::new(shape), &[])?
-                } 
+                }
                 DataType::Complex128 => {
                     array_ops::constant(g, n, TypedTensor::<::Complex64>::new(shape), &[])?
                 }
@@ -511,7 +517,10 @@ impl Scope {
         let var = if self.not_variable_scope {
             // use scopes/root
             // FIXME: don't default to root
-            self.scopes.borrow().variables.binary_search_by(|&(ref name, _)| name.cmp(&new_var))
+            self.scopes
+                .borrow()
+                .variables
+                .binary_search_by(|&(ref name, _)| name.cmp(&new_var))
         } else {
             (&self.own_scope.variables).binary_search_by(|&(ref name, _)| name.cmp(&new_var))
         };
@@ -623,11 +632,14 @@ impl Scope {
                         shape: rank_info,
                     },
                 );
-                self.scopes.borrow_mut().control_dependencies.push_front(ControlOp {
-                    ident: NodeIdent::new(),
-                    finished: init,
-                    kind: ControlOpKind::VarInitializer,
-                });
+                self.scopes
+                    .borrow_mut()
+                    .control_dependencies
+                    .push_front(ControlOp {
+                        ident: NodeIdent::new(),
+                        finished: init,
+                        kind: ControlOpKind::VarInitializer,
+                    });
             }
             Ok(self._make_var_handle(ident, init_ident, new_var, dtype))
         } else {
@@ -653,7 +665,10 @@ impl Scope {
         let var = if self.not_variable_scope {
             // use scopes/root
             // FIXME: don't default to root
-            self.scopes.borrow().variables.binary_search_by(|&(ref name, _)| name.cmp(&new_var))
+            self.scopes
+                .borrow()
+                .variables
+                .binary_search_by(|&(ref name, _)| name.cmp(&new_var))
         } else {
             (&self.own_scope.variables).binary_search_by(|&(ref name, _)| name.cmp(&new_var))
         };
@@ -744,11 +759,14 @@ impl Scope {
                         shape: rank_info,
                     },
                 );
-                self.scopes.borrow_mut().control_dependencies.push_front(ControlOp {
-                    ident: NodeIdent::new(),
-                    finished: init,
-                    kind: ControlOpKind::VarInitializer,
-                });
+                self.scopes
+                    .borrow_mut()
+                    .control_dependencies
+                    .push_front(ControlOp {
+                        ident: NodeIdent::new(),
+                        finished: init,
+                        kind: ControlOpKind::VarInitializer,
+                    });
             }
             Ok(self._make_var_handle(ident, initializer, new_var, dtype))
         } else {
@@ -782,12 +800,7 @@ impl Scope {
     }
 
     /// Create a new 'constant' tensor with given values and shape.
-    pub fn constant<TeS, T, S>(
-        &mut self,
-        value: &[T],
-        shape: &[TeS],
-        name: S,
-    ) -> Result<Constant>
+    pub fn constant<TeS, T, S>(&mut self, value: &[T], shape: &[TeS], name: S) -> Result<Constant>
     where
         S: AsRef<Path>,
         T: TensorType,
@@ -817,11 +830,15 @@ impl Scope {
                 ControlFlow::WhileContext(ref cond) => {
                     let pivot = if cond.pivot_for_body.is_some() {
                         vec![
-                            &registry[&cond.pivot_for_body.as_ref().unwrap().ident].data_origin.0,
+                            &registry[&cond.pivot_for_body.as_ref().unwrap().ident]
+                                .data_origin
+                                .0,
                         ]
                     } else {
                         vec![
-                            &registry[&cond.pivot_for_pred.as_ref().unwrap().ident].data_origin.0,
+                            &registry[&cond.pivot_for_pred.as_ref().unwrap().ident]
+                                .data_origin
+                                .0,
                         ]
                     };
                     array_ops::constant(
@@ -831,14 +848,12 @@ impl Scope {
                         cd.iter().map(|x| &x.finished).chain(pivot),
                     )?
                 }
-                ControlFlow::None => {
-                    array_ops::constant(
-                        graph,
-                        full_name.to_str().unwrap(),
-                        to_typed_tensor![value; shape],
-                        cd.iter().map(|x| &x.finished),
-                    )?
-                }
+                ControlFlow::None => array_ops::constant(
+                    graph,
+                    full_name.to_str().unwrap(),
+                    to_typed_tensor![value; shape],
+                    cd.iter().map(|x| &x.finished),
+                )?,
             }
         };
         let dtype = data_origin.output_type(0);
@@ -868,14 +883,14 @@ impl Scope {
         self.allow_writes();
 
         let ident = NodeIdent::new();
-        let full_name = self.resolve_tensor_name(None, IdType::Placeholder, false).unwrap();
+        let full_name = self.resolve_tensor_name(None, IdType::Placeholder, false)
+            .unwrap();
 
         let graph = &mut *self.graph.borrow_mut();
         let registry = &mut *self.registry.borrow_mut();
 
         let data_origin = (
-            array_ops::placeholder(graph, full_name.to_str().unwrap(), dtype)
-                .unwrap(),
+            array_ops::placeholder(graph, full_name.to_str().unwrap(), dtype).unwrap(),
             0,
         );
         registry.insert(
@@ -907,7 +922,8 @@ impl Scope {
         self.allow_writes();
         let name = self.own_scope.name.clone();
         let mut context = self.as_new_child(name);
-        let op_name = self.resolve_tensor_name(None, IdType::Operation("NoOp"), false).unwrap();
+        let op_name = self.resolve_tensor_name(None, IdType::Operation("NoOp"), false)
+            .unwrap();
 
         let registry = &*self.registry.borrow();
         let existing_ops = &*self.ops.borrow();
@@ -932,7 +948,10 @@ impl Scope {
                     kind: ControlOpKind::Other,
                 }
             };
-            context.own_scope.control_dependencies.push_back(ctrl.clone());
+            context
+                .own_scope
+                .control_dependencies
+                .push_back(ctrl.clone());
             global.push_back(ctrl);
         }
 
@@ -1161,7 +1180,8 @@ impl InternScope {
 
     fn add_scope(&mut self, scope: InternScope) {
         self.inner_scopes.push(Box::new(scope));
-        self.inner_scopes.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+        self.inner_scopes
+            .sort_unstable_by(|a, b| a.name.cmp(&b.name));
     }
 
     fn get_child(&self, name: &Path) -> Option<&InternScope> {
@@ -1199,10 +1219,12 @@ fn find_parent_scope<'a>(
     comp: usize,
 ) -> Option<&'a mut InternScope> {
     for scope in scopes {
-        let rest = if let Some((_, prefix)) =
-            scope.name.iter().enumerate().skip_while(|&(ref i, _)| i < &comp).find(|&(_, p)| {
-                name.starts_with(p)
-            })
+        let rest = if let Some((_, prefix)) = scope
+            .name
+            .iter()
+            .enumerate()
+            .skip_while(|&(ref i, _)| i < &comp)
+            .find(|&(_, p)| name.starts_with(p))
         {
             name.strip_prefix(prefix).unwrap().to_owned()
         } else {
@@ -1221,7 +1243,6 @@ impl PartialEq for InternScope {
         self.name == rhs.name
     }
 }
-
 
 /*
 #[cfg(test)]
