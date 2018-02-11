@@ -50,6 +50,19 @@ macro_rules! impl_tensor_ops {
             }
         }
     };
+    (Gen: $T:ty) => {
+        impl TensorOps for $T {
+            fn into_tensor(self, _scope: &mut Scope) -> Tensor {
+                self.into()
+            }
+        }
+
+        impl<'a> TensorOps for &'a $T {
+            fn into_tensor(self, _scope: &mut Scope) -> Tensor {
+                (*self).into()
+            }
+        }
+    }
 }
 
 /*
@@ -78,25 +91,9 @@ impl_tensor_ops!(::QUInt16);
 impl_tensor_ops!(::QInt16);
 impl_tensor_ops!(::QInt32);
 impl_tensor_ops!(::BFloat16);
-
-impl TensorOps for Tensor {
-    fn into_tensor(self, _scope: &mut Scope) -> Tensor {
-        self
-    }
-}
-
-impl TensorOps for Constant {
-    fn into_tensor(self, _scope: &mut Scope) -> Tensor {
-        self.into()
-    }
-}
-
-impl TensorOps for Variable {
-    fn into_tensor(self, _scope: &mut Scope) -> Tensor {
-        self.into()
-    }
-}
-
+impl_tensor_ops!(Gen: Tensor);
+impl_tensor_ops!(Gen: Constant);
+impl_tensor_ops!(Gen: Variable);
 
 ///// Shape related traits /////
 

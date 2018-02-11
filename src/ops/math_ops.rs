@@ -1,7 +1,6 @@
 //! Math Operations.
 use super::*;
 
-
 ///// Add /////
 
 /// Returns x + y element-wise.
@@ -37,7 +36,6 @@ fn test_add() {
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [4_i32]});
 }
-
 
 ///// AddN /////
 
@@ -87,7 +85,6 @@ fn test_add_n() {
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [4_i32]});
 }
-
 
 //// Cast /////
 
@@ -146,7 +143,6 @@ fn test_cast() {
     test_suite!(results; assert: {[0;Double] == [0_f64, 1.]});
 }
 
-
 ///// Conj /////
 
 ///  Returns the complex conjugate of a complex number.
@@ -187,9 +183,10 @@ where
     } else if x.dtype.is_floating() || x.dtype.is_integer() {
         Ok(x)
     } else {
-        Err(Error::from(
-            format!("Expected numeric tensor, got dtype {:?}", x.dtype),
-        ))
+        Err(Error::from(format!(
+            "Expected numeric tensor, got dtype {:?}",
+            x.dtype
+        )))
     }
 }
 
@@ -200,7 +197,6 @@ add_new_op!(Conj,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Division /////
 
@@ -232,7 +228,6 @@ fn test_divide() {
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32]});
 }
-
 
 ///// Equal /////
 
@@ -279,7 +274,6 @@ fn test_equal() {
     test_suite!(results; assert: {[0;Bool] == [true, true]});
 }
 
-
 ///// Exp /////
 
 /// Computes exponential of x element-wise. y=ex.
@@ -315,7 +309,6 @@ fn test_exp() {
     test_suite!(results; assert: {[0;Double] == [::std::f64::consts::E]});
 }
 
-
 ///// Floor /////
 
 /// Returns element-wise largest integer not greater than x.
@@ -336,7 +329,6 @@ add_new_op!(Floor,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// FloorMod /////
 
@@ -367,7 +359,6 @@ add_new_op!(FloorMod,
     output: [Tensor],
 );
 
-
 ///// FloorDiv /////
 
 /// Returns x // y element-wise.
@@ -393,7 +384,6 @@ add_new_op!(FloorDiv,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Greater /////
 
@@ -441,7 +431,6 @@ fn test_greater() {
     test_suite!(results; assert: {[0;Bool] == [true, false]});
 }
 
-
 ///// Maximum /////
 
 ///  Returns the max of x and y (i.e. x > y ? x : y) element-wise.
@@ -455,12 +444,7 @@ fn test_greater() {
 ///
 ///  ### Returns:
 ///    * A `Tensor`. Has the same type as `x`.
-pub fn maximum<Tx, Ty, S>(
-    scope: &mut Scope,
-    x: Tx,
-    y: Ty,
-    name: S,
-) -> Result<Tensor>
+pub fn maximum<Tx, Ty, S>(scope: &mut Scope, x: Tx, y: Ty, name: S) -> Result<Tensor>
 where
     Tx: TensorOps,
     Ty: TensorOps,
@@ -478,7 +462,6 @@ add_new_op!(Maximum,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// MatMul /////
 
@@ -581,14 +564,12 @@ where
     let scope = &mut context.name_scope(name.as_ref(), Some("MatMul".as_ref()));
     if transpose_a && adjoint_a {
         return Err(Error::from(
-            "Only one of transpose_a and adjoint_a can be True."
-                .to_owned(),
+            "Only one of transpose_a and adjoint_a can be True.".to_owned(),
         ));
     }
     if transpose_b && adjoint_b {
         return Err(Error::from(
-            "Only one of transpose_b and adjoint_b can be True."
-                .to_owned(),
+            "Only one of transpose_b and adjoint_b can be True.".to_owned(),
         ));
     }
 
@@ -596,9 +577,9 @@ where
     let mut b = b.into();
     let a_shape = a.get_shape(scope);
     let b_shape = b.get_shape(scope);
-    if (!a_is_sparse && !b_is_sparse) &&
-        ((a_shape.dims().is_none() || a_shape.dims().unwrap() > 2) &&
-             (b_shape.dims().is_none() || b_shape.dims().unwrap() > 2))
+    if (!a_is_sparse && !b_is_sparse)
+        && ((a_shape.dims().is_none() || a_shape.dims().unwrap() > 2)
+            && (b_shape.dims().is_none() || b_shape.dims().unwrap() > 2))
     {
         // BatchMatmul does not support transpose, so we conjugate the matrix and
         // use adjoint instead. Conj() is a noop for real matrices.
@@ -624,18 +605,20 @@ where
     }
 
     let sparse_matmul_a = match a.dtype {
-        DataType::BFloat16 |
-        DataType::Float => true,
+        DataType::BFloat16 | DataType::Float => true,
         _ => false,
     };
     let sparse_matmul_b = match b.dtype {
-        DataType::BFloat16 |
-        DataType::Float => true,
+        DataType::BFloat16 | DataType::Float => true,
         _ => false,
     };
 
     let mut use_sparse_matmul = sparse_matmul_a && sparse_matmul_b && (a_is_sparse || b_is_sparse);
-    if [a.dtype, b.dtype].iter().find(|x| DataType::BFloat16 == **x).is_some() {
+    if [a.dtype, b.dtype]
+        .iter()
+        .find(|x| DataType::BFloat16 == **x)
+        .is_some()
+    {
         // matmul currently doesn't handle bfloat16 inputs.
         use_sparse_matmul = true;
     }
@@ -656,7 +639,9 @@ where
             ));
         }
         scope.install(
-            MatMul::new(a, b, "")?.transpose_a(&[transpose_a]).transpose_b(&[transpose_b]),
+            MatMul::new(a, b, "")?
+                .transpose_a(&[transpose_a])
+                .transpose_b(&[transpose_b]),
         )
     }
 }
@@ -691,7 +676,6 @@ add_new_op!(MatMul,
     output: [Tensor],
 );
 
-
 ///// Neg /////
 
 ///   Computes numerical negative value element-wise.
@@ -719,7 +703,6 @@ add_new_op!(Neg,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 /// Multiply matrix "a" by matrix "b".
 ///
@@ -763,7 +746,6 @@ add_new_op!(SparseMatMul,
     output: [Tensor],
 );
 
-
 ///// Multiply /////
 
 /// Returns x * y element-wise.
@@ -794,7 +776,6 @@ fn test_multiply() {
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [8_i32]});
 }
-
 
 ///// Less /////
 
@@ -842,7 +823,6 @@ fn test_less() {
     test_suite!(results; assert: {[0;Bool] == [false, true]});
 }
 
-
 ///// Log /////
 
 /// Computes natural logarithm of x element-wise.
@@ -872,12 +852,13 @@ add_new_op!(Log,
 #[cfg(test)]
 fn test_log() {
     let mut context = Scope::new();
-    let e = context.constant(&[::std::f64::consts::E], &[] as &[i32], "e").unwrap();
+    let e = context
+        .constant(&[::std::f64::consts::E], &[] as &[i32], "e")
+        .unwrap();
     let op = log(&mut context, e, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Double] == [1.]});
 }
-
 
 ///// Logical Not /////
 
@@ -920,7 +901,6 @@ fn test_logical_not() {
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [false, true]});
 }
-
 
 ///// Pow /////
 
@@ -970,7 +950,6 @@ fn test_pow() {
     test_suite!(results; assert: {[0;Int32] == [4_i32]});
 }
 
-
 ///// Reduce All /////
 
 /// Computes the "logical and" of elements across dimensions of a tensor.
@@ -982,7 +961,7 @@ fn test_pow() {
 /// If axis has no entries, all dimensions are reduced, and a tensor with a single element is returned.
 ///
 /// For example:
-/// ```
+/// ```python
 /// # 'x' is [[True,  True]
 /// #         [False, False]]
 /// tf.reduce_all(x) ==> False
@@ -1012,9 +991,7 @@ where
     }
     let dims = &[axis.len() as i64];
     let reduce = context.constant(axis, dims, name.as_ref())?;
-    context.install(All::new(tensor.into(), reduce.into(), name)?.keep_dims(
-        &[keep_dims],
-    ))
+    context.install(All::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
 }
 
 add_new_op!(All,
@@ -1035,7 +1012,9 @@ add_new_op!(All,
 #[cfg(test)]
 fn test_reduce_all() {
     let mut context = Scope::new();
-    let x = context.constant(&[true, true, true, false, true, true], &[2, 3], "x").unwrap();
+    let x = context
+        .constant(&[true, true, true, false, true, true], &[2, 3], "x")
+        .unwrap();
 
     let op = reduce_all(&mut context, x, &[1], false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -1052,7 +1031,6 @@ fn test_reduce_all() {
     test_suite!(results; assert: {[0;Bool] == [false]});
     test_suite!(results; assert_len: {[0;Bool] == 1});
 }
-
 
 ///// Reduce LogSumExp /////
 
@@ -1110,11 +1088,7 @@ where
     let dims: Vec<i64>;
     let mut result = add(scope, log, my_max, "")?;
     if !keep_dims {
-        let axis = if axis.len() == 0 {
-            None
-        } else {
-            Some(axis)
-        };
+        let axis = if axis.len() == 0 { None } else { Some(axis) };
         result = squeeze(scope, result, axis, "")?;
     }
     Ok(result)
@@ -1124,7 +1098,9 @@ where
 #[cfg(test)]
 fn test_reduce_logsumexp() {
     let mut context = Scope::new();
-    let x = context.constant(&[0_f64, 0., 0., 0., 0., 0.], &[2, 3], "x").unwrap();
+    let x = context
+        .constant(&[0_f64, 0., 0., 0., 0., 0.], &[2, 3], "x")
+        .unwrap();
 
     let op1 = reduce_logsumexp(&mut context, x, [0_i32, 1].as_ref(), false, "").unwrap();
     let results = test_suite!(run_op: [op1]; context, input: {});
@@ -1137,7 +1113,6 @@ fn test_reduce_logsumexp() {
     test_suite!(results; assert: {[0;Double] == [3_f64.ln(), 3_f64.ln()]});
 }
 
-
 ///// Reduce Sum /////
 
 /// Computes the sum of elements across dimensions of a tensor.
@@ -1149,7 +1124,7 @@ fn test_reduce_logsumexp() {
 /// If axis has no entries, all dimensions are reduced, and a tensor with a single element is returned.
 ///
 /// For example:
-/// ```
+/// ```python
 /// # 'x' is [[1, 1, 1]
 /// #         [1, 1, 1]]
 /// tf.reduce_sum(x) ==> 6
@@ -1178,9 +1153,7 @@ where
 {
     let input = input.into_tensor(scope);
     let axis = axis.into_tensor(scope);
-    scope.install(Sum::new(input, axis, name)?.keep_dims(
-        &[keep_dims],
-    ))
+    scope.install(Sum::new(input, axis, name)?.keep_dims(&[keep_dims]))
 }
 
 add_new_op!(Sum, 
@@ -1209,7 +1182,6 @@ fn test_reduce_sum() {
     test_suite!(results; assert: {[0;Int32] == [10]});
 }
 
-
 ///// Reduce Mean /////
 
 /// Computes the mean of elements across dimensions of a tensor.
@@ -1221,7 +1193,7 @@ fn test_reduce_sum() {
 /// If axis has no entries, all dimensions are reduced, and a tensor with a single element is returned.
 ///
 /// For example:
-/// ```
+/// ```python
 /// # 'x' is [[1., 1.]
 /// #         [2., 2.]]
 /// tf.reduce_mean(x) ==> 1.5
@@ -1251,9 +1223,7 @@ where
     }
     let dims = &[axis.len() as i64];
     let reduce = context.constant(axis, dims, name.as_ref())?;
-    context.install(Mean::new(input.into(), reduce.into(), name)?.keep_dims(
-        &[keep_dims],
-    ))
+    context.install(Mean::new(input.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
 }
 
 add_new_op!(Mean, 
@@ -1274,14 +1244,15 @@ add_new_op!(Mean,
 #[cfg(test)]
 fn test_reduce_mean() {
     let mut context = Scope::new();
-    let x = context.constant(&[1.0_f32, 1., 2., 2.], &[2, 2], "x").unwrap();
+    let x = context
+        .constant(&[1.0_f32, 1., 2., 2.], &[2, 2], "x")
+        .unwrap();
 
     let op = reduce_mean(&mut context, x, &[0, 1], false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert_len: {[0;Float] == 1});
     test_suite!(results; assert: {[0;Float] == [1.5]});
 }
-
 
 ///// Range /////
 
@@ -1362,7 +1333,6 @@ add_new_op!(Range,
     output: [Tensor],
 );
 
-
 ///// Reduce Max /////
 
 /// Computes the maximum of elements across dimensions of a tensor.
@@ -1437,7 +1407,6 @@ fn test_reduce_max() {
     test_suite!(results; assert: {[0;Int32] == [4]});
 }
 
-
 ///// Reduce Min /////
 
 /// Computes the minimum of elements across dimensions of a tensor.
@@ -1470,9 +1439,7 @@ where
     }
     let dims = &[axis.len() as i64];
     let reduce = context.constant(axis, dims, name.as_ref())?;
-    context.install(Min::new(tensor.into(), reduce.into(), name)?.keep_dims(
-        &[keep_dims],
-    ))
+    context.install(Min::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
 }
 
 add_new_op!(Min, 
@@ -1517,7 +1484,6 @@ fn test_reduce_min() {
     test_suite!(results; assert: {[0;Int32] == [1]});
 }
 
-
 ///// Tanh /////
 
 ///  Computes hyperbolic tangent of `x` element-wise.
@@ -1546,7 +1512,6 @@ add_new_op!(Tanh,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Minimum /////
 
@@ -1591,7 +1556,6 @@ fn test_minimum() {
     test_suite!(results; assert: {[0;Int32] == [2_i32, 3]});
 }
 
-
 ///// Rsqrt /////
 
 /// Computes reciprocal of square root of x element-wise.
@@ -1619,7 +1583,6 @@ add_new_op!(Rsqrt,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Sub /////
 
@@ -1662,7 +1625,6 @@ fn test_sub() {
     test_suite!(results; assert: {[0;Int32] == [2_i32]});
 }
 
-
 ///// Square /////
 
 ///  Computes square of x element-wise.
@@ -1691,7 +1653,6 @@ add_new_op!(Square,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Squared Difference /////
 
@@ -1726,7 +1687,6 @@ add_new_op!(SquaredDifference,
     output: [Tensor],
 );
 
-
 /// Computes the sum along segments of a tensor.
 ///
 /// Computes a tensor such that
@@ -1751,15 +1711,18 @@ pub fn unsorted_segment_sum<Tx, Ty, Tz, S>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
-    Tz: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
+    Tz: TensorOps,
     S: AsRef<Path>,
 {
+    let data = data.into_tensor(context);
+    let segment_ids = segment_ids.into_tensor(context);
+    let num_segments = num_segments.into_tensor(context);
     context.install(UnsortedSegmentSum::new(
-        data.into(),
-        segment_ids.into(),
-        num_segments.into(),
+        data,
+        segment_ids,
+        num_segments,
         name,
     )?)
 }

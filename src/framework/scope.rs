@@ -1223,6 +1223,7 @@ impl PartialEq for InternScope {
 }
 
 
+/*
 #[cfg(test)]
 mod test {
     #![allow(unused_imports)]
@@ -1249,3 +1250,4 @@ mod test {
         }
     }
 }
+*/

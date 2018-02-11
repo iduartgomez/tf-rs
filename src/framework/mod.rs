@@ -13,23 +13,13 @@ use errors::*;
 
 macro_rules! to_typed_tensor {
     [$val:expr; $shape:expr] => {{
-        //TypedTensor::<T>::new($shape).with_values(&$val).unwrap()
-        let mut tensor = TypedTensor::<T>::new($shape);
-        for (i, v) in $val.iter().enumerate() {
-            tensor[i] = v.clone();
-        }
-        tensor
+        TypedTensor::<T>::new($shape).with_values(&$val).unwrap()
     }};
 }
 
 macro_rules! clone_tensor {
     ($val:ident) => {{
-        //TypedTensor::new($val.dims()).with_values(&$val).unwrap()
-        let mut copy = TypedTensor::new($val.dims());
-        for (i, x) in $val.iter().enumerate() { 
-            copy[i] = x.clone();
-        }
-        copy
+        TypedTensor::new($val.dims()).with_values(&$val).unwrap()
     }}
 }
 
@@ -96,7 +86,6 @@ pub trait GetIdent {
     fn get_ident(&self) -> NodeIdent;
 }
 
-
 #[derive(Debug, Clone)]
 pub(crate) struct TensorData {
     /// fully qualified name, including the scope path
@@ -143,7 +132,6 @@ pub(crate) enum ControlOpKind {
     Ops,
     Other,
 }
-
 
 /// Tensor
 #[derive(Debug, Clone, Copy)]
@@ -205,6 +193,10 @@ impl Tensor {
     pub fn write(&mut self, context: &mut Scope, tensor: Tensor) -> Result<()> {
         unimplemented!()
     }
+
+    pub(crate) fn op_type(&self, context: &Scope) -> &str {
+        unimplemented!()
+    }
 }
 
 impl GetIdent for Tensor {
@@ -239,7 +231,6 @@ impl<'a> Into<NodeIdent> for &'a Tensor {
     }
 }
 
-
 /// Constant
 #[derive(Debug, Clone, Copy)]
 pub struct Constant {
@@ -253,7 +244,9 @@ impl Constant {
         T: TensorType,
         TeS: ShapeSize,
     {
-        let name = context.resolve_tensor_name(None, IdType::Constant, false).unwrap();
+        let name = context
+            .resolve_tensor_name(None, IdType::Constant, false)
+            .unwrap();
         context.constant(value, shape, name).unwrap()
     }
 
@@ -301,7 +294,6 @@ impl<'a> Into<NodeIdent> for &'a Constant {
     }
 }
 
-
 /// Variable
 #[derive(Debug, Clone, Copy)]
 pub struct Variable {
@@ -319,7 +311,9 @@ impl Variable {
         TeS: ShapeSize,
     {
         let values = context.constant(initial_value, shape, "").unwrap();
-        context.get_variable_with_initializer(values, false, "").unwrap()
+        context
+            .get_variable_with_initializer(values, false, "")
+            .unwrap()
     }
 
     pub fn get_name(&self, context: &Scope) -> String {
@@ -372,7 +366,9 @@ impl Eq for Variable {}
 
 impl Into<Tensor> for Variable {
     fn into(self) -> Tensor {
-        let Variable { ident, dtype, idx, .. } = self;
+        let Variable {
+            ident, dtype, idx, ..
+        } = self;
         Tensor {
             ident,
             dtype,
@@ -394,7 +390,6 @@ impl<'a> Into<NodeIdent> for &'a Variable {
         self.ident
     }
 }
-
 
 #[doc(hidden)]
 #[derive(Debug, Clone)]
@@ -425,7 +420,6 @@ impl Into<NodeIdent> for TensorArray {
         unimplemented!()
     }
 }
-
 
 /// An enumeration of the the different types of tensors.
 #[derive(Debug)]
@@ -459,7 +453,7 @@ impl Clone for TensorContent {
             TensorContent::Int16(ref val) => TensorContent::Int16(clone_tensor!(val)),
             TensorContent::Int32(ref val) => TensorContent::Int32(clone_tensor!(val)),
             TensorContent::Int64(ref val) => TensorContent::Int64(clone_tensor!(val)),
-            TensorContent::String(ref val) => TensorContent::String(clone_tensor!(val)), 
+            TensorContent::String(ref val) => TensorContent::String(clone_tensor!(val)),
             TensorContent::QUInt8(ref val) => TensorContent::QUInt8(clone_tensor!(val)),
             TensorContent::QUInt16(ref val) => TensorContent::QUInt16(clone_tensor!(val)),
             TensorContent::QInt16(ref val) => TensorContent::QInt16(clone_tensor!(val)),
@@ -478,7 +472,7 @@ macro_rules! unwrap_tensor_content {
                 TensorContent::$variant(val) => val,
                 _ => panic!()
             }
-        } 
+        }
     }
 }
 

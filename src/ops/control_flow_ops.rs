@@ -7,11 +7,7 @@ use super::*;
 
 type CondSubGraph<'a> = Box<FnMut(&mut Scope) -> Result<Vec<Tensor>> + 'a>;
 type WhileCondGraph<'a> = Box<FnMut(&mut Scope, &mut [Tensor]) -> Result<Tensor> + 'a>;
-type WhileBodyGraph<'a> = Box<
-    FnMut(&mut Scope, &mut [Tensor]) -> Result<Vec<Tensor>>
-        + 'a,
->;
-
+type WhileBodyGraph<'a> = Box<FnMut(&mut Scope, &mut [Tensor]) -> Result<Vec<Tensor>> + 'a>;
 
 #[derive(Debug, Clone)]
 pub(crate) enum ControlFlow {
@@ -89,11 +85,7 @@ pub struct Assert<'a> {
 }
 
 impl<'a> Assert<'a> {
-    fn new<S: AsRef<Path>>(
-        condition: Tensor,
-        data: Vec<Tensor>,
-        name: S,
-    ) -> Result<Assert<'a>> {
+    fn new<S: AsRef<Path>>(condition: Tensor, data: Vec<Tensor>, name: S) -> Result<Assert<'a>> {
         if condition.dtype != DataType::Bool {
             return Err(Error::from(ErrorKind::Stub));
         }
@@ -108,7 +100,8 @@ impl<'a> Assert<'a> {
 
     /// Default is [3], must be an slice of len == 1.
     fn summarize(mut self, val: &'a [i64]) -> Self {
-        self.attributes.push(("summarize", false, Attribute::Int(val)));
+        self.attributes
+            .push(("summarize", false, Attribute::Int(val)));
         self
     }
 }
@@ -127,16 +120,16 @@ impl<'a> Operation<'a> for Assert<'a> {
 impl_into_ident!(Assert);
 
 /// Assert the condition `x == y` holds element-wise.
-/// 
+///
 /// Example of adding a dependency to an operation:
-/// 
+///
 /// ```code
 /// let assert = assert_equal(root, x, y, "")?;
 /// let scope = &mut root.control_dependencies(&[assert]);
 /// let output = reduce_sum(scope, x, &[1_i32], false, "")?;
 /// ```
 ///
-/// This condition holds if for every pair of (possibly broadcast) elements `x[i]`, `y[i]`, 
+/// This condition holds if for every pair of (possibly broadcast) elements `x[i]`, `y[i]`,
 /// we have `x[i] == y[i]`. If both `x` and `y` are empty, this is trivially satisfied.
 pub fn assert_eq<'a, Tx, Ty, S>(
     context: &mut Scope,
@@ -171,16 +164,16 @@ where
 }
 
 /// Assert the condition `x > y` holds element-wise.
-/// 
+///
 /// Example of adding a dependency to an operation:
-/// 
+///
 /// ```code
 /// let assert = assert_equal(root, x, y, "")?;
 /// let scope = &mut root.control_dependencies(&[assert]);
 /// let output = reduce_sum(scope, x, &[1_i32], false, "")?;
 /// ```
 ///
-/// This condition holds if for every pair of (possibly broadcast) elements `x[i]`, `y[i]`, 
+/// This condition holds if for every pair of (possibly broadcast) elements `x[i]`, `y[i]`,
 /// we have `x[i] > y[i]`. If both `x` and `y` are empty, this is trivially satisfied.
 pub fn assert_greater<'a, Tx, Ty, S>(
     context: &mut Scope,
@@ -203,7 +196,7 @@ where
     } else {
         vec![x, y]
     };
-    
+
     let scope = &mut context.name_scope(name.as_ref(), Some("assert_greater".as_ref()));
     let eq = greater(scope, x, y, "")?;
     let cond = reduce_all(scope, eq, &[] as &[i32], false, "")?;
@@ -213,7 +206,6 @@ where
     }
     Ok(assert)
 }
-
 
 ///// Cond /////
 
@@ -334,10 +326,7 @@ pub(crate) trait CondContextInterface {
 
     fn process_output_tensor(&mut self, val: &Tensor) -> Tensor;
 
-    fn build_cond_branch(
-        &mut self,
-        deps: CondSubGraph,
-    ) -> Result<(Vec<Tensor>, Vec<Tensor>)>;
+    fn build_cond_branch(&mut self, deps: CondSubGraph) -> Result<(Vec<Tensor>, Vec<Tensor>)>;
 }
 
 impl CondContextInterface for Scope {
@@ -359,7 +348,13 @@ impl CondContextInterface for Scope {
     }
 
     fn process_output_tensor(&mut self, val: &Tensor) -> Tensor {
-        if self.control_context.get_cond().unwrap().values.get(&val.ident).is_none() {
+        if self.control_context
+            .get_cond()
+            .unwrap()
+            .values
+            .get(&val.ident)
+            .is_none()
+        {
             let (pred, branch) = {
                 let control_context = self.control_context.get_mut_cond().unwrap();
                 control_context.new_switch = true;
@@ -377,17 +372,15 @@ impl CondContextInterface for Scope {
         }
     }
 
-    fn build_cond_branch(
-        &mut self,
-        mut deps: CondSubGraph,
-    ) -> Result<(Vec<Tensor>, Vec<Tensor>)> {
+    fn build_cond_branch(&mut self, mut deps: CondSubGraph) -> Result<(Vec<Tensor>, Vec<Tensor>)> {
         let original_result = deps(self)?;
-        let result: Vec<_> =
-            original_result.iter().map(|x| self.process_output_tensor(x)).collect();
+        let result: Vec<_> = original_result
+            .iter()
+            .map(|x| self.process_output_tensor(x))
+            .collect();
         Ok((original_result, result))
     }
 }
-
 
 ///// Switch /////
 
@@ -412,97 +405,11 @@ where
 /// the data goes to `output_false`.
 add_new_op!(Switch,
     constructor: [add_new_op!(BIN CONSTRUCTOR: Switch, Init: []);],
-    digest: [DIGEST: 
-        fn digest(
-            self, 
-            context: &mut Scope, 
-            op: OperationData
-        ) 
-            -> Result<Self::Outputs> 
-        {
-            let idtype = IdType::Operation("Switch");
-            
-            let dtype = add_new_op!(INPUT0 self);
-            let shape = {
-                let g = context.graph.borrow();
-                g.tensor_shape(
-                        Output {
-                            operation: op.clone(),
-                            index: 0,
-                        },
-                    )?
-            };
-        
-            let ident0 = NodeIdent::new();
-            let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
-            let tensor0 = Tensor {
-                ident: ident0,
-                idtype,
-                dtype,
-                idx: 0,
-                initializer: None,
-            };
-
-            let ident1 = NodeIdent::new();
-            let full_name1 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
-            let tensor1 = Tensor {
-                ident: ident1,
-                idtype,
-                dtype,
-                idx: 1,
-                initializer: None,
-            };
-
-            match context.control_context {
-                ControlFlow::CondContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
-                ControlFlow::WhileContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
-                ControlFlow::None => {}
-            }
-
-            let reg = &mut *context.registry.borrow_mut();
-            // OUTPUT FALSE:
-            context.own_scope.ops.push((full_name0.clone(), ident0));
-            reg.insert(
-                ident0,
-                TensorData {
-                    full_name: full_name0,
-                    dtype,
-                    idtype,
-                    data_origin: (op.clone(), 0),
-                    shape: shape.clone(),
-                },
-            );
-            // OUTPUT TRUE:
-            context.own_scope.ops.push((full_name1.clone(), ident1));
-            reg.insert(
-                ident1,
-                TensorData {
-                    full_name: full_name1,
-                    dtype,
-                    idtype,
-                    data_origin: (op, 1),
-                    shape,
-                },
-            );
-            
-            Ok((tensor0, tensor1))
-        } 
-    ],
+    digest: [DIGEST_BIN_OUT: Switch, INPUT0, INPUT0],
     extra_funcs: [], 
     extra_attr: [],
     output: [(Tensor, Tensor)],
 );
-
 
 ///// RefSwitch /////
 
@@ -526,103 +433,15 @@ where
 /// the data goes to `output_false`.
 add_new_op!(RefSwitch,
     constructor: [add_new_op!(BIN CONSTRUCTOR: RefSwitch, Init: []);],
-    digest: [DIGEST: 
-        fn digest(
-            self, 
-            context: &mut Scope, 
-            op: OperationData
-        ) 
-            -> Result<Self::Outputs> 
-        {
-            let idtype = IdType::Operation("RefSwitch");
-            
-            let dtype = add_new_op!(INPUT0 self);
-            let shape = {
-                let g = context.graph.borrow();
-                g.tensor_shape(
-                        Output {
-                            operation: op.clone(),
-                            index: 0,
-                        },
-                    )?
-            };
-        
-            let ident0 = NodeIdent::new();
-            let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
-            let tensor0 = Tensor {
-                ident: ident0,
-                idtype,
-                dtype,
-                idx: 0,
-                initializer: None,
-            };
-
-            let ident1 = NodeIdent::new();
-            let full_name1 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
-            let tensor1 = Tensor {
-                ident: ident1,
-                idtype,
-                dtype,
-                idx: 1,
-                initializer: None,
-            };
-
-            match context.control_context {
-                ControlFlow::CondContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
-                ControlFlow::WhileContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
-                ControlFlow::None => {}
-            }
-
-            let reg = &mut *context.registry.borrow_mut();
-            context.own_scope.ops.push((full_name0.clone(), ident0));
-            reg.insert(
-                ident0,
-                TensorData {
-                    full_name: full_name0,
-                    dtype,
-                    idtype,
-                    data_origin: (op.clone(), 0),
-                    shape: shape.clone(),
-                },
-            );
-            context.own_scope.ops.push((full_name1.clone(), ident1));
-            reg.insert(
-                ident1,
-                TensorData {
-                    full_name: full_name1,
-                    dtype,
-                    idtype,
-                    data_origin: (op, 1),
-                    shape,
-                },
-            );
-            
-            Ok((tensor0, tensor1))
-        } 
-    ],
+    digest: [DIGEST_BIN_OUT: RefSwitch, INPUT0, INPUT0],
     extra_funcs: [], 
     extra_attr: [],
     output: [(Tensor, Tensor)],
 );
 
-
 ///// Merge /////
 
-pub fn merge<S>(
-    context: &mut Scope,
-    values: Vec<Tensor>,
-    name: S,
-) -> Result<(Tensor, Tensor)>
+pub fn merge<S>(context: &mut Scope, values: Vec<Tensor>, name: S) -> Result<(Tensor, Tensor)>
 where
     S: AsRef<Path>,
 {
@@ -654,115 +473,20 @@ add_new_op!(Merge,
                     elements: vec![],
                     input_lists: vec![(0, values)],
                     output_type: output_type,
+                    out2: DataType::Int32
                 },
             )
         }
     ],
-    digest: [DIGEST:
-        fn digest(
-            self, 
-            context: &mut Scope, 
-            op: OperationData
-        ) 
-            -> Result<Self::Outputs> 
-        {
-            let idtype = IdType::Operation("Merge");
-            
-            let ident0 = NodeIdent::new();
-            let dtype0 = add_new_op!(DTYPE_ATTR self);
-            let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
-            let shape0 = {
-                let g = context.graph.borrow();
-                g.tensor_shape(
-                        Output {
-                            operation: op.clone(),
-                            index: 0,
-                        },
-                    )?
-            };
-            let tensor0 = Tensor {
-                ident: ident0,
-                idtype,
-                dtype: dtype0,
-                idx: 0,
-                initializer: None,
-            };
-
-            let ident1 = NodeIdent::new();
-            let full_name1 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
-            let shape1 = {
-                let g = context.graph.borrow();
-                g.tensor_shape(
-                        Output {
-                            operation: op.clone(),
-                            index: 0,
-                        },
-                    )?
-            };
-            let tensor1 = Tensor {
-                ident: ident1,
-                idtype,
-                dtype: DataType::Int32,
-                idx: 1,
-                initializer: None,
-            };
-
-            match context.control_context {
-                ControlFlow::CondContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
-                ControlFlow::WhileContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
-                ControlFlow::None => {}
-            }
-
-            let reg = &mut *context.registry.borrow_mut();
-            context.own_scope.ops.push((full_name0.clone(), ident0));
-            reg.insert(
-                ident0,
-                TensorData {
-                    full_name: full_name0,
-                    dtype: dtype0,
-                    idtype,
-                    data_origin: (op.clone(), 0),
-                    shape: shape0,
-                },
-            );
-            context.own_scope.ops.push((full_name1.clone(), ident1));
-            reg.insert(
-                ident1,
-                TensorData {
-                    full_name: full_name1,
-                    dtype: DataType::Int32,
-                    idtype,
-                    data_origin: (op, 1),
-                    shape: shape1,
-                },
-            );
-            
-            Ok((tensor0, tensor1))
-        }
-    ],
+    digest: [DIGEST_BIN_OUT: Merge, DTYPE_ATTR, DTYPE_ATTR_2],
     extra_funcs: [], 
-    extra_attr: [output_type: DataType],
+    extra_attr: [output_type: DataType, out2: DataType],
     output: [(Tensor, Tensor)],
 );
 
-
 ///// RefMerge /////
 
-pub fn ref_merge<S>(
-    context: &mut Scope,
-    values: Vec<Tensor>,
-    name: S,
-) -> Result<(Tensor, Tensor)>
+pub fn ref_merge<S>(context: &mut Scope, values: Vec<Tensor>, name: S) -> Result<(Tensor, Tensor)>
 where
     S: AsRef<Path>,
 {
@@ -794,107 +518,16 @@ add_new_op!(RefMerge,
                     elements: vec![],
                     input_lists: vec![(0, values)],
                     output_type: output_type,
+                    out2: DataType::Int32
                 },
             )
         }
     ],
-    digest: [DIGEST:
-        fn digest(
-            self, 
-            context: &mut Scope, 
-            op: OperationData
-        ) 
-            -> Result<Self::Outputs> 
-        {
-            let idtype = IdType::Operation("RefMerge");
-            
-            let ident0 = NodeIdent::new();
-            let dtype0 = add_new_op!(DTYPE_ATTR self);
-            let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
-            let shape0 = {
-                let g = context.graph.borrow();
-                g.tensor_shape(
-                        Output {
-                            operation: op.clone(),
-                            index: 0,
-                        },
-                    )?
-            };
-            let tensor0 = Tensor {
-                ident: ident0,
-                idtype,
-                dtype: dtype0,
-                idx: 0,
-                initializer: None,
-            };
-
-            let ident1 = NodeIdent::new();
-            let full_name1 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
-            let shape1 = {
-                let g = context.graph.borrow();
-                g.tensor_shape(
-                        Output {
-                            operation: op.clone(),
-                            index: 0,
-                        },
-                    )?
-            };
-            let tensor1 = Tensor {
-                ident: ident1,
-                idtype,
-                dtype: DataType::Int32,
-                idx: 1,
-                initializer: None,
-            };
-
-            match context.control_context {
-                ControlFlow::CondContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
-                ControlFlow::WhileContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
-                ControlFlow::None => {}
-            }
-
-            let reg = &mut *context.registry.borrow_mut();
-            context.own_scope.ops.push((full_name0.clone(), ident0));
-            reg.insert(
-                ident0,
-                TensorData {
-                    full_name: full_name0,
-                    dtype: dtype0,
-                    idtype,
-                    data_origin: (op.clone(), 0),
-                    shape: shape0,
-                },
-            );
-            context.own_scope.ops.push((full_name1.clone(), ident1));
-            reg.insert(
-                ident1,
-                TensorData {
-                    full_name: full_name1,
-                    dtype: DataType::Int32,
-                    idtype,
-                    data_origin: (op, 1),
-                    shape: shape1,
-                },
-            );
-            
-            Ok((tensor0, tensor1))
-        }
-    ],
+    digest: [DIGEST_BIN_OUT: RefMerge, DTYPE_ATTR, DTYPE_ATTR_2], 
     extra_funcs: [], 
-    extra_attr: [output_type: DataType],
+    extra_attr: [output_type: DataType, out2: DataType],
     output: [(Tensor, Tensor)],
 );
-
 
 ///// WhileLoop /////
 
@@ -1042,8 +675,10 @@ impl WhileContextInterface for Scope {
             .collect::<Result<Vec<_>>>()?;
 
         // Build the graph for the body.
-        let mut vars_for_body =
-            switch_vars.iter().map(|&(_, x)| self.identity(x, "")).collect::<Result<Vec<_>>>()?;
+        let mut vars_for_body = switch_vars
+            .iter()
+            .map(|&(_, x)| self.identity(x, ""))
+            .collect::<Result<Vec<_>>>()?;
         while_context!(mut self).pivot_for_body = Some(vars_for_body[0]);
         let body_result = body(self, &mut vars_for_body)?;
 
@@ -1055,8 +690,10 @@ impl WhileContextInterface for Scope {
             .collect::<Result<Vec<_>>>()?;
 
         // Add the exit ops.
-        let exit_vars =
-            switch_vars.iter().map(|&(x, _)| exit(self, x, "")).collect::<Result<Vec<_>>>()?;
+        let exit_vars = switch_vars
+            .iter()
+            .map(|&(x, _)| exit(self, x, ""))
+            .collect::<Result<Vec<_>>>()?;
         while_context!(mut self).loop_exits = exit_vars.clone();
 
         // Exit the loop.
@@ -1082,11 +719,7 @@ impl WhileContextInterface for Scope {
     }
 }
 
-fn switch_ref_or_tensor(
-    scope: &mut Scope,
-    data: Tensor,
-    pred: Tensor,
-) -> Result<(Tensor, Tensor)> {
+fn switch_ref_or_tensor(scope: &mut Scope, data: Tensor, pred: Tensor) -> Result<(Tensor, Tensor)> {
     // TODO: add "colocate_with(data)"
     if data.is_ref() {
         ref_switch(scope, data, pred, "RefSwitch")
@@ -1095,11 +728,7 @@ fn switch_ref_or_tensor(
     }
 }
 
-fn add_next_and_back_edge(
-    scope: &mut Scope,
-    m: Tensor,
-    v: Tensor,
-) -> Result<(Tensor, Tensor)> {
+fn add_next_and_back_edge(scope: &mut Scope, m: Tensor, v: Tensor) -> Result<(Tensor, Tensor)> {
     let next_iter = if v.is_ref() {
         scope.install(RefNextIteration::new(v, "")?)?
     } else {
@@ -1109,11 +738,7 @@ fn add_next_and_back_edge(
     merge(scope, vec![m, next_iter], "")
 }
 
-fn loop_cond<S: AsRef<Path>>(
-    context: &mut Scope,
-    pred: Tensor,
-    name: S,
-) -> Result<Tensor> {
+fn loop_cond<S: AsRef<Path>>(context: &mut Scope, pred: Tensor, name: S) -> Result<Tensor> {
     if pred.dtype != DataType::Bool {
         return Err(Error::from(ErrorKind::Stub));
     }
@@ -1256,6 +881,22 @@ add_new_op!(RefNextIteration,
     output: [Tensor],
 );
 
+///// Tuple /////
+
+pub(crate) fn tuple<'a, S, I, T: 'a>(
+    scope: &mut Scope,
+    tensors: Vec<Tensor>,
+    control_inputs: Option<I>,
+    name: S,
+) -> Result<Vec<Tensor>>
+where
+    S: AsRef<Path>,
+    I: IntoIterator<Item = &'a T>,
+    T: GetIdent,
+{
+    unimplemented!()
+}
+
 /// Create an op that groups multiple operations.
 ///
 /// When this op finishes, all ops in input have finished. This op has no output.
@@ -1267,7 +908,7 @@ impl Group {
     pub fn new<Id, S>(scope: &mut Scope, ops: &[Id], name: S) -> Result<Group>
     where
         Id: GetIdent,
-        S: AsRef<str>,
+        S: AsRef<Path>,
     {
         let graph = &mut *scope.graph.borrow_mut();
         let registry = &*scope.registry.borrow();
@@ -1279,7 +920,7 @@ impl Group {
         }
 
         const OP: IdType = IdType::Operation("Group");
-        let name = scope.resolve_tensor_name(Some(Path::new(name.as_ref())), OP, false)?;
+        let name = scope.resolve_tensor_name(Some(name.as_ref()), OP, false)?;
         let finished = no_op_(graph, name.to_str().unwrap(), ctrl_ops)?;
 
         let ident = NodeIdent::new();
@@ -1339,8 +980,12 @@ mod test {
     #[ignore]
     fn test_assert_eq() {
         let mut context = Scope::new();
-        let x = context.constant(&[2_i32], &[] as &[i32] as &[i32], "x").unwrap();
-        let y = context.constant(&[2_i32], &[] as &[i32] as &[i32], "y").unwrap();
+        let x = context
+            .constant(&[2_i32], &[] as &[i32] as &[i32], "x")
+            .unwrap();
+        let y = context
+            .constant(&[2_i32], &[] as &[i32] as &[i32], "y")
+            .unwrap();
         let assert = assert_eq(&mut context, x, y, None, None, "").unwrap();
         //context.install(assert.clone()).unwrap();
         let results = test_suite!(run_op: [assert]; context, input: {});
@@ -1361,21 +1006,19 @@ mod test {
     fn test_cond() {
         use super::assign;
         let mut context = Scope::new();
-        let var: Tensor =
-            context.get_variable(Some(DataType::Int32), Some(&[] as &[i32]), "").unwrap().into();
+        let var: Tensor = context
+            .get_variable(Some(DataType::Int32), Some(&[] as &[i32]), "")
+            .unwrap()
+            .into();
         let x = context.constant(&[2_i32], &[] as &[i32], "").unwrap();
         let y = context.constant(&[5_i32], &[] as &[i32], "").unwrap();
 
-        let f1 = Box::new(
-            move |scope: &mut Scope| -> Result<Vec<Tensor>> {
-                Ok(vec![assign(scope, var, x, true, "")?])
-            },
-        );
-        let f2 = Box::new(
-            move |scope: &mut Scope| -> Result<Vec<Tensor>> {
-                Ok(vec![assign(scope, var, y, true, "")?])
-            },
-        );
+        let f1 = Box::new(move |scope: &mut Scope| -> Result<Vec<Tensor>> {
+            Ok(vec![assign(scope, var, x, true, "")?])
+        });
+        let f2 = Box::new(move |scope: &mut Scope| -> Result<Vec<Tensor>> {
+            Ok(vec![assign(scope, var, y, true, "")?])
+        });
 
         let pred = less(&mut context, y, x, "").unwrap();
         let op = cond(&mut context, pred, f1, f2, "").unwrap()[0];
@@ -1383,20 +1026,16 @@ mod test {
         test_suite!(r; assert_len: {[0;Int32] == 1});
         test_suite!(r; assert: {[0;Int32] == [5_i32], [1;Int32] == [5_i32]});
 
-        let f1 = Box::new(
-            move |mut scope: &mut Scope| -> Result<Vec<Tensor>> {
-                let mult_x = scope.constant(&[10_i32], &[] as &[i32], "")?;
-                let add_x = scope.constant(&[20_i32], &[] as &[i32], "")?;
-                let v = multiply(&mut scope, x, mult_x, "")?;
-                let v = add(&mut scope, v, add_x, "")?;
-                Ok(vec![assign(scope, var, v, true, "")?])
-            },
-        );
-        let f2 = Box::new(
-            move |scope: &mut Scope| -> Result<Vec<Tensor>> {
-                Ok(vec![assign(scope, var, y, true, "")?])
-            },
-        );
+        let f1 = Box::new(move |mut scope: &mut Scope| -> Result<Vec<Tensor>> {
+            let mult_x = scope.constant(&[10_i32], &[] as &[i32], "")?;
+            let add_x = scope.constant(&[20_i32], &[] as &[i32], "")?;
+            let v = multiply(&mut scope, x, mult_x, "")?;
+            let v = add(&mut scope, v, add_x, "")?;
+            Ok(vec![assign(scope, var, v, true, "")?])
+        });
+        let f2 = Box::new(move |scope: &mut Scope| -> Result<Vec<Tensor>> {
+            Ok(vec![assign(scope, var, y, true, "")?])
+        });
 
         let pred = less(&mut context, x, y, "").unwrap();
         let op = cond(&mut context, pred, f1, f2, "").unwrap()[0];
@@ -1417,13 +1056,13 @@ mod test {
             less(scope, x, y, "")
         });
 
-        let body = Box::new(move |scope: &mut Scope,
-              loop_vars: &mut [Tensor]|
-              -> Result<Vec<Tensor>> {
-            let y = scope.constant(&[1_i32], &[] as &[i32], "").unwrap();
-            let x = loop_vars[0];
-            Ok(vec![add(scope, x, y, "")?])
-        });
+        let body = Box::new(
+            move |scope: &mut Scope, loop_vars: &mut [Tensor]| -> Result<Vec<Tensor>> {
+                let y = scope.constant(&[1_i32], &[] as &[i32], "").unwrap();
+                let x = loop_vars[0];
+                Ok(vec![add(scope, x, y, "")?])
+            },
+        );
 
         let op = while_loop(&mut context, pred, body, &mut [x.into()], "").unwrap()[0];
         let r = test_suite!(run_op: [op]; context, input: {});

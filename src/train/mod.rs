@@ -5,9 +5,9 @@ use super::framework::*;
 use errors::*;
 
 mod moving_averages;
-mod optimizer;
 mod slot_creator;
 pub mod nn;
+pub mod optimizers;
 
 pub use self::moving_averages::*;
 use self::slot_creator::*;

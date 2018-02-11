@@ -1,6 +1,6 @@
 [package]
 name = "tf-rs"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Ignacio Duart <iduart@gmail.com>"]
 
 description = "High level (Pythonic) API for the TensorFlow framework."
@@ -17,7 +17,7 @@ travis-ci = { repository = "iduartgomez/tf-rs", branch = "master" }
 maintenance = { status = "actively-developed" }
 
 [dependencies]
-tensorflow = { version = "0.6.0" }
+tensorflow = { version = "0.6.0", git = "https://github.com/tensorflow/rust" }
 uuid = { version = "0.4", features = ["v4"] }
 num-complex = { version = "0.1.40", default-features = false }
 error-chain = "0.11.0"

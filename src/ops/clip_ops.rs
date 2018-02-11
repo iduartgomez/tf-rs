@@ -64,7 +64,7 @@ where
     // Assert that the shape is compatible with the initial shape,
     // to prevent unintentional broadcasting.
     if !t.get_shape(scope).is_compatible_with(&intermediate.get_shape(scope)) {
-        return Err(Error::from(ErrorKind::Stub))
+        return Err(Error::from(ErrorKind::Stub));
     }
     {
         let c = dtype_to_const!(scope; t.dtype; &[1.0]; &[] as &[i32]; "")?;

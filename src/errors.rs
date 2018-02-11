@@ -3,7 +3,10 @@
 use tf::Status;
 
 error_chain! {
-    errors { Stub }
+    errors { 
+        Stub 
+        UnimplementedTraitMethod 
+    }
 
     foreign_links {
         FFINulError(::std::ffi::NulError);

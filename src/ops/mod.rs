@@ -65,7 +65,7 @@ macro_rules! impl_into_ident {
                 self.ident
             }
         }
-        
+
         impl<'a> Into<NodeIdent> for &'a $name<'a> {
             fn into(self) -> NodeIdent {
                 self.ident
@@ -95,10 +95,10 @@ macro_rules! impl_into_ident {
 /// variant of this same macro.
 macro_rules! add_new_op {
     (
-        $name:tt, 
+        $name:tt,
         constructor: [$($constructor:tt)*],
         digest: [$($digest:tt)*],
-        extra_funcs: [$($funcs:tt)*], 
+        extra_funcs: [$($funcs:tt)*],
         extra_attr: [$($attr_name:ident: $attr_ty:ty),*],
         output: [$($output:tt)*],
     ) => {
@@ -166,7 +166,7 @@ macro_rules! add_new_op {
             op: OperationData,
         ) -> Result<Self::Outputs> {
             let (ident, idtype, dtype) = add_new_op!(
-                REGISTER_TENSOR: (self, context, op); $name, $infer_dtype);
+                REGISTER_TENSOR: (self, context, op, 0); $name, $infer_dtype);
             let tensor = Tensor {
                 ident,
                 idtype,
@@ -177,20 +177,69 @@ macro_rules! add_new_op {
             match context.control_context {
                 ControlFlow::CondContext(ref mut cond) => {
                     cond.values.insert(ident);
-                    cond.external_values.insert(ident, tensor); 
+                    cond.external_values.insert(ident, tensor);
                 }
                 ControlFlow::WhileContext(ref mut cond) => {
                     cond.values.insert(ident);
-                    cond.external_values.insert(ident, tensor); 
+                    cond.external_values.insert(ident, tensor);
                 }
                 ControlFlow::None => {}
             }
             Ok(tensor)
         }
     };
+    (DIGEST_BIN_OUT: $name:tt, $infer_dtype_0:tt, $infer_dtype_1:tt) => {
+        fn digest(
+            self,
+            context: &mut Scope,
+            op: OperationData
+        )
+            -> Result<Self::Outputs>
+        {
+
+            let op0 = op.clone();
+            let (ident0, idtype0, dtype0) = add_new_op!(
+                REGISTER_TENSOR: (self, context, op0, 0); $name, $infer_dtype_0);
+            let tensor0 = Tensor {
+                ident: ident0,
+                idtype: idtype0,
+                dtype: dtype0,
+                idx: 0,
+                initializer: None,
+            };
+
+            let (ident1, idtype1, dtype1) = add_new_op!(
+                REGISTER_TENSOR: (self, context, op, 1); $name, $infer_dtype_1);
+            let tensor1 = Tensor {
+                ident: ident1,
+                idtype: idtype1,
+                dtype: dtype1,
+                idx: 1,
+                initializer: None,
+            };
+
+            match context.control_context {
+                ControlFlow::CondContext(ref mut cond) => {
+                    cond.values.insert(ident0);
+                    cond.external_values.insert(ident0, tensor0);
+                    cond.values.insert(ident1);
+                    cond.external_values.insert(ident1, tensor1);
+                }
+                ControlFlow::WhileContext(ref mut cond) => {
+                    cond.values.insert(ident0);
+                    cond.external_values.insert(ident0, tensor0);
+                    cond.values.insert(ident1);
+                    cond.external_values.insert(ident1, tensor1);
+                }
+                ControlFlow::None => {}
+            }
+
+            Ok((tensor0, tensor1))
+        }
+    };
     (DIGEST: $($digest:tt)*) => { $($digest)* };
 
-    (REGISTER_TENSOR: ($SELF:ident, $context:ident, $op:ident); $name:tt, $infer_dtype:tt) => {{
+    (REGISTER_TENSOR: ($SELF:ident, $context:ident, $op:ident, $idx:expr); $name:tt, $infer_dtype:tt) => {{
         let ident = NodeIdent::new();
         let dtype = add_new_op!($infer_dtype $SELF);
         let idtype = IdType::Operation(stringify!($name));
@@ -200,7 +249,7 @@ macro_rules! add_new_op {
             g.tensor_shape(
                     Output {
                         operation: $op.clone(),
-                        index: 0,
+                        index: $idx,
                     },
                 )?
         };
@@ -213,7 +262,7 @@ macro_rules! add_new_op {
                     full_name,
                     dtype,
                     idtype,
-                    data_origin: ($op, 0),
+                    data_origin: ($op, $idx),
                     shape,
                 },
             );
@@ -249,8 +298,8 @@ macro_rules! add_new_op {
             &self.input_lists
         }
 
-        fn fetch_attributes<'s>(&'s self) 
-            -> &'s [(&str, bool, Attribute<'a>)] 
+        fn fetch_attributes<'s>(&'s self)
+            -> &'s [(&str, bool, Attribute<'a>)]
         {
             &self.attributes
         }
@@ -258,6 +307,8 @@ macro_rules! add_new_op {
     // DataType inference:
     (INPUT0 $s:ident) => ($s.elements[0].dtype);
     (DTYPE_ATTR $s:ident) => ($s.output_type);
+    (DTYPE_ATTR_2 $s:ident) => ($s.out2);
+    (SPECIFIED $s:path) => ($s);
     (NONE $s:ident) => (DataType::Resource)
 }
 
@@ -305,6 +356,7 @@ pub(crate) mod control_flow_ops;
 pub(crate) mod clip_ops;
 pub(crate) mod data_flow_ops;
 pub(crate) mod embedding_ops;
+pub(crate) mod gradients_impl;
 pub(crate) mod init_ops;
 pub(crate) mod nn_ops;
 pub(crate) mod math_ops;
@@ -335,25 +387,26 @@ trait DTypeOps {
 impl DTypeOps for DataType {
     fn is_floating(&self) -> bool {
         match *self {
-            DataType::Float |
-            DataType::Double |
-            DataType::BFloat16 => true,
+            DataType::Float | DataType::Double | DataType::BFloat16 => true,
             _ => false,
         }
     }
 
     fn is_integer(&self) -> bool {
         match *self {
-            DataType::Int32 | DataType::UInt8 | DataType::Int16 | DataType::Int8 |
-            DataType::Int64 | DataType::UInt16 => true,
+            DataType::Int32
+            | DataType::UInt8
+            | DataType::Int16
+            | DataType::Int8
+            | DataType::Int64
+            | DataType::UInt16 => true,
             _ => false,
         }
     }
 
     fn is_complex(&self) -> bool {
         match *self {
-            DataType::Complex64 |
-            DataType::Complex128 => true,
+            DataType::Complex64 | DataType::Complex128 => true,
             _ => false,
         }
     }

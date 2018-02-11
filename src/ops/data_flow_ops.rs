@@ -210,14 +210,6 @@ fn test_dynamic_partition() {
 ///     merged = [[1, 2], [11, 12], [21, 22], [31, 32], [41, 42],
 ///               [51, 52], [61, 62]]
 /// ```
-///
-/// ### Args:
-///     * indices: A list of at least 1 Tensor objects of type int32.
-///     * data: A list with the same number of Tensor objects as indices of Tensor objects of the same type.
-///     * name: A name for the operation (optional).
-///
-/// ### Returns:
-///     A Tensor. Has the same type as data.
 pub fn dynamic_stitch<Tx, Ty, S>(
     scope: &mut Scope,
     indices: Vec<Ty>,

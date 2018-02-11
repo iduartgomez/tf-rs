@@ -1,8 +1,11 @@
 //! Array Operations.
-#[allow(unused_imports)]
-use tf::Shape as TensorShape;
 
-use super::*;
+use super::{range, sub, Attribute, ControlFlow, DataType, Error, ErrorKind, GetIdent, Graph,
+            IdType, NodeIdent, Operation, OperationData, Output, Path, PathBuf, Result, Scope,
+            ShapeSize, Tensor, TensorData, TensorOps, TensorType, TypedTensor, shape_as_i64};
+
+#[allow(unused_imports)]
+use framework::TensorContent;
 
 ///// Concat /////
 
@@ -63,9 +66,17 @@ add_new_op!(ConcatV2,
 #[test]
 #[cfg(test)]
 fn test_concat() {
+    use TensorShape;
+
     let mut context = Scope::new();
-    let t1 = context.constant(&[1_i32, 2, 3, 4, 5, 6], &[2, 3], "t1").unwrap().into();
-    let t2 = context.constant(&[7_i32, 8, 9, 10, 11, 12], &[2, 3], "t2").unwrap().into();
+    let t1 = context
+        .constant(&[1_i32, 2, 3, 4, 5, 6], &[2, 3], "t1")
+        .unwrap()
+        .into();
+    let t2 = context
+        .constant(&[7_i32, 8, 9, 10, 11, 12], &[2, 3], "t2")
+        .unwrap()
+        .into();
     let op1 = concat(&mut context, vec![t1, t2], 0, "").unwrap();
     let op2 = concat(&mut context, vec![t1, t2], 1, "").unwrap();
     test_suite!(run_op: [op1, op2]; context, input: {});
@@ -82,7 +93,6 @@ fn test_concat() {
         TensorShape::from(Some(vec![Some(2), Some(6)]))
     );
 }
-
 
 ///// ExpandDims /////
 
@@ -155,7 +165,6 @@ add_new_op!(ExpandDims,
     output: [Tensor],
 );
 
-
 ///// Fill /////
 
 /// Creates a tensor filled with a scalar value.
@@ -186,7 +195,6 @@ add_new_op!(Fill,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Gather /////
 
@@ -247,13 +255,14 @@ add_new_op!(Gather,
 #[cfg(test)]
 fn test_gather() {
     let mut context = Scope::new();
-    let x = context.constant(&[0_i32, 1, 2, 3, 4, 5], &[6], "x").unwrap();
+    let x = context
+        .constant(&[0_i32, 1, 2, 3, 4, 5], &[6], "x")
+        .unwrap();
     let indices = context.constant(&[2_i32, 0, 2, 5], &[4], "gather").unwrap();
     let op = gather(&mut context, x, indices, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32, 0, 2, 5]});
 }
-
 
 ///// Rank /////
 
@@ -304,7 +313,6 @@ add_new_op!(Rank,
     output: [Tensor],
 );
 
-
 ///// Reshape /////
 
 /// Reshapes a tensor.
@@ -352,9 +360,15 @@ add_new_op!(Reshape,
 #[test]
 #[cfg(test)]
 fn test_reshape() {
+    use TensorShape;
+
     let mut context = Scope::new();
-    let x = context.constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[9], "x").unwrap();
-    let y = context.constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3], "y").unwrap();
+    let x = context
+        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[9], "x")
+        .unwrap();
+    let y = context
+        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3], "y")
+        .unwrap();
 
     let shape = context.constant(&[3, 3], &[2], "").unwrap();
     let op1 = reshape(&mut context, x, shape, "").unwrap();
@@ -374,7 +388,6 @@ fn test_reshape() {
         TensorShape::from(Some(vec![Some(9)]))
     );
 }
-
 
 ///// Shape /////
 
@@ -441,13 +454,14 @@ add_new_op!(Shape,
 #[cfg(test)]
 fn test_shape() {
     let mut context = Scope::new();
-    let x = context.constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3], "x").unwrap();
+    let x = context
+        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3], "x")
+        .unwrap();
 
     let op = shape(&mut context, x, Some(DataType::Int64), "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int64] == [3, 3]});
 }
-
 
 ///// Size /////
 
@@ -474,12 +488,13 @@ add_new_op!(Size,
 #[cfg(test)]
 fn test_size() {
     let mut context = Scope::new();
-    let x = context.constant(&[1_i32, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4], &[2, 2, 3], "x").unwrap();
+    let x = context
+        .constant(&[1_i32, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4], &[2, 2, 3], "x")
+        .unwrap();
     let op = size(&mut context, x, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [12]});
 }
-
 
 ///// Squeeze /////
 
@@ -535,7 +550,6 @@ add_new_op!(Squeeze,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Slice /////
 
@@ -620,7 +634,6 @@ add_new_op!(Slice,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Stack /////
 
@@ -721,7 +734,6 @@ fn test_stack() {
     let results = test_suite!(run_op: [op]; scope, input: {});
     test_suite!(results; assert: {[0;Int32] == [1, 4, 2, 5, 3, 6]});
 }
-
 
 ///// Stop Gradient /////
 
@@ -943,7 +955,6 @@ fn test_stride() {
     test_suite!(results; assert: {[0;Int32] == [3]});
 }
 
-
 ///// Transpose /////
 
 ///  Transposes `a`. Permutes the dimensions according to `perm`.
@@ -1029,6 +1040,70 @@ add_new_op!(Transpose,
     output: [Tensor],
 );
 
+///// Unique /////
+
+///   Finds unique elements in a 1-D tensor.
+///
+///  This operation returns a tensor `y` containing all of the unique elements of `x`
+///  sorted in the same order that they occur in `x`. This operation also returns a
+///  tensor `idx` the same size as `x` that contains the index of each value of `x`
+///  in the unique output `y`. In other words:
+///
+///  `y[idx[i]] = x[i] for i in [0, 1,...,rank(x) - 1]`
+///
+///  For example:
+///
+///  ```python
+///  # tensor 'x' is [1, 1, 2, 4, 4, 4, 7, 8, 8]
+///  y, idx = unique(x)
+///  y ==> [1, 2, 4, 7, 8]
+///  idx ==> [0, 0, 1, 2, 2, 2, 3, 4, 4]
+///  ```
+pub fn unique<S, Tx>(
+    context: &mut Scope,
+    x: Tx,
+    out_idx: Option<DataType>,
+    name: S,
+) -> Result<(Tensor, Tensor)>
+where
+    Tx: TensorOps,
+    S: AsRef<Path>,
+{
+    let out_idx = if let Some(dtype) = out_idx {
+        [dtype]
+    } else {
+        [DataType::Int32]
+    };
+
+    let x = x.into_tensor(context);
+    context.install(Unique::new(x, out_idx[0], name)?.out_idx(&out_idx))
+}
+
+add_new_op!(Unique,
+    constructor: [
+        fn new<S: AsRef<Path>>(x: Tensor, output_type: DataType, name: S,) -> Result<Unique<'a>> {
+            Ok(
+                Unique {
+                    ident: NodeIdent::new(),
+                    input_lists: Vec::with_capacity(0),
+                    elements: vec![x],
+                    name: generate_name!(is_none: name),
+                    attributes: Vec::with_capacity(1),
+                    output_type,
+                },
+            )
+        }
+    ],
+    digest: [DIGEST_BIN_OUT: Unique, INPUT0, DTYPE_ATTR],
+    extra_funcs: [
+        fn out_idx(mut self, val: &'a [DataType]) -> Self {
+            self.attributes.push(("out_idx", false, Attribute::Type(val)));
+            self
+        }
+    ], 
+    extra_attr: [output_type: DataType],
+    output: [(Tensor, Tensor)],
+);
 
 ///// Where /////
 
@@ -1096,7 +1171,6 @@ add_new_op!(Where,
     output: [Tensor],
 );
 
-
 ///// Zeros /////
 
 /// Creates a tensor with all elements set to zero.
@@ -1118,18 +1192,17 @@ where
         DataType::Int8 => context.constant(&[0_i8], &[] as &[i32], "")?,
         DataType::Int64 => context.constant(&[0_i64], &[] as &[i32], "")?,
         DataType::String => context.constant(&["".to_string()], &[] as &[i32], "")?,
-        DataType::QUInt8 => context.constant(&[::QUInt8::from(0)], &[] as &[i32], "")?, 
-        DataType::QInt16 => context.constant(&[::QInt16::from(0)], &[] as &[i32], "")?, 
-        DataType::QUInt16 => context.constant(&[::QUInt16::from(0)], &[] as &[i32], "")?, 
-        DataType::QInt32 => context.constant(&[::QInt32::from(0)], &[] as &[i32], "")?, 
+        DataType::QUInt8 => context.constant(&[::QUInt8::from(0)], &[] as &[i32], "")?,
+        DataType::QInt16 => context.constant(&[::QInt16::from(0)], &[] as &[i32], "")?,
+        DataType::QUInt16 => context.constant(&[::QUInt16::from(0)], &[] as &[i32], "")?,
+        DataType::QInt32 => context.constant(&[::QInt32::from(0)], &[] as &[i32], "")?,
         DataType::BFloat16 => context.constant(&[::BFloat16::from(0.)], &[] as &[i32], "")?,
-        DataType::Complex64 => context.constant(&[::Complex32::new(0., 0.)], &[] as &[i32], "")?, 
+        DataType::Complex64 => context.constant(&[::Complex32::new(0., 0.)], &[] as &[i32], "")?,
         DataType::Complex128 => context.constant(&[::Complex64::new(0., 0.)], &[] as &[i32], "")?,
         _ => return Err(Error::from(ErrorKind::Stub)),
     };
     context.install(Fill::new(shape.into(), zero.into(), name)?)
 }
-
 
 ///// Lower level support ops /////
 
