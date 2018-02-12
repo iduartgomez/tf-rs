@@ -1127,7 +1127,6 @@ add_new_op!(Unique,
 /// (outer dimension) to copy from `x` and `y`. If `condition` has the same shape as `x` and `y`,
 /// then it chooses which element to copy from `x` and `y`.
 ///
-///
 /// * `condition`: A `Tensor` of type `bool`.
 /// * `x`: A Tensor which may have the same shape as condition. If condition is rank 1,
 ///   `x` may have higher rank, but its first dimension must match the size of condition.
@@ -1170,6 +1169,21 @@ add_new_op!(Where,
     extra_attr: [output_type: DataType],
     output: [Tensor],
 );
+
+#[cfg(test)]
+#[test]
+fn test_where_cond() {
+    use ops::math_ops::greater;
+    let mut context = Scope::new();
+    let x = context.constant(&[4_i32, 2, 4], &[3], "x").unwrap();
+    let y = context.constant(&[2_i32, 4, 2], &[3], "y").unwrap();
+    let cond = greater(&mut context, x, y, "").unwrap();
+    let op = where_cond(&mut context, cond, None, None, "").unwrap();
+    let results = test_suite!(run_op: [op]; context, input: {});
+    test_suite!(results; assert: {[0;Int64] == [0_i64, 2]});
+    test_suite!(results; assert_len: {[0;Int64] == 2});
+    //println!("{:?}", Vec::from(&*results.pop().unwrap().unwrap_i64()));
+}
 
 ///// Zeros /////
 

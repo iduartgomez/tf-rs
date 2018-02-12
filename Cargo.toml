@@ -1,6 +1,6 @@
 [package]
 name = "tf-rs"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Ignacio Duart <iduart@gmail.com>"]
 
 description = "High level (Pythonic) API for the TensorFlow framework."

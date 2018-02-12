@@ -321,6 +321,13 @@ macro_rules! test_suite {
         $( session.feed(vec![$arg]) )*
         session.run(None).unwrap()
     }};
+    (run_err: [$($op:ident),+]; $context:ident, input: {$($arg:tt),*}) => {{
+        use client::ClientSession;
+        let mut session = ClientSession::new(&mut $context).unwrap();
+        session.fetch(vec![$($op),+]);
+        $( session.feed(vec![$arg]) )*
+        assert_eq!(session.run(None).is_err(), true)
+    }};
     ($res:ident; assert: {$([$res_idx:expr; $ty:ident] == $cmp:expr),+}) => {{
         $(
             match $res[$res_idx] {

@@ -160,7 +160,41 @@ where
     if let Some(summarize) = summarize {
         assert = assert.summarize(summarize);
     }
+    scope.install(assert.clone())?;
     Ok(assert)
+}
+
+#[cfg(test)]
+mod test_assert_eq {
+    #![allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_assert_eq_correct() {
+        let mut context = Scope::new();
+        let x = context.constant(&[2_i32], &[] as &[i32], "x").unwrap();
+        let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
+        let assert = assert_eq(&mut context, x, y, None, None, "").unwrap();
+        let op = {
+            let mut context = context.control_dependencies(&[assert]);
+            math_ops::add(&mut context, x, y, "").unwrap()
+        };
+        let results = test_suite!(run_op: [op]; context, input: {});
+        test_suite!(results; assert: {[0;Int32] == [4_i32]});
+    }
+
+    #[test]
+    fn test_assert_eq_incorrect() {
+        let mut context = Scope::new();
+        let x = context.constant(&[2_i32], &[] as &[i32], "x").unwrap();
+        let y = context.constant(&[4_i32], &[] as &[i32], "y").unwrap();
+        let assert = assert_eq(&mut context, x, y, None, None, "").unwrap();
+        let op = {
+            let mut context = context.control_dependencies(&[assert]);
+            math_ops::add(&mut context, x, y, "").unwrap()
+        };
+        test_suite!(run_err: [op]; context, input: {});
+    }
 }
 
 /// Assert the condition `x > y` holds element-wise.
@@ -204,7 +238,41 @@ where
     if let Some(summarize) = summarize {
         assert = assert.summarize(summarize);
     }
+    scope.install(assert.clone())?;
     Ok(assert)
+}
+
+#[cfg(test)]
+mod test_assert_greater {
+    #![allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_assert_greater_correct() {
+        let mut context = Scope::new();
+        let x = context.constant(&[3_i32], &[] as &[i32], "x").unwrap();
+        let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
+        let assert = assert_greater(&mut context, x, y, None, None, "").unwrap();
+        let op = {
+            let mut context = context.control_dependencies(&[assert]);
+            math_ops::add(&mut context, x, y, "").unwrap()
+        };
+        let results = test_suite!(run_op: [op]; context, input: {});
+        test_suite!(results; assert: {[0;Int32] == [5_i32]});
+    }
+
+    #[test]
+    fn test_assert_greater_incorrect() {
+        let mut context = Scope::new();
+        let x = context.constant(&[2_i32], &[] as &[i32], "x").unwrap();
+        let y = context.constant(&[3_i32], &[] as &[i32], "y").unwrap();
+        let assert = assert_greater(&mut context, x, y, None, None, "").unwrap();
+        let op = {
+            let mut context = context.control_dependencies(&[assert]);
+            math_ops::add(&mut context, x, y, "").unwrap()
+        };
+        test_suite!(run_err: [op]; context, input: {});
+    }
 }
 
 ///// Cond /////
@@ -883,6 +951,27 @@ add_new_op!(RefNextIteration,
 
 ///// Tuple /////
 
+///  Group tensors together.
+///
+///  This creates a tuple of tensors with the same values as the `tensors`
+///  argument, except that the value of each tensor is only returned after the
+///  values of all tensors have been computed.
+///
+///  `control_inputs` contains additional ops that have to finish before this op
+///  finishes, but whose outputs are not returned.
+///
+///  This can be used as a "join" mechanism for parallel computations: all the
+///  argument tensors can be computed in parallel, but the values of any tensor
+///  returned by `tuple` are only available after all the parallel computations
+///  are done.
+///
+///  ### Args:
+///    * tensors: A list of `Tensor`s or `IndexedSlices`, some entries can be `None`.
+///    * name: (optional) A name to use as a `name_scope` for the operation.
+///    * control_inputs: List of additional ops to finish before returning.
+///
+///  ### Returns:
+///    Same as `tensors`.
 pub(crate) fn tuple<'a, S, I, T: 'a>(
     scope: &mut Scope,
     tensors: Vec<Tensor>,
@@ -962,45 +1051,6 @@ where
 mod test {
     #![allow(unused_imports)]
     use super::*;
-
-    #[test]
-    fn test_where_cond() {
-        let mut context = Scope::new();
-        let x = context.constant(&[4_i32, 2, 4], &[3], "x").unwrap();
-        let y = context.constant(&[2_i32, 4, 2], &[3], "y").unwrap();
-        let cond = greater(&mut context, x, y, "").unwrap();
-        let op = where_cond(&mut context, cond, None, None, "").unwrap();
-        let results = test_suite!(run_op: [op]; context, input: {});
-        test_suite!(results; assert: {[0;Int64] == [0_i64, 2]});
-        test_suite!(results; assert_len: {[0;Int64] == 2});
-        //println!("{:?}", Vec::from(&*results.pop().unwrap().unwrap_i64()));
-    }
-
-    #[test]
-    #[ignore]
-    fn test_assert_eq() {
-        let mut context = Scope::new();
-        let x = context
-            .constant(&[2_i32], &[] as &[i32] as &[i32], "x")
-            .unwrap();
-        let y = context
-            .constant(&[2_i32], &[] as &[i32] as &[i32], "y")
-            .unwrap();
-        let assert = assert_eq(&mut context, x, y, None, None, "").unwrap();
-        //context.install(assert.clone()).unwrap();
-        let results = test_suite!(run_op: [assert]; context, input: {});
-    }
-
-    #[test]
-    #[ignore]
-    fn test_assert_greater() {
-        let mut context = Scope::new();
-        let x = context.constant(&[3_i32], &[] as &[i32], "x").unwrap();
-        let y = context.constant(&[2_i32], &[] as &[i32], "y").unwrap();
-        let assert = assert_greater(&mut context, x, y, None, None, "").unwrap();
-        //context.install(assert.clone()).unwrap();
-        let results = test_suite!(run_op: [assert]; context, input: {});
-    }
 
     #[test]
     fn test_cond() {

@@ -21,18 +21,15 @@ pub struct ClientSession<'g> {
 impl<'g> ClientSession<'g> {
     pub fn new(context: &'g mut Scope) -> Result<ClientSession<'g>> {
         if context.locked() {
-            // can only create sessions out of root scopes
-            return Err(Error::from(ErrorKind::Stub));
+            return Err(Error::from("Can only create sessions out of root scopes"));
         }
-        Ok(
-            ClientSession {
-                fetch: vec![],
-                feed: vec![],
-                context,
-                reinit_vars: false,
-                initialized: false,
-            },
-        )
+        Ok(ClientSession {
+            fetch: vec![],
+            feed: vec![],
+            context,
+            reinit_vars: false,
+            initialized: false,
+        })
     }
 
     /// If variables had already been initialized, reinitialize them again.
@@ -139,10 +136,10 @@ impl<'g> ClientSession<'g> {
         let mut output_tokens = Vec::with_capacity(self.fetch.len());
         for output in &self.fetch {
             let info = &registry[&output];
-            output_tokens.push(
-                (steep1.request_output(&info.data_origin.0, info.data_origin.1),
-                 info.dtype),
-            );
+            output_tokens.push((
+                steep1.request_output(&info.data_origin.0, info.data_origin.1),
+                info.dtype,
+            ));
         }
         // feed input
         for &(ref token, ref inputs) in &self.feed {
@@ -167,14 +164,18 @@ impl<'g> ClientSession<'g> {
                 DataType::Int16 => TensorContent::from(steep1.take_output::<i16>(token)?),
                 DataType::Int8 => TensorContent::from(steep1.take_output::<i8>(token)?),
                 DataType::Int64 => TensorContent::from(steep1.take_output::<i64>(token)?),
-                DataType::String => TensorContent::from(steep1.take_output::<String>(token)?), 
-                DataType::QUInt8 => TensorContent::from(steep1.take_output::<::QUInt8>(token)?), 
-                DataType::QUInt16 => TensorContent::from(steep1.take_output::<::QUInt16>(token)?), 
-                DataType::QInt16 => TensorContent::from(steep1.take_output::<::QInt16>(token)?), 
-                DataType::QInt32 => TensorContent::from(steep1.take_output::<::QInt32>(token)?), 
-                DataType::BFloat16 => TensorContent::from(steep1.take_output::<::BFloat16>(token)?), 
-                DataType::Complex64 => TensorContent::from(steep1.take_output::<::Complex32>(token)?,), 
-                DataType::Complex128 => TensorContent::from(steep1.take_output::<::Complex64>(token)?,), 
+                DataType::String => TensorContent::from(steep1.take_output::<String>(token)?),
+                DataType::QUInt8 => TensorContent::from(steep1.take_output::<::QUInt8>(token)?),
+                DataType::QUInt16 => TensorContent::from(steep1.take_output::<::QUInt16>(token)?),
+                DataType::QInt16 => TensorContent::from(steep1.take_output::<::QInt16>(token)?),
+                DataType::QInt32 => TensorContent::from(steep1.take_output::<::QInt32>(token)?),
+                DataType::BFloat16 => TensorContent::from(steep1.take_output::<::BFloat16>(token)?),
+                DataType::Complex64 => {
+                    TensorContent::from(steep1.take_output::<::Complex32>(token)?)
+                }
+                DataType::Complex128 => {
+                    TensorContent::from(steep1.take_output::<::Complex64>(token)?)
+                }
                 _ => return Err(Error::from(ErrorKind::Stub)),
             };
             results.push(res);

@@ -6,10 +6,10 @@ use ops::{array_ops, control_flow_ops, math_ops, state_ops};
 use ops::gradients_impl as gradients;
 
 /// {slot_name: {variable_to_train: slot_for_the_variable}}
-//type SlotDict = HashMap<String, HashMap<Variable, i32>>;
+type SlotDict = HashMap<String, HashMap<Variable, i32>>;
 
-//mod gradient_descent;
-//pub use self::gradient_descent::GradientDescentOptimizer;
+mod gradient_descent;
+pub use self::gradient_descent::GradientDescentOptimizer;
 
 pub trait Optimizer: Sized {
     /// Add operations to minimize loss by updating var_list.
@@ -521,14 +521,3 @@ fn deduplicate_indexed_slices(
     let summed_values = math_ops::unsorted_segment_sum(scope, values, new_index_positions, s, "")?;
     Ok((summed_values, unique_indices))
 }
-
-/*
-fn configure(&mut self) -> &mut OptimizerInterface;
-
-fn composite_optimizer(
-    optimizer1: Optimizer,
-    optimizer2: Optimizer,
-    switch: bool,
-    use_locking: bool,
-) -> Self;
-*/
