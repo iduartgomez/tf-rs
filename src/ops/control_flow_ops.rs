@@ -1,6 +1,8 @@
 //! Control Flow Operations.
 
 use std::collections::{HashMap, HashSet};
+use std::iter::FromIterator;
+
 use tf::Shape;
 
 use super::*;
@@ -966,13 +968,13 @@ add_new_op!(RefNextIteration,
 ///  are done.
 ///
 ///  ### Args:
-///    * tensors: A list of `Tensor`s or `IndexedSlices`, some entries can be `None`.
-///    * name: (optional) A name to use as a `name_scope` for the operation.
+///    * tensors: A list of `Tensor`s.
 ///    * control_inputs: List of additional ops to finish before returning.
+///    * name: (optional) A name to use as a `name_scope` for the operation.
 ///
 ///  ### Returns:
 ///    Same as `tensors`.
-pub(crate) fn tuple<'a, S, I, T: 'a>(
+pub fn tuple<'a, S, I, T: 'a>(
     scope: &mut Scope,
     tensors: Vec<Tensor>,
     control_inputs: Option<I>,
@@ -983,7 +985,27 @@ where
     I: IntoIterator<Item = &'a T>,
     T: GetIdent,
 {
-    unimplemented!()
+    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("tuple"));
+    let mut gating_ops: Vec<_> = tensors.iter().map(|x| x.get_ident()).collect();
+    if let Some(control_inputs) = control_inputs {
+        for c in control_inputs.into_iter() {
+            gating_ops.push(c.get_ident())
+        }
+    }
+    // Note that in order to ensure ordering in the pbtxt, we must take care to
+    // ensure the order here.
+    let gating_ops: HashSet<NodeIdent> = HashSet::from_iter(gating_ops.into_iter());
+    if gating_ops.len() == 0 {
+        return Err(Error::from(
+            "`tuple` op must have at least one input Tensor or Operation.",
+        ));
+    }
+    let gate = Group::new(scope, &gating_ops, "")?;
+    let mut tpl = Vec::with_capacity(tensors.len());
+    for t in tensors {
+        tpl.push(with_dependencies(scope, &[gate], t, "")?);
+    }
+    Ok(tpl)
 }
 
 /// Create an op that groups multiple operations.
@@ -994,14 +1016,15 @@ where
 pub struct Group(NodeIdent);
 
 impl Group {
-    pub fn new<Id, S>(scope: &mut Scope, ops: &[Id], name: S) -> Result<Group>
+    pub fn new<'a, I, T: 'a, S>(scope: &mut Scope, ops: I, name: S) -> Result<Group>
     where
-        Id: GetIdent,
+        I: IntoIterator<Item = &'a T>,
+        T: GetIdent,
         S: AsRef<Path>,
     {
         let graph = &mut *scope.graph.borrow_mut();
         let registry = &*scope.registry.borrow();
-        let mut ctrl_ops = Vec::with_capacity(ops.len());
+        let mut ctrl_ops = Vec::new();
         for x in ops {
             let ident: NodeIdent = x.get_ident();
             let r = &registry[&ident].data_origin.0;
@@ -1030,6 +1053,40 @@ impl GetIdent for Group {
     fn get_ident(&self) -> NodeIdent {
         self.0
     }
+}
+
+///  Produces the content of `output_tensor` only after `dependencies`.
+///
+///  In some cases, a user may want the output of an operation to be
+///  consumed externally only after some other dependencies have run
+///  first. This function ensures returns `output_tensor`, but only after all
+///  operations in `dependencies` have run. Note that this means that there is
+///  no guarantee that `output_tensor` will be evaluated after any `dependencies`
+///  have run.
+///
+///  ### Args:
+///    * dependencies: Iterable of operations to run before this op finishes.
+///    * output_tensor: A `Tensor` or `IndexedSlices` that will be returned.
+///    * name: (Optional) A name for this operation.
+///
+///  ### Returns:
+///    Same as `output_tensor`.
+pub fn with_dependencies<'a, I, T: 'a, S>(
+    scope: &mut Scope,
+    dependencies: I,
+    output_tensor: Tensor,
+    name: S,
+) -> Result<Tensor>
+where
+    I: IntoIterator<Item = &'a T>,
+    T: GetIdent,
+    S: AsRef<Path>,
+{
+    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("control_dependency"));
+    let name = scope.name().to_owned();
+    // TODO: with ops.colocate_with(output_tensor)
+    let scope = &mut scope.control_dependencies(dependencies);
+    scope.identity(output_tensor, name)
 }
 
 ///// Lower level support ops /////

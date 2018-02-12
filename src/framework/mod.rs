@@ -133,6 +133,42 @@ pub(crate) enum ControlOpKind {
     Other,
 }
 
+macro_rules! impl_identity_traits {
+    ($type:ty) => {
+        impl GetIdent for $type {
+            fn get_ident(&self) -> NodeIdent {
+                self.ident
+            }
+        }
+
+        impl PartialEq for $type {
+            fn eq(&self, other: &Self) -> bool {
+                self.ident == other.ident
+            }
+        }
+
+        impl Eq for $type {}
+
+        impl Hash for $type {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.ident.hash(state);
+            }
+        }
+
+        impl Into<NodeIdent> for $type {
+            fn into(self) -> NodeIdent {
+                self.ident
+            }
+        }
+
+        impl<'a> Into<NodeIdent> for &'a $type {
+            fn into(self) -> NodeIdent {
+                self.ident
+            }
+        }
+    };
+}
+
 /// Tensor
 #[derive(Debug, Clone, Copy)]
 pub struct Tensor {
@@ -199,37 +235,7 @@ impl Tensor {
     }
 }
 
-impl GetIdent for Tensor {
-    fn get_ident(&self) -> NodeIdent {
-        self.ident
-    }
-}
-
-impl PartialEq for Tensor {
-    fn eq(&self, other: &Self) -> bool {
-        self.ident == other.ident
-    }
-}
-
-impl Eq for Tensor {}
-
-impl Hash for Tensor {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.ident.hash(state);
-    }
-}
-
-impl Into<NodeIdent> for Tensor {
-    fn into(self) -> NodeIdent {
-        self.ident
-    }
-}
-
-impl<'a> Into<NodeIdent> for &'a Tensor {
-    fn into(self) -> NodeIdent {
-        self.ident
-    }
-}
+impl_identity_traits!(Tensor);
 
 /// Constant
 #[derive(Debug, Clone, Copy)]
@@ -276,23 +282,7 @@ impl Into<Tensor> for Constant {
     }
 }
 
-impl Hash for Constant {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.ident.hash(state);
-    }
-}
-
-impl Into<NodeIdent> for Constant {
-    fn into(self) -> NodeIdent {
-        self.ident
-    }
-}
-
-impl<'a> Into<NodeIdent> for &'a Constant {
-    fn into(self) -> NodeIdent {
-        self.ident
-    }
-}
+impl_identity_traits!(Constant);
 
 /// Variable
 #[derive(Debug, Clone, Copy)]
@@ -344,26 +334,6 @@ impl Variable {
     }
 }
 
-impl GetIdent for Variable {
-    fn get_ident(&self) -> NodeIdent {
-        self.ident
-    }
-}
-
-impl Hash for Variable {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.ident.hash(state);
-    }
-}
-
-impl PartialEq for Variable {
-    fn eq(&self, other: &Self) -> bool {
-        self.ident == other.ident
-    }
-}
-
-impl Eq for Variable {}
-
 impl Into<Tensor> for Variable {
     fn into(self) -> Tensor {
         let Variable {
@@ -379,17 +349,7 @@ impl Into<Tensor> for Variable {
     }
 }
 
-impl Into<NodeIdent> for Variable {
-    fn into(self) -> NodeIdent {
-        self.ident
-    }
-}
-
-impl<'a> Into<NodeIdent> for &'a Variable {
-    fn into(self) -> NodeIdent {
-        self.ident
-    }
-}
+impl_identity_traits!(Variable);
 
 #[doc(hidden)]
 #[derive(Debug, Clone)]
