@@ -989,8 +989,8 @@ where
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
     }
-    let dims = &[axis.len() as i64];
-    let reduce = context.constant(axis, dims, name.as_ref())?;
+    let dims = [axis.len() as i64];
+    let reduce = context.constant(axis, dims.as_ref(), name.as_ref())?;
     context.install(All::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
 }
 
@@ -1221,8 +1221,8 @@ where
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
     }
-    let dims = &[axis.len() as i64];
-    let reduce = context.constant(axis, dims, name.as_ref())?;
+    let dims = [axis.len() as i64];
+    let reduce = context.constant(axis, dims.as_ref(), name.as_ref())?;
     context.install(Mean::new(input.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
 }
 
@@ -1437,8 +1437,8 @@ where
     if axis.len() == 0 {
         // TODO: infer reduction to scalar
     }
-    let dims = &[axis.len() as i64];
-    let reduce = context.constant(axis, dims, name.as_ref())?;
+    let dims = [axis.len() as i64];
+    let reduce = context.constant(axis, dims.as_ref(), name.as_ref())?;
     context.install(Min::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
 }
 

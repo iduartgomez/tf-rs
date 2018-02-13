@@ -1,12 +1,86 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use super::{DataType, Error, ErrorKind, NodeIdent, Result, Scope, Tensor, TensorOps, Variable};
+use super::{DataType, Error, ErrorKind, NodeIdent, Result, Scope, ShapeOps, Tensor, TensorOps,
+            Variable};
 use ops::{array_ops, control_flow_ops, math_ops, state_ops};
 use ops::gradients_impl as gradients;
 
 /// {slot_name: {variable_to_train: slot_for_the_variable}}
-type SlotDict = HashMap<String, HashMap<Variable, i32>>;
+type SlotDict = HashMap<String, HashMap<Variable, Variable>>;
+
+macro_rules! impl_util_methods {
+    () => {
+        fn get_name(&self) -> &str {
+            &self.name
+        }
+
+        fn get_slot(&self, var: &Variable, name: &str) -> Option<&Variable> {
+            let named_slots = self.slots.get(name)?;
+            named_slots.get(var)
+        }
+
+        fn get_slot_names(&self) -> Vec<&str> {
+            self.slots.keys().map(|x| x.as_str()).collect()
+        }
+
+        fn slot_dict(&mut self, slot_name: &str) -> &mut HashMap<Variable, Variable> {
+            self.slots
+                .entry(slot_name.to_owned())
+                .or_insert(HashMap::new())
+        }
+
+        fn get_or_make_slot(
+            &mut self,
+            scope: &mut Scope,
+            var: &Variable,
+            val: Tensor,
+            slot_name: &str,
+            op_name: &str,
+        ) -> Result<Variable> {
+            use train::create_slot;
+            let named_slots = self.slot_dict(slot_name);
+            Ok(*named_slots.entry(*var).or_insert(
+                create_slot(scope, (*var).into(), val, op_name, true)?
+            ))
+        }
+
+        fn get_or_make_slot_with_initializer<Ti, Ts>(
+            &mut self,
+            scope: &mut Scope,
+            var: &Variable,
+            initializer: Ti,
+            shape: Ts,
+            dtype: DataType,
+            slot_name: &str,
+            op_name: &str,
+        ) -> Result<Variable>
+        where
+            Ti: Into<NodeIdent>,
+            Ts: ShapeOps,
+        {
+            use train::create_slot_with_initializer;
+            let named_slots = self.slot_dict(slot_name);
+            Ok(*named_slots.entry(*var).or_insert(
+                create_slot_with_initializer(scope, var, initializer, shape, dtype, op_name, true)?
+            ))
+        }
+
+        fn zeros_slot(
+            &mut self,
+            scope: &mut Scope,
+            var: &Variable,
+            slot_name: &str,
+            op_name: &str
+        ) -> Result<Variable> {
+            use train::create_zeros_slot;
+            let named_slots = self.slot_dict(slot_name);
+            Ok(*named_slots.entry(*var).or_insert(
+                create_zeros_slot(scope, var, op_name, true)?
+            ))
+        }
+    };
+}
 
 mod gradient_descent;
 pub use self::gradient_descent::GradientDescentOptimizer;
@@ -35,7 +109,7 @@ pub trait Optimizer: Sized {
         scope: &mut Scope,
         loss: Tx,
         global_step: Option<Variable>,
-        var_list: Vec<Tensor>,
+        var_list: Vec<Variable>,
         gate_gradients: GateGradients,
         aggregation_method: &str,
         colocate_gradients_with_ops: bool,
@@ -83,16 +157,16 @@ pub trait Optimizer: Sized {
         &mut self,
         scope: &mut Scope,
         loss: Tx,
-        var_list: Vec<Tensor>,
+        var_list: Vec<Variable>,
         gate_gradients: GateGradients,
         aggregation_method: &str,
         colocate_gradients_with_ops: bool,
         grad_loss: Option<Tensor>,
-    ) -> Result<Vec<(Option<Tensor>, Tensor)>> {
+    ) -> Result<Vec<(Option<Tensor>, Variable)>> {
         let loss = loss.into_tensor(scope);
-        self.assert_valid_dtypes(&[loss])?;
+        self.assert_valid_dtypes(scope, &[loss])?;
         if let Some(grad_loss) = grad_loss {
-            self.assert_valid_dtypes(&[grad_loss])?;
+            self.assert_valid_dtypes(scope, &[grad_loss])?;
         }
         if var_list.is_empty() {
             return Err(Error::from("No variables to optimize."));
@@ -130,12 +204,9 @@ pub trait Optimizer: Sized {
             }
             grads = new_grads;
         }
-        let grads_and_vars: Vec<(_, Tensor)> = grads
-            .into_iter()
-            .zip(var_list.into_iter())
-            .map(|(g, v)| (g, v.into()))
-            .collect();
+        let grads_and_vars: Vec<_> = grads.into_iter().zip(var_list.into_iter()).collect();
         self.assert_valid_dtypes(
+            scope,
             grads_and_vars
                 .iter()
                 .filter(|&&(g, v)| g.is_some() && !(DataType::Resource == v.dtype))
@@ -160,7 +231,7 @@ pub trait Optimizer: Sized {
     fn apply_gradients<S: AsRef<Path>>(
         &mut self,
         scope: &mut Scope,
-        grads_and_vars: Vec<(Option<Tensor>, Tensor)>,
+        grads_and_vars: Vec<(Option<Tensor>, Variable)>,
         global_step: Option<Variable>,
         name: S,
     ) -> Result<NodeIdent> {
@@ -196,7 +267,8 @@ pub trait Optimizer: Sized {
             self.create_slots(scope, var_list?)?;
         }
         let mut update_ops = vec![];
-        let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), self.get_name());
+        let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some(self.get_name()));
+        let name = scope.name().to_owned();
         self.prepare(scope)?;
         for (grad, var, processor) in converted_grads_and_vars {
             if grad.is_none() {
@@ -228,7 +300,7 @@ pub trait Optimizer: Sized {
         Ok(apply_updates)
     }
 
-    fn get_name(&self) -> Option<&str>;
+    fn get_name(&self) -> &str;
 
     /// Return a slot named name created for var by the Optimizer.
     ///
@@ -237,17 +309,19 @@ pub trait Optimizer: Sized {
     /// This method gives access to these Variable objects if for some reason you need them.
     ///
     /// Use get_slot_names() to get the list of slot names created by the Optimizer.
-    fn get_slot<S: AsRef<Path>>(&self, var: Variable, name: S) -> Option<Variable>;
+    fn get_slot(&self, var: &Variable, name: &str) -> Option<&Variable>;
 
     /// Return a list of the names of slots created by the Optimizer.
     fn get_slot_names(&self) -> Vec<&str>;
 
-    fn assert_valid_dtypes<'a, I>(&self, tensors: I) -> Result<()>
+    fn assert_valid_dtypes<I, T>(&self, scope: &mut Scope, tensors: I) -> Result<()>
     where
-        I: IntoIterator<Item = &'a Tensor>,
+        I: IntoIterator<Item = T>,
+        T: TensorOps,
     {
         let valid_dtypes = self.valid_dtypes();
         for tensor in tensors.into_iter() {
+            let tensor = tensor.into_tensor(scope);
             if valid_dtypes
                 .iter()
                 .find(|dt| dt == &&tensor.dtype)
@@ -292,7 +366,7 @@ pub trait Optimizer: Sized {
     }
 
     /// Add ops to apply dense gradients to `var`.
-    fn apply_dense(&self, scope: &mut Scope, grad: &Tensor, var: &Tensor) -> Result<Tensor> {
+    fn apply_dense(&self, scope: &mut Scope, grad: &Tensor, var: &Variable) -> Result<Tensor> {
         Err(ErrorKind::UnimplementedTraitMethod.into())
     }
 
@@ -301,7 +375,7 @@ pub trait Optimizer: Sized {
         &self,
         scope: &mut Scope,
         grad: &Tensor,
-        handle: &Tensor,
+        handle: &Variable,
     ) -> Result<Tensor> {
         Err(ErrorKind::UnimplementedTraitMethod.into())
     }
@@ -319,9 +393,9 @@ pub trait Optimizer: Sized {
         &self,
         scope: &mut Scope,
         grad: &Tensor,
-        handle: &Tensor,
+        handle: &Variable,
         indices: &Tensor,
-    ) -> Result<Tensor> {
+    ) -> Result<NodeIdent> {
         let (summed_grad, unique_indices) = deduplicate_indexed_slices(scope, grad, indices)?;
         self.resource_apply_sparse(scope, &summed_grad, handle, indices)
     }
@@ -336,9 +410,9 @@ pub trait Optimizer: Sized {
         &self,
         scope: &mut Scope,
         grad: &Tensor,
-        handle: &Tensor,
+        handle: &Variable,
         indices: &Tensor,
-    ) -> Result<Tensor> {
+    ) -> Result<NodeIdent> {
         Err(ErrorKind::UnimplementedTraitMethod.into())
     }
 
@@ -398,13 +472,13 @@ pub trait Optimizer: Sized {
     // --------------
 
     /// Returns a dict for caching slots created under the given name.
-    fn slot_dict(&self, name: &str) -> Result<HashMap<Variable, Tensor>>;
+    fn slot_dict(&mut self, name: &str) -> &mut HashMap<Variable, Variable>;
 
     /// Find or create a slot for a variable.
     fn get_or_make_slot(
         &mut self,
         scope: &mut Scope,
-        var: Variable,
+        var: &Variable,
         val: Tensor,
         slot_name: &str,
         op_name: &str,
@@ -414,7 +488,7 @@ pub trait Optimizer: Sized {
     fn get_or_make_slot_with_initializer<Ti, Ts>(
         &mut self,
         scope: &mut Scope,
-        var: Variable,
+        var: &Variable,
         initializer: Ti,
         shape: Ts,
         dtype: DataType,
@@ -422,11 +496,17 @@ pub trait Optimizer: Sized {
         op_name: &str,
     ) -> Result<Variable>
     where
-        Ti: TensorOps,
-        Ts: TensorOps;
+        Ti: Into<NodeIdent>,
+        Ts: ShapeOps;
 
     /// Find or create a slot initialized with 0.0.
-    fn zeros_slot(&self, var: Variable, slot_name: &str, op_name: &str) -> Result<Variable>;
+    fn zeros_slot(
+        &mut self,
+        scope: &mut Scope,
+        var: &Variable,
+        slot_name: &str,
+        op_name: &str,
+    ) -> Result<Variable>;
 }
 
 pub enum GateGradients {
@@ -445,10 +525,10 @@ impl GateGradients {
 }
 
 enum Processor {
-    RefVariable(Tensor),
-    DenseResourceVariable(Tensor),
+    RefVariable(Variable),
+    DenseResourceVariable(Variable),
     //DenseReadResourceVariableProcessor,
-    StreamingModelPort(Tensor),
+    StreamingModelPort(Variable),
 }
 
 impl Processor {
@@ -479,7 +559,7 @@ impl Processor {
         }
     }
 
-    fn target(&self) -> Tensor {
+    fn target(&self) -> Variable {
         match *self {
             Processor::RefVariable(v) => v,
             Processor::DenseResourceVariable(v) => v,
@@ -488,24 +568,27 @@ impl Processor {
     }
 }
 
-fn get_processor(scope: &mut Scope, v: &Tensor) -> Result<Processor> {
+fn get_processor(scope: &mut Scope, v: &Variable) -> Result<Processor> {
     if v.op_type(scope) == "VarHandleOp" {
         Ok(Processor::DenseResourceVariable(*v))
-    } else if v.is_ref() {
-        Ok(Processor::RefVariable(*v))
     } else if v.op_type(scope) == "SubmodelPort" {
         Ok(Processor::StreamingModelPort(*v))
     } else {
+        Ok(Processor::RefVariable(*v))
+    }
+    /* 
+    } else {
         Err(Error::from("Trying to optimize unsupported type"))
     }
+    */
 }
 
 /// Returns the ResourceVariable responsible for v, or v if not necessary.
-fn get_variable_for(scope: &mut Scope, v: &Tensor) -> Result<Variable> {
+fn get_variable_for(scope: &mut Scope, v: &Variable) -> Result<Variable> {
     if v.op_type(scope) == "VarHandleOp" {
         panic!("VarHandleOp not supported yet for optimizers")
     } else {
-        Variable::from_tensor(scope, v)
+        Ok(*v)
     }
 }
 

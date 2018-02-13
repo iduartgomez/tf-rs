@@ -800,11 +800,11 @@ impl Scope {
     }
 
     /// Create a new 'constant' tensor with given values and shape.
-    pub fn constant<TeS, T, S>(&mut self, value: &[T], shape: &[TeS], name: S) -> Result<Constant>
+    pub fn constant<Sh, T, S>(&mut self, value: &[T], shape: Sh, name: S) -> Result<Constant>
     where
         S: AsRef<Path>,
         T: TensorType,
-        TeS: ShapeSize,
+        Sh: ShapeOps,
     {
         self.allow_writes();
         let graph = &mut *self.graph.borrow_mut();
@@ -813,7 +813,9 @@ impl Scope {
         let full_name = self.resolve_tensor_name(Some(name.as_ref()), IdType::Constant, false)?;
         let ident = NodeIdent::new();
 
-        let shape: &[u64] = &shape_as_u64(shape);
+        let shape = &shape
+            .definition_u64()
+            .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
 
         let data_origin = {
             let cd = &self.scopes.borrow().control_dependencies;

@@ -17,10 +17,10 @@ pub mod train;
 pub(crate) mod client;
 pub(crate) mod framework;
 
-use tf::{OperationDescription, Output, Shape};
 pub type OperationData = tf::Operation;
 pub type TypedTensor<T> = tf::Tensor<T>;
 pub type TensorShape = tf::Shape;
+use tf::{OperationDescription, Output, Shape};
 use tf::{DataType, Graph, Session, SessionOptions, StepWithGraph};
 use tf::{BFloat16, QInt16, QInt32, QUInt16, QUInt8};
 use num_complex::{Complex32, Complex64};

@@ -255,7 +255,7 @@ where
     // Compute the dynamic element shape.
     let element_shape_d = if element_shape_s.is_fully_defined() {
         let s = element_shape_s.definition_i64().unwrap();
-        scope.constant(&s, &[s.len() as i64], "")?.into()
+        scope.constant(&s, [s.len() as i64].as_ref(), "")?.into()
     } else if transform_fn.is_none() {
         // TODO: It's important that we compute params[0].shape on the right device
         // to avoid data motion.

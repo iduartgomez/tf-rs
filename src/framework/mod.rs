@@ -29,7 +29,6 @@ mod scope;
 pub use self::scope::*;
 
 mod tensor_types;
-pub(crate) use self::tensor_types::*;
 pub use self::tensor_types::{ShapeOps, ShapeSize, TensorOps};
 
 #[doc(hidden)]
@@ -85,6 +84,17 @@ impl GetIdent for NodeIdent {
 pub trait GetIdent {
     fn get_ident(&self) -> NodeIdent;
 }
+
+/*
+impl<T> GetIdent for T
+where
+    T: Into<NodeIdent> + Copy,
+{
+    fn get_ident(&self) -> NodeIdent {
+        self.clone().into()
+    }
+}
+*/
 
 #[derive(Debug, Clone)]
 pub(crate) struct TensorData {
@@ -230,8 +240,13 @@ impl Tensor {
         unimplemented!()
     }
 
-    pub(crate) fn op_type(&self, context: &Scope) -> &str {
-        unimplemented!()
+    pub fn op_type(&self, context: &Scope) -> &str {
+        match self.idtype {
+            IdType::Constant => "Constant",
+            IdType::Variable => "Variable",
+            IdType::Operation(op) => op,
+            IdType::Placeholder => "Placeholder",
+        }
     }
 }
 
@@ -331,6 +346,10 @@ impl Variable {
         } else {
             Err(Error::from(ErrorKind::Stub))
         }
+    }
+
+    pub fn op_type(&self, context: &Scope) -> &str {
+        "Variable"
     }
 }
 

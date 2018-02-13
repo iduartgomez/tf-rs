@@ -10,7 +10,7 @@ pub mod nn;
 pub mod optimizers;
 
 pub use self::moving_averages::*;
-use self::slot_creator::*;
+pub use self::slot_creator::*;
 
 fn validate_convnet_data_dormat(data_format: &str) -> Result<&'static str> {
     match data_format {

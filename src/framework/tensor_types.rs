@@ -22,7 +22,7 @@ macro_rules! impl_tensor_ops {
 
         impl<'a> TensorOps for &'a [$T] {
             fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(self, &[self.len() as i64], "").unwrap().into()
+                scope.constant(self, [self.len() as i64].as_ref(), "").unwrap().into()
             }
         }
 
@@ -32,6 +32,7 @@ macro_rules! impl_tensor_ops {
             }
         }
     };
+
     (Trait: $TR:tt) => {
         impl<T: $TR> TensorOps for T
         {
@@ -42,7 +43,7 @@ macro_rules! impl_tensor_ops {
 
         impl<'a, T: $TR> TensorOps for &'a [T] {
             fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(self, &[self.len() as i64], "").unwrap().into()
+                scope.constant(self, [self.len() as i64].as_ref(), "").unwrap().into()
             }
         }
 
@@ -52,6 +53,7 @@ macro_rules! impl_tensor_ops {
             }
         }
     };
+
     (Gen: $T:ty) => {
         impl TensorOps for $T {
             fn into_tensor(self, _scope: &mut Scope) -> Tensor {
@@ -351,12 +353,4 @@ where
             Ok(Shape::from(Some(def)))
         }
     }
-}
-
-pub(crate) fn shape_as_u64<T: ShapeSize>(dims: &[T]) -> Vec<u64> {
-    dims.iter().map(|x| x.as_u64()).collect()
-}
-
-pub(crate) fn shape_as_i64<T: ShapeSize>(dims: &[T]) -> Vec<i64> {
-    dims.iter().map(|x| x.as_i64()).collect()
 }

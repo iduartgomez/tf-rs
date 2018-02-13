@@ -308,7 +308,6 @@ macro_rules! add_new_op {
     (INPUT0 $s:ident) => ($s.elements[0].dtype);
     (DTYPE_ATTR $s:ident) => ($s.output_type);
     (DTYPE_ATTR_2 $s:ident) => ($s.out2);
-    (SPECIFIED $s:path) => ($s);
     (NONE $s:ident) => (DataType::Resource)
 }
 
@@ -367,9 +366,10 @@ pub(crate) mod gradients_impl;
 pub(crate) mod init_ops;
 pub(crate) mod nn_ops;
 pub(crate) mod math_ops;
+pub(crate) mod resource_variable_ops;
 pub(crate) mod random_ops;
 pub(crate) mod state_ops;
-pub(crate) mod training_ops;
+pub mod training_ops;
 
 pub use self::array_ops::*;
 pub use self::control_flow_ops::*;
@@ -381,6 +381,7 @@ pub use self::math_ops::*;
 pub use self::random_ops::*;
 pub use self::state_ops::*;
 pub use self::training_ops::*;
+pub use self::resource_variable_ops::*;
 
 trait DTypeOps {
     /// Returns whether this is a (non-quantized, real) floating point type.

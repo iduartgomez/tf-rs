@@ -3,24 +3,28 @@ use super::*;
 use tf::Shape;
 
 /// Initializer that generates tensors with constant values.
-/// 
-/// The resulting tensor is populated with values of type dtype, as specified by arguments value 
+///
+/// The resulting tensor is populated with values of type dtype, as specified by arguments value
 /// following the desired shape of the new tensor (see examples below).
-/// 
+///
 /// ### Args:
-/// * value: All elements of the initialized variable will be set to the corresponding value 
+/// * value: All elements of the initialized variable will be set to the corresponding value
 ///          in the value argument.
 /// * shape: Shape of the initializer.
-pub fn constant_initializer<TeS, T>(
+pub fn constant_initializer<TeS, T, Sh>(
     context: &mut Scope,
     value: T,
-    shape: &[TeS],
+    shape: Sh,
 ) -> Result<Constant>
 where
     T: TensorType,
     TeS: ShapeSize,
+    Sh: ShapeOps,
 {
-    let total = shape.iter().fold(1_i64, |acc, &x| acc * x.as_i64()) as usize;
+    let s = shape
+        .definition_i64()
+        .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+    let total = s.iter().fold(1_i64, |acc, &x| acc * x) as usize;
     let values = vec![value; total];
     context.constant(&values, shape, "")
 }
@@ -31,7 +35,9 @@ fn test_constant_initializer_explicit() {
     let mut context = Scope::new();
 
     let init = constant_initializer(&mut context, 3_i32, &[2, 2, 2]).unwrap();
-    let var = context.get_variable_with_initializer(init, true, "").unwrap();
+    let var = context
+        .get_variable_with_initializer(init, true, "")
+        .unwrap();
 
     let results = test_suite!(run_op: [var]; context, input: {});
     test_suite!(results; assert_len: {[0;Int32] == 8});
@@ -43,9 +49,9 @@ fn test_constant_initializer_explicit() {
 /// ### Args:
 /// * mean: A scalar float. Mean of the random values to generate.
 /// * stddev: A scalar float. Standard deviation of the random values to generate.
-/// * seed: Optional value used to create random seeds. 
+/// * seed: Optional value used to create random seeds.
 ///         See [set_random_seed](../prelude/struct.Scope.html#method.set_random_seed) for behavior.
-/// * shape: Shape of the initializer.  
+/// * shape: Shape of the initializer.
 pub fn random_normal_initializer<TeS, F>(
     context: &mut Scope,
     mean: F,
@@ -59,7 +65,7 @@ where
 {
     let scope = &mut context.name_scope("random_normal", None);
 
-    let shape_tensor = scope.constant(shape, &[shape.len() as i64], "")?;
+    let shape_tensor = scope.constant(shape, [shape.len() as i64].as_ref(), "")?;
     let mean_tensor = scope.constant(&[mean], &[] as &[i64], "mean")?;
     let stddev_tensor = scope.constant(&[stddev], &[] as &[i64], "name")?;
 
@@ -120,24 +126,29 @@ fn test_random_normal_initializer() {
     let mut context = Scope::new();
 
     let init = random_normal_initializer(&mut context, 0.0_f32, 1.0, None, &[2, 2]).unwrap();
-    let var = context.get_variable_with_initializer(init, true, "").unwrap();
+    let var = context
+        .get_variable_with_initializer(init, true, "")
+        .unwrap();
 
     let results = test_suite!(run_op: [var]; context, input: {});
     test_suite!(results; assert_len: {[0;Float] == 4});
 }
 
 /// Initializer that generates tensors initialized to 0.
-pub fn zeros_initializer<'a, TeS>(
+pub fn zeros_initializer<'a, Sh>(
     context: &mut Scope,
-    shape: &'a [TeS],
+    shape: Sh,
     dtype: DataType,
 ) -> Result<Constant>
 where
-    TeS: ShapeSize + ::std::iter::Product<&'a TeS>,
+    Sh: ShapeOps,
 {
     // TODO: rewrite this function so it's less inefficient, avoid extra allocation of "vals"
-    let elem_num: TeS = shape.iter().product();
-    let elem_num = elem_num.as_u64() as usize;
+    let def = shape
+        .definition_u64()
+        .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+    let elem_num: u64 = def.into_iter().product();
+    let elem_num = elem_num as usize;
     match dtype {
         DataType::Bool => {
             let vals = vec![false; elem_num];

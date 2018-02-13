@@ -2,7 +2,7 @@
 
 use super::{range, sub, Attribute, ControlFlow, DataType, Error, ErrorKind, GetIdent, Graph,
             IdType, NodeIdent, Operation, OperationData, Output, Path, PathBuf, Result, Scope,
-            ShapeSize, Tensor, TensorData, TensorOps, TensorType, TypedTensor, shape_as_i64};
+            ShapeOps, ShapeSize, Tensor, TensorData, TensorOps, TensorType, TypedTensor};
 
 #[allow(unused_imports)]
 use framework::TensorContent;
@@ -513,22 +513,18 @@ fn test_size() {
 /// ### Returns:
 /// * A Tensor with the same type as input. Contains the same data as input,
 ///   but has one or more dimensions of size 1 removed.
-pub fn squeeze<TeS, Tx, S>(
-    scope: &mut Scope,
-    input: Tx,
-    axis: Option<&[TeS]>,
-    name: S,
-) -> Result<Tensor>
+pub fn squeeze<Tx, Sh, S>(scope: &mut Scope, input: Tx, axis: Option<Sh>, name: S) -> Result<Tensor>
 where
     Tx: TensorOps,
     S: AsRef<Path>,
-    TeS: ShapeSize,
+    Sh: ShapeOps,
 {
     let dims: Vec<i64>;
     let input = input.into_tensor(scope);
     let mut squeeze = Squeeze::new(input, name)?;
     if let Some(axis) = axis {
-        dims = shape_as_i64(axis);
+        dims = axis.definition_i64()
+            .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
         squeeze = squeeze.squeeze_dims(&dims);
     }
     scope.install(squeeze)
