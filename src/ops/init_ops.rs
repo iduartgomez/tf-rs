@@ -11,14 +11,9 @@ use tf::Shape;
 /// * value: All elements of the initialized variable will be set to the corresponding value
 ///          in the value argument.
 /// * shape: Shape of the initializer.
-pub fn constant_initializer<TeS, T, Sh>(
-    context: &mut Scope,
-    value: T,
-    shape: Sh,
-) -> Result<Constant>
+pub fn constant_initializer<T, Sh>(context: &mut Scope, value: T, shape: Sh) -> Result<Constant>
 where
     T: TensorType,
-    TeS: ShapeSize,
     Sh: ShapeOps,
 {
     let s = shape
@@ -34,7 +29,7 @@ where
 fn test_constant_initializer_explicit() {
     let mut context = Scope::new();
 
-    let init = constant_initializer(&mut context, 3_i32, &[2, 2, 2]).unwrap();
+    let init = constant_initializer(&mut context, 3_i32, [2, 2, 2].as_ref()).unwrap();
     let var = context
         .get_variable_with_initializer(init, true, "")
         .unwrap();
@@ -125,7 +120,8 @@ add_new_op!(RandomStandardNormal,
 fn test_random_normal_initializer() {
     let mut context = Scope::new();
 
-    let init = random_normal_initializer(&mut context, 0.0_f32, 1.0, None, &[2, 2]).unwrap();
+    let init =
+        random_normal_initializer(&mut context, 0.0_f32, 1.0, None, [2, 2].as_ref()).unwrap();
     let var = context
         .get_variable_with_initializer(init, true, "")
         .unwrap();

@@ -137,7 +137,7 @@ add_new_op!(Cast,
 #[cfg(test)]
 fn test_cast() {
     let mut context = Scope::new();
-    let x = context.constant(&[0_i32, 1], &[2], "x").unwrap();
+    let x = context.constant(&[0_i32, 1], [2].as_ref(), "x").unwrap();
     let op = cast(&mut context, x, DataType::Double, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Double] == [0_f64, 1.]});
@@ -267,8 +267,8 @@ add_new_op!(Equal,
 #[cfg(test)]
 fn test_equal() {
     let mut context = Scope::new();
-    let x = context.constant(&[1_i32, 2], &[2], "x").unwrap();
-    let y = context.constant(&[1_i32, 2], &[2], "y").unwrap();
+    let x = context.constant(&[1_i32, 2], [2].as_ref(), "x").unwrap();
+    let y = context.constant(&[1_i32, 2], [2].as_ref(), "y").unwrap();
     let op = equal(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [true, true]});
@@ -424,8 +424,8 @@ add_new_op!(Greater,
 #[cfg(test)]
 fn test_greater() {
     let mut context = Scope::new();
-    let x = context.constant(&[1_i32, 2], &[2], "x").unwrap();
-    let y = context.constant(&[0_i32, 3], &[2], "y").unwrap();
+    let x = context.constant(&[1_i32, 2], [2].as_ref(), "x").unwrap();
+    let y = context.constant(&[0_i32, 3], [2].as_ref(), "y").unwrap();
     let op = greater(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [true, false]});
@@ -816,8 +816,8 @@ add_new_op!(Less,
 #[cfg(test)]
 fn test_less() {
     let mut context = Scope::new();
-    let x = context.constant(&[2_i32, 2], &[2], "x").unwrap();
-    let y = context.constant(&[1_i32, 3], &[2], "y").unwrap();
+    let x = context.constant(&[2_i32, 2], [2].as_ref(), "x").unwrap();
+    let y = context.constant(&[1_i32, 3], [2].as_ref(), "y").unwrap();
     let op = less(&mut context, x, y, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [false, true]});
@@ -896,7 +896,7 @@ add_new_op!(LogicalNot,
 #[cfg(test)]
 fn test_logical_not() {
     let mut context = Scope::new();
-    let x = context.constant(&[true, false], &[2], "x").unwrap();
+    let x = context.constant(&[true, false], [2].as_ref(), "x").unwrap();
     let op = logical_not(&mut context, x, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [false, true]});
@@ -986,9 +986,6 @@ where
     TeS: ShapeSize,
     S: AsRef<Path>,
 {
-    if axis.len() == 0 {
-        // TODO: infer reduction to scalar
-    }
     let dims = [axis.len() as i64];
     let reduce = context.constant(axis, dims.as_ref(), name.as_ref())?;
     context.install(All::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
@@ -1013,20 +1010,20 @@ add_new_op!(All,
 fn test_reduce_all() {
     let mut context = Scope::new();
     let x = context
-        .constant(&[true, true, true, false, true, true], &[2, 3], "x")
+        .constant(&[true, true, true, false, true, true], [2, 3].as_ref(), "x")
         .unwrap();
 
-    let op = reduce_all(&mut context, x, &[1], false, "").unwrap();
+    let op = reduce_all(&mut context, x, [1].as_ref(), false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [true, false]});
     test_suite!(results; assert_len: {[0;Bool] == 2});
 
-    let op = reduce_all(&mut context, x, &[0], false, "").unwrap();
+    let op = reduce_all(&mut context, x, [0].as_ref(), false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [false, true, true]});
     test_suite!(results; assert_len: {[0;Bool] == 3});
 
-    let op = reduce_all(&mut context, x, &[0, 1], false, "").unwrap();
+    let op = reduce_all(&mut context, x, [0, 1].as_ref(), false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Bool] == [false]});
     test_suite!(results; assert_len: {[0;Bool] == 1});
@@ -1099,7 +1096,7 @@ where
 fn test_reduce_logsumexp() {
     let mut context = Scope::new();
     let x = context
-        .constant(&[0_f64, 0., 0., 0., 0., 0.], &[2, 3], "x")
+        .constant(&[0_f64, 0., 0., 0., 0., 0.], [2, 3].as_ref(), "x")
         .unwrap();
 
     let op1 = reduce_logsumexp(&mut context, x, [0_i32, 1].as_ref(), false, "").unwrap();
@@ -1174,7 +1171,9 @@ add_new_op!(Sum,
 #[cfg(test)]
 fn test_reduce_sum() {
     let mut context = Scope::new();
-    let x = context.constant(&[1_i32, 2, 3, 4], &[2, 2], "x").unwrap();
+    let x = context
+        .constant(&[1_i32, 2, 3, 4], [2, 2].as_ref(), "x")
+        .unwrap();
 
     let op = reduce_sum(&mut context, x, [0, 1].as_ref(), false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -1218,9 +1217,6 @@ where
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
-    if axis.len() == 0 {
-        // TODO: infer reduction to scalar
-    }
     let dims = [axis.len() as i64];
     let reduce = context.constant(axis, dims.as_ref(), name.as_ref())?;
     context.install(Mean::new(input.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
@@ -1245,10 +1241,10 @@ add_new_op!(Mean,
 fn test_reduce_mean() {
     let mut context = Scope::new();
     let x = context
-        .constant(&[1.0_f32, 1., 2., 2.], &[2, 2], "x")
+        .constant(&[1.0_f32, 1., 2., 2.], [2, 2].as_ref(), "x")
         .unwrap();
 
-    let op = reduce_mean(&mut context, x, &[0, 1], false, "").unwrap();
+    let op = reduce_mean(&mut context, x, [0, 1].as_ref(), false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert_len: {[0;Float] == 1});
     test_suite!(results; assert: {[0;Float] == [1.5]});
@@ -1399,7 +1395,9 @@ add_new_op!(Max,
 #[cfg(test)]
 fn test_reduce_max() {
     let mut context = Scope::new();
-    let x = context.constant(&[1_i32, 2, 3, 4], &[2, 2], "x").unwrap();
+    let x = context
+        .constant(&[1_i32, 2, 3, 4], [2, 2].as_ref(), "x")
+        .unwrap();
 
     let op = reduce_max(&mut context, x, [0, 1].as_ref(), false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -1434,9 +1432,6 @@ where
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
-    if axis.len() == 0 {
-        // TODO: infer reduction to scalar
-    }
     let dims = [axis.len() as i64];
     let reduce = context.constant(axis, dims.as_ref(), name.as_ref())?;
     context.install(Min::new(tensor.into(), reduce.into(), name)?.keep_dims(&[keep_dims]))
@@ -1476,9 +1471,11 @@ add_new_op!(Min,
 #[cfg(test)]
 fn test_reduce_min() {
     let mut context = Scope::new();
-    let x = context.constant(&[1_i32, 2, 3, 4], &[2, 2], "x").unwrap();
+    let x = context
+        .constant(&[1_i32, 2, 3, 4], [2, 2].as_ref(), "x")
+        .unwrap();
 
-    let op = reduce_min(&mut context, x, &[0, 1], false, "").unwrap();
+    let op = reduce_min(&mut context, x, [0, 1].as_ref(), false, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert_len: {[0;Int32] == 1});
     test_suite!(results; assert: {[0;Int32] == [1]});

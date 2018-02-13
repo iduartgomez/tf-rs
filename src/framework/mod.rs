@@ -260,10 +260,10 @@ pub struct Constant {
 }
 
 impl Constant {
-    pub fn new<TeS, T>(context: &mut Scope, value: &[T], shape: &[TeS]) -> Constant
+    pub fn new<Sh, T>(context: &mut Scope, value: &[T], shape: Sh) -> Constant
     where
         T: TensorType,
-        TeS: ShapeSize,
+        Sh: ShapeOps,
     {
         let name = context
             .resolve_tensor_name(None, IdType::Constant, false)

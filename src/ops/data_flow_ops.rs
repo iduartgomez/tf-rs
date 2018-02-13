@@ -147,7 +147,9 @@ add_new_op!(DynamicPartition,
 #[cfg(test)]
 fn test_dynamic_partition() {
     let mut context = Scope::new();
-    let x = context.constant(&[10_i32, 20, 30, 40, 50], &[5], "x").unwrap();
+    let x = context
+        .constant(&[10_i32, 20, 30, 40, 50], [5].as_ref(), "x")
+        .unwrap();
 
     let op = dynamic_partition(&mut context, x, [0_i32, 0, 1, 1, 0].as_ref(), 2, "").unwrap();
     assert_eq!(op.len(), 2);
@@ -162,7 +164,6 @@ fn test_dynamic_partition() {
     test_suite!(results; assert_len: {[0;Int32] == 2});
     test_suite!(results; assert: {[0;Int32] == [30_i32, 40]});
 }
-
 
 /// Interleave the values from the `data` tensors into a single tensor.
 ///
@@ -191,11 +192,11 @@ fn test_dynamic_partition() {
 ///     merged.shape = [max(indices)] + constant
 /// ```
 ///
-/// Values are merged in order, so if an index appears in both 
+/// Values are merged in order, so if an index appears in both
 /// ```python
-/// indices[m][i] and indices[n][j] 
+/// indices[m][i] and indices[n][j]
 /// for (m,i) < (n,j) the slice data[n][j]
-/// ``` 
+/// ```
 /// will appear in the merged result.
 ///
 /// For example:

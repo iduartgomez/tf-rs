@@ -790,7 +790,7 @@ impl WhileContextInterface for Scope {
 }
 
 fn switch_ref_or_tensor(scope: &mut Scope, data: Tensor, pred: Tensor) -> Result<(Tensor, Tensor)> {
-    // TODO: add "colocate_with(data)"
+    // TODO: with ops.colocate_with(data)
     if data.is_ref() {
         ref_switch(scope, data, pred, "RefSwitch")
     } else {

@@ -70,11 +70,11 @@ fn test_concat() {
 
     let mut context = Scope::new();
     let t1 = context
-        .constant(&[1_i32, 2, 3, 4, 5, 6], &[2, 3], "t1")
+        .constant(&[1_i32, 2, 3, 4, 5, 6], [2, 3].as_ref(), "t1")
         .unwrap()
         .into();
     let t2 = context
-        .constant(&[7_i32, 8, 9, 10, 11, 12], &[2, 3], "t2")
+        .constant(&[7_i32, 8, 9, 10, 11, 12], [2, 3].as_ref(), "t2")
         .unwrap()
         .into();
     let op1 = concat(&mut context, vec![t1, t2], 0, "").unwrap();
@@ -256,9 +256,11 @@ add_new_op!(Gather,
 fn test_gather() {
     let mut context = Scope::new();
     let x = context
-        .constant(&[0_i32, 1, 2, 3, 4, 5], &[6], "x")
+        .constant(&[0_i32, 1, 2, 3, 4, 5], [6].as_ref(), "x")
         .unwrap();
-    let indices = context.constant(&[2_i32, 0, 2, 5], &[4], "gather").unwrap();
+    let indices = context
+        .constant(&[2_i32, 0, 2, 5], [4].as_ref(), "gather")
+        .unwrap();
     let op = gather(&mut context, x, indices, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
     test_suite!(results; assert: {[0;Int32] == [2_i32, 0, 2, 5]});
@@ -364,17 +366,17 @@ fn test_reshape() {
 
     let mut context = Scope::new();
     let x = context
-        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[9], "x")
+        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], [9].as_ref(), "x")
         .unwrap();
     let y = context
-        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3], "y")
+        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], [3, 3].as_ref(), "y")
         .unwrap();
 
-    let shape = context.constant(&[3, 3], &[2], "").unwrap();
+    let shape = context.constant(&[3, 3], [2].as_ref(), "").unwrap();
     let op1 = reshape(&mut context, x, shape, "").unwrap();
     let (src_op1, idx1) = context.get_src_op(op1);
 
-    let shape = context.constant(&[-1], &[1], "").unwrap();
+    let shape = context.constant(&[-1], [1].as_ref(), "").unwrap();
     let op2 = reshape(&mut context, y, shape, "").unwrap();
     let (src_op2, idx2) = context.get_src_op(op2);
 
@@ -455,7 +457,7 @@ add_new_op!(Shape,
 fn test_shape() {
     let mut context = Scope::new();
     let x = context
-        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], &[3, 3], "x")
+        .constant(&[1_i32, 2, 3, 4, 5, 6, 7, 8, 9], [3, 3].as_ref(), "x")
         .unwrap();
 
     let op = shape(&mut context, x, Some(DataType::Int64), "").unwrap();
@@ -489,7 +491,11 @@ add_new_op!(Size,
 fn test_size() {
     let mut context = Scope::new();
     let x = context
-        .constant(&[1_i32, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4], &[2, 2, 3], "x")
+        .constant(
+            &[1_i32, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
+            [2, 2, 3].as_ref(),
+            "x",
+        )
         .unwrap();
     let op = size(&mut context, x, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});
@@ -1123,6 +1129,7 @@ add_new_op!(Unique,
 /// (outer dimension) to copy from `x` and `y`. If `condition` has the same shape as `x` and `y`,
 /// then it chooses which element to copy from `x` and `y`.
 ///
+/// ### Args:
 /// * `condition`: A `Tensor` of type `bool`.
 /// * `x`: A Tensor which may have the same shape as condition. If condition is rank 1,
 ///   `x` may have higher rank, but its first dimension must match the size of condition.
@@ -1171,8 +1178,8 @@ add_new_op!(Where,
 fn test_where_cond() {
     use ops::math_ops::greater;
     let mut context = Scope::new();
-    let x = context.constant(&[4_i32, 2, 4], &[3], "x").unwrap();
-    let y = context.constant(&[2_i32, 4, 2], &[3], "y").unwrap();
+    let x = context.constant(&[4_i32, 2, 4], [3].as_ref(), "x").unwrap();
+    let y = context.constant(&[2_i32, 4, 2], [3].as_ref(), "y").unwrap();
     let cond = greater(&mut context, x, y, "").unwrap();
     let op = where_cond(&mut context, cond, None, None, "").unwrap();
     let results = test_suite!(run_op: [op]; context, input: {});

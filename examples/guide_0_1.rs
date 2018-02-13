@@ -7,7 +7,7 @@ use tf::prelude::*;
 fn main() {
     let root = &mut Scope::new();
     let a = root.placeholder(DataType::Int32);
-    let b = Constant::new(root, &[3, 3, 3, 3], &[2, 2]);
+    let b = Constant::new(root, &[3, 3, 3, 3], [2, 2].as_ref());
     // [[3, 3], [3, 3]]
     let add = ops::add(root, a, b, "").unwrap();
 

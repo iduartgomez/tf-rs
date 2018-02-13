@@ -542,7 +542,7 @@ impl Processor {
         match *self {
             Processor::RefVariable(ref v) => {
                 let update_op = optimizer.apply_dense(scope, grad, v)?;
-                /*
+                /* TODO:
                 if let Some(func) = v.constraint() {
                     let scope = &mut scope.control_dependencies(&[update_op]);
                     assign(scope, v, func(v))

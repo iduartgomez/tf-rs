@@ -15,9 +15,9 @@ use tf::prelude::*;
 fn main() {
     let root = &mut Scope::new();
     // Matrix A = [3, 2; -1, 0]
-    let A = Constant::new(root, &[3.0_f32, 2., -1., 0.], &[2, 2]);
+    let A = Constant::new(root, &[3.0_f32, 2., -1., 0.], [2, 2].as_ref());
     // Vector b = [3, 5; 0, 0]
-    let b = Constant::new(root, &[3.0_f32, 5., 0., 0.], &[2, 2]);
+    let b = Constant::new(root, &[3.0_f32, 5., 0., 0.], [2, 2].as_ref());
     // v = Ab^T
     let v =  ops::matmul(
             root, A, b, 
@@ -86,8 +86,8 @@ When executing a graph, you will need a session. The C++ API provides a tensorfl
 
 ```Rust
 let mut root = Scope::new();
-let a = Constant::new(root, &[1, 1], &[2]);
-let b = Constant::new(root, &[2, 2], &[2]);
+let a = Constant::new(root, &[1, 1], [2].as_ref());
+let b = Constant::new(root, &[2, 2], [2].as_ref());
 let add = ops::add(root, a, b, "").unwrap();
 
 let mut session = ClientSession::new(root).unwrap();
@@ -101,7 +101,7 @@ Similarly, the object returned by the operation constructor can be used as the a
 // examples/guide_0_1.rs
 let root = &mut Scope::new();
 let a = root.placeholder(DataType::Int32);
-let b = Constant::new(root, &[3, 3, 3, 3], &[2, 2]);
+let b = Constant::new(root, &[3, 3, 3, 3], [2, 2].as_ref());
 // b = [[3, 3], [3, 3]]
 let add = ops::add(root, a, b, "").unwrap();
 
