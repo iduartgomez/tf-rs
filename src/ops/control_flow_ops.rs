@@ -142,12 +142,12 @@ pub fn assert_eq<'a, Tx, Ty, S>(
     name: S,
 ) -> Result<Assert<'a>>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let x = x.into();
-    let y = y.into();
+    let x = x.into_tensor(context);
+    let y = y.into_tensor(context);
 
     let data = if let Some(data) = data {
         data
@@ -220,12 +220,12 @@ pub fn assert_greater<'a, Tx, Ty, S>(
     name: S,
 ) -> Result<Assert<'a>>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let x = x.into();
-    let y = y.into();
+    let x = x.into_tensor(context);
+    let y = y.into_tensor(context);
 
     let data = if let Some(data) = data {
         data
@@ -461,12 +461,14 @@ pub fn switch<Tx, Ty, S>(
     name: S,
 ) -> Result<(Tensor, Tensor)>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
+    let data = data.into_tensor(context);
+    let pred = pred.into_tensor(context);
     // returns (output_false, outpur_true)
-    context.install(Switch::new(data.into(), pred.into(), name)?)
+    context.install(Switch::new(data, pred, name)?)
 }
 
 /// Forwards `data` to the output port determined by `pred`.
@@ -490,11 +492,13 @@ pub fn ref_switch<Tx, Ty, S>(
     name: S,
 ) -> Result<(Tensor, Tensor)>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
-    context.install(RefSwitch::new(data.into(), pred.into(), name)?)
+    let data = data.into_tensor(context);
+    let pred = pred.into_tensor(context);
+    context.install(RefSwitch::new(data, pred, name)?)
 }
 
 /// Forwards `data` to the output port determined by `pred`.

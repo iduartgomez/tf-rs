@@ -14,7 +14,7 @@ use errors::*;
 macro_rules! to_typed_tensor {
     [$val:expr; $shape:expr] => {{
         TypedTensor::<T>::new($shape).with_values(&$val).unwrap()
-    }};
+    }}
 }
 
 macro_rules! clone_tensor {

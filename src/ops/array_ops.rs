@@ -149,10 +149,11 @@ pub fn expand_dims<Tx, S, TeS>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     S: AsRef<Path>,
     TeS: ShapeSize,
 {
+    let tensor = tensor.into_tensor(context);
     let m = context.constant(&[axis], &[] as &[TeS], "")?;
     context.install(ExpandDims::new(tensor.into(), m.into(), name)?)
 }
@@ -180,10 +181,11 @@ add_new_op!(ExpandDims,
 /// A Tensor. Has the same type as value.
 pub fn fill<Tx, Ty, S>(context: &mut Scope, dims: Tx, value: Ty, name: S) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     Ty: TensorType,
     S: AsRef<Path>,
 {
+    let dims = dims.into_tensor(context);
     let val = context.constant(&[value], &[] as &[i32], "")?;
     context.install(Fill::new(dims.into(), val.into(), name)?)
 }
@@ -232,15 +234,16 @@ add_new_op!(Fill,
 /// by `indices`, with shape `params.shape[:axis] + indices.shape + params.shape[axis + 1:]`.
 pub fn gather<Tx, Ty, S>(context: &mut Scope, params: Tx, indices: Ty, name: S) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let indices = indices.into();
+    let indices = indices.into_tensor(context);
+    let params = params.into_tensor(context);
     if indices.dtype != DataType::Int32 && indices.dtype != DataType::Int64 {
         return Err(Error::from(ErrorKind::Stub));
     }
-    context.install(Gather::new(params.into(), indices, name)?)
+    context.install(Gather::new(params, indices, name)?)
 }
 
 add_new_op!(Gather,
@@ -292,16 +295,16 @@ fn test_gather() {
 ///    * A `Tensor` of type `int32`.
 pub fn rank<Tx, S>(context: &mut Scope, input_tensor: Tx, name: S) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     S: AsRef<Path>,
 {
     let scope = &mut context.name_scope(name.as_ref(), Some("Rank".as_ref()));
-    let input_tensor = input_tensor.into();
+    let input_tensor = input_tensor.into_tensor(context);
     // optimize: encode the rank as a constant when possible.
     if let Some(ndim) = input_tensor.get_shape(scope).dims() {
         Ok(scope.constant(&[ndim as i32], &[] as &[i32], "")?.into())
     } else {
-        context.install(Rank::new(input_tensor.into(), "")?)
+        context.install(Rank::new(input_tensor, "")?)
     }
 }
 
@@ -337,7 +340,7 @@ add_new_op!(Rank,
 ///  * name: A name for the operation (optional).
 pub fn reshape<Tx, Ty, S>(context: &mut Scope, tensor: Tx, shape: Ty, name: S) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     Ty: TensorOps,
     S: AsRef<Path>,
 {
@@ -348,7 +351,8 @@ where
     };
     */
     let shape = shape.into_tensor(context);
-    context.install(Reshape::new(tensor.into(), shape, name)?)
+    let tensor = tensor.into_tensor(context);
+    context.install(Reshape::new(tensor, shape, name)?)
 }
 
 add_new_op!(Reshape,
@@ -403,7 +407,7 @@ pub fn shape<Tx, S>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     S: AsRef<Path>,
 {
     let out_type = if let Some(val) = out_type {
@@ -411,7 +415,8 @@ where
     } else {
         vec![]
     };
-    context.install(Shape::new(tensor.into(), &out_type, name)?)
+    let tensor = tensor.into_tensor(context);
+    context.install(Shape::new(tensor, &out_type, name)?)
 }
 
 add_new_op!(Shape,
@@ -472,10 +477,11 @@ fn test_shape() {
 /// This operation returns an int32 representing the number of elements in input.
 pub fn size<Tx, S>(context: &mut Scope, input: Tx, name: S) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     S: AsRef<Path>,
 {
-    context.install(Size::new(input.into(), name)?)
+    let input = input.into_tensor(context);
+    context.install(Size::new(input, name)?)
 }
 
 add_new_op!(Size, 
@@ -604,14 +610,14 @@ pub fn slice<Tx, Tb, Ts, S>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     Tb: TensorOps,
     Ts: TensorOps,
     S: AsRef<Path>,
 {
     let begin = begin.into_tensor(context);
     let size = size.into_tensor(context);
-    let input = input.into();
+    let input = input.into_tensor(context);
     context.install(Slice::new(input, begin, size, name)?)
 }
 
@@ -769,10 +775,11 @@ fn test_stack() {
 ///    A `Tensor`. Has the same type as `input`.
 pub fn stop_gradient<Tx, S>(scope: &mut Scope, input: Tx, name: S) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     S: AsRef<Path>,
 {
-    scope.install(StopGradient::new(input.into(), name)?)
+    let input = input.into_tensor(scope);
+    scope.install(StopGradient::new(input, name)?)
 }
 
 add_new_op!(StopGradient,
@@ -1009,12 +1016,12 @@ pub fn transpose<S, TeS, Tx>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
+    Tx: TensorOps,
     TeS: TensorOps,
     S: AsRef<Path>,
 {
     let scope = &mut context.name_scope(name.as_ref(), Some("transpose".as_ref()));
-    let a = a.into();
+    let a = a.into_tensor(context);
     if let Some(perm) = perm {
         //let perm = scope.constant(perm, &[1] as &[i32], "")?.into();
         let perm = perm.into_tensor(scope);
@@ -1147,10 +1154,10 @@ pub fn where_cond<Tc, S>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tc: Into<Tensor>,
+    Tc: TensorOps,
     S: AsRef<Path>,
 {
-    let cond = cond.into();
+    let cond = cond.into_tensor(context);
     if cond.dtype != DataType::Bool {
         return Err(Error::from(ErrorKind::Stub));
     }
@@ -1194,11 +1201,16 @@ fn test_where_cond() {
 ///
 /// This operation returns a tensor of type _dtype_ with shape _shape_ and all
 /// elements set to zero.
-pub fn zeros<S, TeS>(context: &mut Scope, shape: TeS, dtype: DataType, name: S) -> Result<Tensor>
+pub fn zeros<S, Sh>(context: &mut Scope, shape: Sh, dtype: DataType, name: S) -> Result<Tensor>
 where
     S: AsRef<Path>,
-    TeS: Into<Tensor>,
+    Sh: ShapeOps,
 {
+    let def = shape
+        .to_shape()
+        .definition_i64()
+        .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+    let shape = context.constant(&def, [def.len() as i32].as_ref(), "")?;
     let zero = match dtype {
         DataType::Bool => context.constant(&[false], &[] as &[i32], "")?,
         DataType::Double => context.constant(&[0_f64], &[] as &[i32], "")?,

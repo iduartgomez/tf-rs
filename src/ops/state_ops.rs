@@ -18,11 +18,13 @@ pub fn assign<Tx, Ty, S>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
-    context.install(Assign::new(ref_tensor.into(), value.into(), name)?.use_locking(&[use_locking]))
+    let ref_tensor = ref_tensor.into_tensor(context);
+    let value = value.into_tensor(context);
+    context.install(Assign::new(ref_tensor, value, name)?.use_locking(&[use_locking]))
 }
 
 add_new_op!(Assign, 
@@ -132,12 +134,13 @@ pub fn assign_sub<Tx, Ty, S>(
     name: S,
 ) -> Result<Tensor>
 where
-    Tx: Into<Tensor>,
-    Ty: Into<Tensor>,
+    Tx: TensorOps,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
-    context
-        .install(AssignSub::new(ref_tensor.into(), value.into(), name)?.use_locking(&[use_locking]))
+    let ref_tensor = ref_tensor.into_tensor(context);
+    let value = value.into_tensor(context);
+    context.install(AssignSub::new(ref_tensor, value, name)?.use_locking(&[use_locking]))
 }
 
 add_new_op!(AssignSub, 

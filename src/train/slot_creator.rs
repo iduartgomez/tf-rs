@@ -73,9 +73,9 @@ where
     let primary = primary.into_tensor(scope);
     let scope = &mut scope.name_scope("zeros", None);
     let slot_shape = array_ops::shape(scope, primary, None, "").unwrap();
-    let slot_shape_arr = slot_shape.get_shape(scope);
-    if slot_shape_arr.is_fully_defined() {
-        let initializer = init_ops::zeros_initializer(scope, slot_shape_arr, primary.dtype)?;
+    let slot_shape = slot_shape.get_shape(scope);
+    if slot_shape.is_fully_defined() {
+        let initializer = init_ops::zeros_initializer(scope, slot_shape, primary.dtype)?;
         create_slot(
             scope,
             primary,
