@@ -33,7 +33,7 @@ fn main() {
         TensorContent::Float(ref tensor) => {
             tensor.iter().cloned().collect::<Vec<_>>()
         }       
-        _ => panic!() 
+        _ => unreachable!() 
     };
     println!("values: {:?}", &values); // expect [19, 0; -3, 0]
     ::std::process::exit(0)
@@ -120,7 +120,7 @@ let values = match outputs[0] {
     TensorContent::Int32(ref tensor) => {
         tensor.iter().collect::<Vec<_>>()
     }       
-    _ => panic!() 
+    _ => unreachable!() 
 };
 println!("values: {:?}", &values); // expect [[4, 5], [6, 7]]
 ```

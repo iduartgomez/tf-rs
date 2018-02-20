@@ -1093,19 +1093,11 @@ where
     scope.identity(output_tensor, name)
 }
 
-///// Lower level support ops /////
-pub(crate) fn no_op_<I, T>(
-    graph: &mut Graph,
-    name: &str,
-    control_inputs: I,
-) -> Result<OperationData>
+pub(crate) fn zeros_like_outside_loop<Op>(scope: &mut Scope, op: Op, index: usize) -> Result<Tensor>
 where
-    I: IntoIterator<Item = T>,
-    T: ::std::ops::Deref<Target = OperationData>,
+    Op: GetIdent,
 {
-    let mut noop = graph.new_operation("NoOp", name)?;
-    super::add_control_input(&mut noop, control_inputs);
-    Ok(noop.finish()?)
+    unimplemented!()
 }
 
 #[cfg(test)]
@@ -1180,4 +1172,19 @@ mod test {
         test_suite!(r; assert_len: {[0;Int32] == 1});
         test_suite!(r; assert: {[0;Int32] == [10_i32]});
     }
+}
+
+///// Lower level support ops /////
+pub(crate) fn no_op_<I, T>(
+    graph: &mut Graph,
+    name: &str,
+    control_inputs: I,
+) -> Result<OperationData>
+where
+    I: IntoIterator<Item = T>,
+    T: ::std::ops::Deref<Target = OperationData>,
+{
+    let mut noop = graph.new_operation("NoOp", name)?;
+    super::add_control_input(&mut noop, control_inputs);
+    Ok(noop.finish()?)
 }

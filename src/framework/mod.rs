@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use uuid;
-use tf::TensorType;
+use tf;
 
 use super::{DataType, OperationData, OperationDescription, Shape, TypedTensor};
 use errors::*;
@@ -72,11 +72,41 @@ impl NodeIdent {
     pub(crate) fn new() -> NodeIdent {
         NodeIdent(uuid::Uuid::new_v4())
     }
+
+    #[allow(dead_code)]
+    pub(crate) fn get_hash(&self) -> usize {
+        use std::collections::hash_map::DefaultHasher;
+        let hasher = &mut DefaultHasher::default();
+        self.0.hash(hasher);
+        hasher.finish() as usize
+    }
+
+    pub(crate) fn get_attr(&self, context: &Scope, name: &str) -> Option<FuncAttr> {
+        unimplemented!()
+    }
+
+    pub fn get_outputs(&self, context: &Scope) -> Result<Vec<Tensor>> {
+        unimplemented!()
+    }
+
+    pub fn get_inputs(&self, context: &Scope) -> Result<Vec<Tensor>> {
+        unimplemented!()
+    }
+
+    pub fn get_name(&self, context: &Scope) -> String {
+        unimplemented!()
+    }
 }
 
 impl GetIdent for NodeIdent {
     fn get_ident(&self) -> NodeIdent {
         self.clone()
+    }
+}
+
+impl<'a> GetIdent for &'a NodeIdent {
+    fn get_ident(&self) -> NodeIdent {
+        **self
     }
 }
 
@@ -213,15 +243,27 @@ impl Tensor {
         op.name().unwrap()
     }
 
-    pub fn get_shape(&self, context: &mut Scope) -> Shape {
+    pub fn get_shape(&self, context: &Scope) -> Shape {
         //::ops::array_ops::shape(context, *self, None, "")
         let registry = &*context.registry.borrow();
         registry[&self.ident].shape.clone()
     }
 
-    pub fn set_shape<Tx>(self, context: &mut Scope, shape: Tx) -> Result<Tensor>
+    pub fn set_shape<Sh>(self, context: &mut Scope, shape: Sh) -> Result<Tensor>
     where
-        Tx: TensorOps,
+        Sh: ShapeOps,
+    {
+        let current_shape = self.get_shape(context);
+        let new_shape = current_shape
+            .merge_with(&shape.to_shape())?
+            .definition_i64()
+            .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+        ::ops::array_ops::reshape(context, self, new_shape.as_slice(), "")
+    }
+
+    pub fn set_shape_from_tensor<Sh>(self, context: &mut Scope, shape: Sh) -> Result<Tensor>
+    where
+        Sh: TensorOps,
     {
         let shape = shape.into_tensor(context);
         ::ops::array_ops::reshape(context, self, shape, "")
@@ -248,6 +290,14 @@ impl Tensor {
             IdType::Placeholder => "Placeholder",
         }
     }
+
+    pub fn get_op(&self, context: &Scope) -> NodeIdent {
+        unimplemented!()
+    }
+
+    pub fn consumers(&self, context: &Scope) -> Vec<NodeIdent> {
+        unimplemented!()
+    }
 }
 
 impl_identity_traits!(Tensor);
@@ -262,7 +312,7 @@ pub struct Constant {
 impl Constant {
     pub fn new<Sh, T>(context: &mut Scope, value: &[T], shape: Sh) -> Constant
     where
-        T: TensorType,
+        T: tf::TensorType,
         Sh: ShapeOps,
     {
         let name = context
@@ -312,7 +362,7 @@ pub struct Variable {
 impl Variable {
     pub fn new<TeS, T>(context: &mut Scope, initial_value: &[T], shape: &[TeS]) -> Variable
     where
-        T: TensorType,
+        T: tf::TensorType,
         TeS: ShapeSize,
     {
         let values = context.constant(initial_value, shape, "").unwrap();
@@ -449,7 +499,7 @@ macro_rules! unwrap_tensor_content {
         pub fn $name(self) -> TypedTensor<$type> {
             match self {
                 TensorContent::$variant(val) => val,
-                _ => panic!()
+                _ => unreachable!()
             }
         }
     }
@@ -626,7 +676,7 @@ macro_rules! collect_tensors {
             tensors.iter().map(|x| {
                 match *x {
                     TensorContent::$variant(ref val) => clone_tensor!(val),
-                    _ => panic!()
+                    _ => unreachable!()
                 }
             }).collect::<Vec<_>>()
         }
@@ -652,7 +702,7 @@ collect_tensors!(Complex128, collect_complex128_tensor, ::Complex64);
 
 impl<'a, T> From<Vec<TypedTensor<T>>> for Attribute<'a>
 where
-    T: TensorType,
+    T: tf::TensorType,
     TensorContent: From<TypedTensor<T>>,
 {
     fn from(src: Vec<TypedTensor<T>>) -> Attribute<'a> {
@@ -676,3 +726,40 @@ attr_from_ty!(Float, f32);
 attr_from_ty!(Bool, bool);
 attr_from_ty!(Type, DataType);
 attr_from_ty!(Shape, Shape);
+
+pub(crate) struct Function {
+    inner_func: tf::Function,
+}
+
+pub(crate) type GradFunc = Box<FnMut(&mut Scope, &[Option<Tensor>]) -> Result<Vec<Option<Tensor>>>>;
+
+impl Function {
+    pub fn get_gradient_func(&self) -> Option<GradFunc> {
+        unimplemented!()
+    }
+
+    pub fn get_attr(&self, name: &str) -> Option<FuncAttr> {
+        unimplemented!()
+    }
+}
+
+pub(crate) enum FuncAttr {
+    S(String),
+    B(bool),
+}
+
+impl FuncAttr {
+    pub fn unwrap_b(self) -> bool {
+        match self {
+            FuncAttr::B(b) => b,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn unwrap_s(self) -> String {
+        match self {
+            FuncAttr::S(s) => s,
+            _ => unreachable!(),
+        }
+    }
+}

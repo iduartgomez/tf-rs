@@ -105,7 +105,7 @@ impl ExponentialMovingAverage {
     ///   * var_list: A list of Tensor or Tensor objects. The variables
     ///     and Tensors must be of types float16, float32, or float64.
     ///
-    /// ### Returns: 
+    /// ### Returns:
     ///   * Operation that updates the moving averages.
     ///
     /// ### Errors:
@@ -120,7 +120,11 @@ impl ExponentialMovingAverage {
                 _ => return Err(Error::from(ErrorKind::Stub)),
             }
 
-            if self.averages.keys().find(|&&x| x.ident == var.ident).is_some() {
+            if self.averages
+                .keys()
+                .find(|&&x| x.ident == var.ident)
+                .is_some()
+            {
                 return Err(Error::from(ErrorKind::Stub));
             }
 
@@ -154,17 +158,17 @@ impl ExponentialMovingAverage {
         }
         let mut updates = vec![];
         for var in var_list {
-            let zero_debias = zero_debias_true.get(&self.averages[var].get_ident()).is_some();
-            updates.push(
-                assign_moving_average(
-                    scope,
-                    &self.averages[var],
-                    var,
-                    decay.into(),
-                    zero_debias,
-                    None,
-                )?,
-            )
+            let zero_debias = zero_debias_true
+                .get(&self.averages[var].get_ident())
+                .is_some();
+            updates.push(assign_moving_average(
+                scope,
+                &self.averages[var],
+                var,
+                decay.into(),
+                zero_debias,
+                None,
+            )?)
         }
         Group::new(scope, &updates, "")
     }
@@ -275,7 +279,7 @@ impl ExponentialMovingAverage {
 ///
 ///     `1 - decay ** num_updates`
 ///
-///   See `ADAM: A Method for Stochastic Optimization` [Section 3](https://arxiv.org/abs/1412.6980) 
+///   See `ADAM: A Method for Stochastic Optimization` [Section 3](https://arxiv.org/abs/1412.6980)
 ///   for more details.
 ///
 ///   ### Args:
@@ -299,10 +303,10 @@ fn assign_moving_average(
     name: Option<&str>,
 ) -> Result<Tensor> {
     let scope = &mut if let Some(name) = name {
-                         scope.name_scope(name, None)
-                     } else {
-                         scope.name_scope("", Some("AssignMovingAvg"))
-                     };
+        scope.name_scope(name, None)
+    } else {
+        scope.name_scope("", Some("AssignMovingAvg"))
+    };
     // TODO: colocate_with(variable)
     let decay = {
         let n = scope.constant(&[1], &[] as &[i32], "")?;
@@ -374,9 +378,7 @@ fn _zero_debias(
         let mul = math_ops::multiply(scope, sub, *decay, "")?;
         state_ops::assign_sub(scope, biased_var, mul, false, &scope_name)?
     };
-    let update_local_step = {
-        state_ops::assign_add(scope, local_step, one, false, "")?
-    };
+    let update_local_step = state_ops::assign_add(scope, local_step, one, false, "")?;
 
     // Compute the value of the delta to update the unbiased EMA. Make sure to
     // use the new values of the biased variable and the local step.

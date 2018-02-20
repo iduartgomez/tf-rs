@@ -382,6 +382,7 @@ pub use self::random_ops::*;
 pub use self::state_ops::*;
 pub use self::training_ops::*;
 pub use self::resource_variable_ops::*;
+pub use self::gradients_impl::AggregationMethod;
 
 trait DTypeOps {
     /// Returns whether this is a (non-quantized, real) floating point type.

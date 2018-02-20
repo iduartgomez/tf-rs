@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use super::*;
-use ops::{ControlFlow, array_ops, math_ops, nn_ops, random_ops};
+use ops::{array_ops, math_ops, nn_ops, random_ops, ControlFlow};
 
 ///  # Batch normalization.
 ///
@@ -89,7 +89,6 @@ where
     }
 }
 
-
 ///// BiasAdd /////
 
 ///  Adds `bias` to `value`.
@@ -146,7 +145,6 @@ add_new_op!(BiasAdd,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Dropout /////
 
@@ -213,9 +211,8 @@ where
         math_ops::multiply(scope, a, binary_tensor, "")?
     };
     let shape = array_ops::shape(scope, x, None, "")?;
-    ret.set_shape(scope, shape)
+    ret.set_shape_from_tensor(scope, shape)
 }
-
 
 ///// LogSoftmax /////
 
@@ -254,7 +251,6 @@ add_new_op!(LogSoftmax,
     output: [Tensor],
 );
 
-
 ///// Relu /////
 
 ///  Computes rectified linear: `max(features, 0)`.
@@ -283,7 +279,6 @@ add_new_op!(Relu,
     extra_attr: [],
     output: [Tensor],
 );
-
 
 ///// Softmax /////
 
@@ -347,7 +342,6 @@ fn softmax_helper(
     dim: i32,
     name: &Path,
 ) -> Result<Tensor> {
-
     fn swap_axis(
         scope: &mut Scope,
         logits: Tensor,
@@ -408,7 +402,7 @@ fn softmax_helper(
     output = swap_axis(context, output, dim, s, name)?;
 
     // Make shape inference work since reshape and transpose may erase its static shape.
-    output = output.set_shape(context, shape)?;
+    output = output.set_shape_from_tensor(context, shape)?;
     Ok(output)
 }
 

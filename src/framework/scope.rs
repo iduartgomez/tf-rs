@@ -205,9 +205,10 @@ impl Scope {
                 "" => format!("{}", "root"),
                 _ => scope_name,
             };
-            static MSG_0: &str = "tried to write at scope `";
-            static MSG_1: &str = "` while an other child scope was open";
-            panic!(format!("{}{}{}", MSG_0, scope_name, MSG_1))
+            panic!(format!(
+                "tried to write at scope `{}` while an other child scope was open",
+                scope_name
+            ))
         }
     }
 
@@ -1102,6 +1103,18 @@ impl Scope {
     /// Returns this scope unique name.
     pub fn name(&self) -> &str {
         self.own_scope.name.to_str().unwrap()
+    }
+
+    pub(crate) fn is_function(&self, id: &NodeIdent) -> bool {
+        unimplemented!()
+    }
+
+    pub(crate) fn get_function(&self, id: &NodeIdent) -> Result<Function> {
+        unimplemented!()
+    }
+
+    pub(crate) fn get_gradient_function<N: GetIdent>(&self, func: N) -> Option<GradFunc> {
+        unimplemented!()
     }
 }
 

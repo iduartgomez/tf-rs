@@ -4,7 +4,7 @@ use std::path::Path;
 use super::{DataType, Error, ErrorKind, NodeIdent, Result, Scope, ShapeOps, Tensor, TensorOps,
             Variable};
 use ops::{array_ops, control_flow_ops, math_ops, state_ops};
-use ops::gradients_impl as gradients;
+use ops::gradients_impl::{gradients, AggregationMethod};
 
 /// {slot_name: {variable_to_train: slot_for_the_variable}}
 type SlotDict = HashMap<String, HashMap<Variable, Variable>>;
@@ -111,7 +111,7 @@ pub trait Optimizer: Sized {
         global_step: Option<Variable>,
         var_list: Vec<Variable>,
         gate_gradients: GateGradients,
-        aggregation_method: &str,
+        aggregation_method: Option<AggregationMethod>,
         colocate_gradients_with_ops: bool,
         name: S,
         grad_loss: Option<Tensor>,
@@ -159,7 +159,7 @@ pub trait Optimizer: Sized {
         loss: Tx,
         var_list: Vec<Variable>,
         gate_gradients: GateGradients,
-        aggregation_method: &str,
+        aggregation_method: Option<AggregationMethod>,
         colocate_gradients_with_ops: bool,
         grad_loss: Option<Tensor>,
     ) -> Result<Vec<(Option<Tensor>, Variable)>> {
@@ -171,15 +171,17 @@ pub trait Optimizer: Sized {
         if var_list.is_empty() {
             return Err(Error::from("No variables to optimize."));
         }
-        let processors: Result<Vec<_>> = var_list.iter().map(|v| get_processor(scope, v)).collect();
-        let processors = processors?;
+        let processors = var_list
+            .iter()
+            .map(|v| get_processor(scope, v))
+            .collect::<Result<Vec<_>>>()?;
         let var_refs: Vec<_> = processors.iter().map(|p| p.target()).collect();
         let grad_loss = if let Some(grad_loss) = grad_loss {
             vec![grad_loss]
         } else {
             Vec::with_capacity(0)
         };
-        let mut grads = gradients::gradients(
+        let mut grads = gradients(
             scope,
             vec![loss],
             var_refs,
@@ -189,7 +191,15 @@ pub trait Optimizer: Sized {
             aggregation_method,
             None,
             "",
-        )?;
+        )?.into_iter()
+            .map(|g| {
+                if let Some(val) = g {
+                    Some(val[0])
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
         if let GateGradients::GateGraph = gate_gradients {
             let exist_grads: Vec<Tensor> = grads.iter().filter_map(|g| *g).collect();
             let mut grouped =
@@ -260,11 +270,11 @@ pub trait Optimizer: Sized {
                 ));
             }
             let scope = &mut scope.clear_control_dependencies();
-            let var_list: Result<Vec<_>> = var_list
+            let var_list = var_list
                 .iter()
                 .map(|v| get_variable_for(scope, v))
-                .collect();
-            self.create_slots(scope, var_list?)?;
+                .collect::<Result<Vec<_>>>()?;
+            self.create_slots(scope, var_list)?;
         }
         let mut update_ops = vec![];
         let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some(self.get_name()));
