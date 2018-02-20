@@ -377,7 +377,7 @@ pub trait Optimizer: Sized {
 
     /// Add ops to apply dense gradients to `var`.
     fn apply_dense(&self, scope: &mut Scope, grad: &Tensor, var: &Variable) -> Result<Tensor> {
-        Err(ErrorKind::UnimplementedTraitMethod.into())
+        Err(ErrorKind::UnimplTraitMethod.into())
     }
 
     /// Add ops to apply dense gradients to the variable `handle`.
@@ -387,7 +387,7 @@ pub trait Optimizer: Sized {
         grad: &Tensor,
         handle: &Variable,
     ) -> Result<Tensor> {
-        Err(ErrorKind::UnimplementedTraitMethod.into())
+        Err(ErrorKind::UnimplTraitMethod.into())
     }
 
     /// Add ops to apply sparse gradients to `handle`, with repeated indices.
@@ -423,7 +423,7 @@ pub trait Optimizer: Sized {
         handle: &Variable,
         indices: &Tensor,
     ) -> Result<NodeIdent> {
-        Err(ErrorKind::UnimplementedTraitMethod.into())
+        Err(ErrorKind::UnimplTraitMethod.into())
     }
 
     /*

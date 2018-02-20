@@ -122,7 +122,7 @@ where
     if ys.len() > 1 {
         ys = ys.into_iter()
             .map(|y| {
-                if !y.consumers(scope).is_empty() {
+                if !y.consumers(scope)?.is_empty() {
                     scope.identity(y, "")
                 } else {
                     Ok(y)
@@ -193,14 +193,14 @@ where
             if is_func_call {
                 let func = scope.get_function(op)?;
                 grad_fn = Some(func.get_gradient_func()
-                    .ok_or(Error::from(ErrorKind::GradNotDef))?);
+                    .ok_or(Error::from(ErrorKind::UndefinedGrad))?);
                 func_call = Some(func);
             } else {
                 // A grad_fn must be defined, either as a function or as None
                 // for ops that do not have gradients.
                 grad_fn = Some(scope
                     .get_gradient_function(op)
-                    .ok_or(Error::from(ErrorKind::GradNotDef))?);
+                    .ok_or(Error::from(ErrorKind::UndefinedGrad))?);
             }
         }
         if let Some(ref loop_state) = loop_state {
@@ -389,13 +389,13 @@ fn maybe_compile(
     let xla_scope;
     if let Some(func) = func_call {
         xla_compile = func.get_attr("_XlaCompile")
-            .ok_or(Error::from(ErrorKind::FuncAttrNotDef))?
+            .ok_or(Error::from(ErrorKind::UndefinedFuncAttr))?
             .unwrap_b();
         xla_separate_compiled_gradients = func.get_attr("_XlaSeparateCompiledGradients")
-            .ok_or(Error::from(ErrorKind::FuncAttrNotDef))?
+            .ok_or(Error::from(ErrorKind::UndefinedFuncAttr))?
             .unwrap_b();;
         xla_scope = func.get_attr("_XlaScope")
-            .ok_or(Error::from(ErrorKind::FuncAttrNotDef))?
+            .ok_or(Error::from(ErrorKind::UndefinedFuncAttr))?
             .unwrap_s();
     } else {
         let xla_compile_2 = op.get_attr(context, "_XlaCompile");

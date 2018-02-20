@@ -553,6 +553,7 @@ impl Scope {
             {
                 let graph = &mut *self.graph.borrow_mut();
                 let registry = &mut *self.registry.borrow_mut();
+                let ops = &mut self.ops.borrow_mut();
 
                 // variable op, not initialized!
                 var = {
@@ -579,6 +580,8 @@ impl Scope {
                     };
                     init_ops::variable_(graph, new_var.to_str().unwrap(), dtype, &rank_info, deps)?
                 };
+                let var_op_id = NodeIdent::new();
+                ops.insert(var_op_id.clone(), var.clone());
 
                 // initializer
                 init = {
@@ -591,6 +594,8 @@ impl Scope {
                             &rank_info.definition_u64().unwrap(),
                         )?
                     };
+                    let data_origin_id = NodeIdent::new();
+                    ops.insert(data_origin_id.clone(), initial_value.clone());
 
                     init_ident = NodeIdent::new();
                     registry.insert(
@@ -600,6 +605,7 @@ impl Scope {
                             idtype: IdType::Constant,
                             dtype,
                             data_origin: (initial_value.clone(), 0),
+                            data_origin_id,
                             shape: rank_info.clone(),
                         },
                     );
@@ -630,6 +636,7 @@ impl Scope {
                         idtype: IdType::Variable,
                         dtype,
                         data_origin: (var, 0),
+                        data_origin_id: var_op_id,
                         shape: rank_info,
                     },
                 );
@@ -690,6 +697,7 @@ impl Scope {
             {
                 let graph = &mut *self.graph.borrow_mut();
                 let registry = &mut *self.registry.borrow_mut();
+                let ops = &mut self.ops.borrow_mut();
 
                 let initializer = {
                     let initializer = registry.get(&initializer).unwrap();
@@ -726,6 +734,8 @@ impl Scope {
                     };
                     init_ops::variable_(graph, new_var.to_str().unwrap(), dtype, &rank_info, deps)?
                 };
+                let var_op_id = NodeIdent::new();
+                ops.insert(var_op_id.clone(), var.clone());
 
                 // initializer
                 init = {
@@ -757,6 +767,7 @@ impl Scope {
                         idtype: IdType::Variable,
                         dtype,
                         data_origin: (var, 0),
+                        data_origin_id: var_op_id,
                         shape: rank_info,
                     },
                 );
@@ -810,6 +821,7 @@ impl Scope {
         self.allow_writes();
         let graph = &mut *self.graph.borrow_mut();
         let registry = &mut *self.registry.borrow_mut();
+        let ops = &mut *self.ops.borrow_mut();
 
         let full_name = self.resolve_tensor_name(Some(name.as_ref()), IdType::Constant, false)?;
         let ident = NodeIdent::new();
@@ -859,6 +871,9 @@ impl Scope {
                 )?,
             }
         };
+        let data_origin_id = NodeIdent::new();
+        ops.insert(data_origin_id.clone(), data_origin.clone());
+
         let dtype = data_origin.output_type(0);
         registry.insert(
             ident,
@@ -867,6 +882,7 @@ impl Scope {
                 dtype: dtype,
                 idtype: IdType::Constant,
                 data_origin: (data_origin.clone(), 0),
+                data_origin_id: data_origin_id.clone(),
                 shape: graph.tensor_shape(Output {
                     operation: data_origin,
                     index: 0,
@@ -875,7 +891,11 @@ impl Scope {
         );
 
         self.own_scope.constants.push((full_name, ident));
-        Ok(Constant { ident, dtype })
+        Ok(Constant {
+            ident,
+            origin_op: data_origin_id,
+            dtype,
+        })
     }
 
     /// Inserts a placeholder for a tensor that will be always fed.
@@ -891,11 +911,15 @@ impl Scope {
 
         let graph = &mut *self.graph.borrow_mut();
         let registry = &mut *self.registry.borrow_mut();
+        let ops = &mut *self.ops.borrow_mut();
 
         let data_origin = (
             array_ops::placeholder(graph, full_name.to_str().unwrap(), dtype).unwrap(),
             0,
         );
+        let data_origin_id = NodeIdent::new();
+        ops.insert(data_origin_id.clone(), data_origin.0.clone());
+
         registry.insert(
             ident,
             TensorData {
@@ -903,6 +927,7 @@ impl Scope {
                 dtype,
                 idtype: IdType::Placeholder,
                 data_origin,
+                data_origin_id: data_origin_id.clone(),
                 shape: Shape::from(None),
             },
         );
@@ -913,6 +938,7 @@ impl Scope {
             dtype,
             idx: 0,
             initializer: None,
+            origin_op: Some(data_origin_id),
         }
     }
 
@@ -988,6 +1014,7 @@ impl Scope {
 
         let graph = &mut *self.graph.borrow_mut();
         let registry = &mut *self.registry.borrow_mut();
+        let ops = &mut *self.ops.borrow_mut();
         let global = &self.scopes.borrow().control_dependencies;
 
         let (dtype, idtype, data_origin, full_name) = {
@@ -1004,6 +1031,8 @@ impl Scope {
             );
             (src.dtype, src.idtype, data_origin, full_name)
         };
+        let data_origin_id = NodeIdent::new();
+        ops.insert(data_origin_id.clone(), data_origin.0.clone());
 
         let ident = NodeIdent::new();
         registry.insert(
@@ -1013,6 +1042,7 @@ impl Scope {
                 dtype,
                 idtype: IdType::Operation("Identity"),
                 data_origin,
+                data_origin_id: data_origin_id.clone(),
                 shape: Shape::from(None),
             },
         );
@@ -1023,6 +1053,7 @@ impl Scope {
             idtype: idtype,
             idx: 0,
             initializer: None,
+            origin_op: Some(data_origin_id),
         })
     }
 

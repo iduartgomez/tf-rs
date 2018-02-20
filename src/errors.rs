@@ -5,10 +5,11 @@ use tf::Status;
 error_chain! {
     errors {
         Stub
-        FuncAttrNotDef
-        GradNotDef
+        UndefinedFuncAttr
+        UndefinedGrad
         UndefinedTensorShape
-        UnimplementedTraitMethod
+        OpNotFound
+        UnimplTraitMethod
     }
 
     foreign_links {

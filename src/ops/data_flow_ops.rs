@@ -76,6 +76,8 @@ add_new_op!(DynamicPartition,
         ) 
             -> Result<Self::Outputs> 
         {
+            let data_origin_id = add_new_op!(REGISTER_AS_OP: (self, context, op.clone()); DynamicPartition);
+
             let idtype = IdType::Operation("DynamicPartition");
             let dtype = add_new_op!(INPUT0 self);
         
@@ -102,6 +104,7 @@ add_new_op!(DynamicPartition,
                     dtype,
                     idx: output_num,
                     initializer: None,
+                    origin_op: data_origin_id.clone(),
                 };
                 outputs.push(tensor0);
                 
@@ -125,6 +128,7 @@ add_new_op!(DynamicPartition,
                         dtype,
                         idtype,
                         data_origin: (op.clone(), output_num),
+                        data_origin_id: data_origin_id.unwrap(),
                         shape: shape0,
                     },
                 );

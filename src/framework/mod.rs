@@ -86,7 +86,12 @@ impl NodeIdent {
     }
 
     pub fn get_outputs(&self, context: &Scope) -> Result<Vec<Tensor>> {
-        unimplemented!()
+        let ops = &*context.ops.borrow();
+        if let Some(op) = ops.get(self) {
+            unimplemented!()
+        } else {
+            Err(Error::from(ErrorKind::OpNotFound))
+        }
     }
 
     pub fn get_inputs(&self, context: &Scope) -> Result<Vec<Tensor>> {
@@ -134,6 +139,7 @@ pub(crate) struct TensorData {
     pub idtype: IdType,
     /// operation & operation's output index
     pub data_origin: (OperationData, i32),
+    pub data_origin_id: NodeIdent,
     pub shape: Shape,
 }
 
@@ -218,6 +224,7 @@ pub struct Tensor {
     /// Index of this tensor in the source operation output.
     pub(crate) idx: i32,
     pub(crate) initializer: Option<NodeIdent>,
+    pub(crate) origin_op: Option<NodeIdent>,
 }
 
 impl Tensor {
@@ -231,6 +238,7 @@ impl Tensor {
                 dtype: init_data.dtype,
                 idx: init_data.data_origin.1,
                 initializer: None,
+                origin_op: Some(init_data.data_origin_id),
             })
         } else {
             Err(Error::from(ErrorKind::Stub))
@@ -244,7 +252,6 @@ impl Tensor {
     }
 
     pub fn get_shape(&self, context: &Scope) -> Shape {
-        //::ops::array_ops::shape(context, *self, None, "")
         let registry = &*context.registry.borrow();
         registry[&self.ident].shape.clone()
     }
@@ -277,11 +284,6 @@ impl Tensor {
         }
     }
 
-    #[doc(hidden)]
-    pub fn write(&mut self, context: &mut Scope, tensor: Tensor) -> Result<()> {
-        unimplemented!()
-    }
-
     pub fn op_type(&self, context: &Scope) -> &str {
         match self.idtype {
             IdType::Constant => "Constant",
@@ -292,11 +294,28 @@ impl Tensor {
     }
 
     pub fn get_op(&self, context: &Scope) -> NodeIdent {
-        unimplemented!()
+        if let Some(op) = self.origin_op {
+            op
+        } else {
+            self.initializer.clone().unwrap()
+        }
     }
 
-    pub fn consumers(&self, context: &Scope) -> Vec<NodeIdent> {
-        unimplemented!()
+    pub fn consumers(&self, context: &Scope) -> Result<Vec<NodeIdent>> {
+        let op = self.get_op(context);
+        let ops = &*context.ops.borrow();
+        let op = &ops[&op];
+        let mut consumers = vec![];
+        for (ref op_name, idx) in op.output_consumers(self.idx as usize)
+            .into_iter()
+            .map(|(op, idx)| (op.name().unwrap(), idx))
+        {
+            consumers.push(ops.iter()
+                .find(|&(k, v)| &v.name().unwrap() == op_name)
+                .map(|(k, v)| *k)
+                .ok_or(Error::from(ErrorKind::Stub))?);
+        }
+        Ok(consumers)
     }
 }
 
@@ -306,6 +325,7 @@ impl_identity_traits!(Tensor);
 #[derive(Debug, Clone, Copy)]
 pub struct Constant {
     ident: NodeIdent,
+    origin_op: NodeIdent,
     dtype: DataType,
 }
 
@@ -336,13 +356,18 @@ impl Constant {
 /// Treat a constant as an initilized variable. Useful for operating with the context manager.
 impl Into<Tensor> for Constant {
     fn into(self) -> Tensor {
-        let Constant { ident, dtype, .. } = self;
+        let Constant {
+            ident,
+            dtype,
+            origin_op,
+        } = self;
         Tensor {
             ident,
             dtype,
             idtype: IdType::Constant,
             idx: 0,
             initializer: None,
+            origin_op: Some(origin_op),
         }
     }
 }
@@ -406,14 +431,19 @@ impl Variable {
 impl Into<Tensor> for Variable {
     fn into(self) -> Tensor {
         let Variable {
-            ident, dtype, idx, ..
+            ident,
+            dtype,
+            idx,
+            initializer,
+            ..
         } = self;
         Tensor {
             ident,
             dtype,
             idtype: IdType::Variable,
             idx,
-            initializer: None,
+            initializer: Some(initializer),
+            origin_op: None,
         }
     }
 }
