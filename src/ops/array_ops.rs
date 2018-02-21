@@ -1,8 +1,8 @@
 //! Array Operations.
 
-use super::{range, sub, Attribute, ControlFlow, DataType, Error, ErrorKind, GetIdent, Graph,
-            IdType, NodeIdent, Operation, OperationData, Output, Path, PathBuf, Result, Scope,
-            ShapeOps, ShapeSize, Tensor, TensorData, TensorOps, TensorType, TypedTensor};
+use super::{range, sub, Attribute, ControlFlow, DataType, Error, ErrorKind, GetOp, Graph, IdType,
+            NodeIdent, Operation, OperationData, Output, Path, PathBuf, Result, Scope, ShapeOps,
+            ShapeSize, Tensor, TensorData, TensorOps, TensorType, TypedTensor};
 
 #[allow(unused_imports)]
 use framework::TensorContent;

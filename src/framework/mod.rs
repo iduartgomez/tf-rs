@@ -35,7 +35,7 @@ pub use self::tensor_types::{ShapeOps, ShapeSize, TensorOps};
 /// An interface to add and manipulate operations in the computation graph.
 pub trait Operation<'a>
 where
-    Self: Sized + Into<NodeIdent>,
+    Self: Sized + GetOp,
 {
     type Outputs;
 
@@ -86,50 +86,112 @@ impl NodeIdent {
     }
 
     pub fn get_outputs(&self, context: &Scope) -> Result<Vec<Tensor>> {
-        let ops = &*context.ops.borrow();
-        if let Some(op) = ops.get(self) {
-            unimplemented!()
+        let reg = &*context.registry.borrow();
+        if context.ops.borrow().contains_key(self) {
+            // first check if it's an operation
+            Ok(reg.iter()
+                .filter(|&(_, t)| &t.data_origin_id == self)
+                .map(|(id, t)| {
+                    let mut input = Tensor {
+                        ident: *id,
+                        dtype: t.dtype,
+                        idtype: t.idtype.clone(),
+                        initializer: None,
+                        origin_op: None,
+                        idx: t.data_origin.1,
+                    };
+                    if t.idtype.is_initialized() {
+                        input.initializer = Some(t.data_origin_id);
+                    } else {
+                        input.origin_op = Some(t.data_origin_id);
+                    }
+                    input
+                })
+                .collect())
         } else {
+            // is not an op, is a tensor, return err
             Err(Error::from(ErrorKind::OpNotFound))
         }
     }
 
     pub fn get_inputs(&self, context: &Scope) -> Result<Vec<Tensor>> {
-        unimplemented!()
+        let ops = &*context.ops.borrow();
+        let reg = &*context.registry.borrow();
+        if let Some(op) = ops.get(self) {
+            // first check if it's an operation
+            let mut inputs = Vec::with_capacity(op.num_inputs());
+            for (source_op, idx) in (0..op.num_inputs()).into_iter().map(|i| op.input(i)) {
+                let source_op_name = source_op.name().unwrap();
+                let input_op = ops.iter()
+                    .find(|&(_, op)| source_op_name == op.name().unwrap())
+                    .map(|(id, _)| id)
+                    .ok_or(Error::from(ErrorKind::OpNotFound))?;
+                inputs.extend(
+                    reg.iter()
+                        .filter(|&(_, t)| &t.data_origin_id == input_op)
+                        .map(|(id, t)| {
+                            let mut input = Tensor {
+                                ident: *id,
+                                dtype: t.dtype,
+                                idtype: t.idtype.clone(),
+                                initializer: None,
+                                origin_op: None,
+                                idx: t.data_origin.1,
+                            };
+                            if t.idtype.is_initialized() {
+                                input.initializer = Some(t.data_origin_id);
+                            } else {
+                                input.origin_op = Some(t.data_origin_id);
+                            }
+                            input
+                        }),
+                );
+            }
+            Ok(inputs)
+        } else {
+            // is not an op, is a tensor, return err
+            Err(Error::from(ErrorKind::OpNotFound))
+        }
     }
 
-    pub fn get_name(&self, context: &Scope) -> String {
-        unimplemented!()
+    pub fn get_name(&self, context: &Scope) -> Result<String> {
+        let ops = &*context.ops.borrow();
+        let reg = &*context.registry.borrow();
+        if let Some(source_op) = ops.get(self) {
+            Ok(source_op.name()?)
+        } else {
+            let tensor = reg.get(self)
+                .ok_or(Error::from(Error::from(ErrorKind::TensorNotFound)))?;
+            Ok(tensor.full_name.to_str().unwrap().to_owned())
+        }
     }
 }
 
-impl GetIdent for NodeIdent {
-    fn get_ident(&self) -> NodeIdent {
-        self.clone()
+impl GetOp for NodeIdent {
+    fn get_op(&self) -> &NodeIdent {
+        self
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        None
     }
 }
 
-impl<'a> GetIdent for &'a NodeIdent {
-    fn get_ident(&self) -> NodeIdent {
-        **self
+impl<'a> GetOp for &'a NodeIdent {
+    fn get_op(&self) -> &NodeIdent {
+        *self
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        None
     }
 }
 
 /// Get the identity token of an tensor or an operation.
-pub trait GetIdent {
-    fn get_ident(&self) -> NodeIdent;
+pub trait GetOp {
+    fn get_op(&self) -> &NodeIdent;
+    fn source_index(&self) -> Option<i32>;
 }
-
-/*
-impl<T> GetIdent for T
-where
-    T: Into<NodeIdent> + Copy,
-{
-    fn get_ident(&self) -> NodeIdent {
-        self.clone().into()
-    }
-}
-*/
 
 #[derive(Debug, Clone)]
 pub(crate) struct TensorData {
@@ -149,6 +211,15 @@ pub(crate) enum IdType {
     Variable,
     Operation(&'static str),
     Placeholder,
+}
+
+impl IdType {
+    fn is_initialized(&self) -> bool {
+        match *self {
+            IdType::Constant | IdType::Variable => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -181,12 +252,6 @@ pub(crate) enum ControlOpKind {
 
 macro_rules! impl_identity_traits {
     ($type:ty) => {
-        impl GetIdent for $type {
-            fn get_ident(&self) -> NodeIdent {
-                self.ident
-            }
-        }
-
         impl PartialEq for $type {
             fn eq(&self, other: &Self) -> bool {
                 self.ident == other.ident
@@ -247,8 +312,7 @@ impl Tensor {
 
     pub fn get_name(&self, context: &Scope) -> String {
         let registry = &*context.registry.borrow();
-        let (ref op, _) = registry[&self.ident].data_origin;
-        op.name().unwrap()
+        registry[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
     pub fn get_shape(&self, context: &Scope) -> Shape {
@@ -293,16 +357,8 @@ impl Tensor {
         }
     }
 
-    pub fn get_op(&self, context: &Scope) -> NodeIdent {
-        if let Some(op) = self.origin_op {
-            op
-        } else {
-            self.initializer.clone().unwrap()
-        }
-    }
-
     pub fn consumers(&self, context: &Scope) -> Result<Vec<NodeIdent>> {
-        let op = self.get_op(context);
+        let op = self.get_op();
         let ops = &*context.ops.borrow();
         let op = &ops[&op];
         let mut consumers = vec![];
@@ -316,6 +372,34 @@ impl Tensor {
                 .ok_or(Error::from(ErrorKind::Stub))?);
         }
         Ok(consumers)
+    }
+}
+
+impl GetOp for Tensor {
+    fn get_op(&self) -> &NodeIdent {
+        if let Some(ref op) = self.initializer {
+            op
+        } else {
+            self.origin_op.as_ref().unwrap()
+        }
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        Some(self.idx)
+    }
+}
+
+impl<'a> GetOp for &'a Tensor {
+    fn get_op(&self) -> &NodeIdent {
+        if let Some(ref op) = self.initializer {
+            op
+        } else {
+            self.origin_op.as_ref().unwrap()
+        }
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        Some(self.idx)
     }
 }
 
@@ -343,8 +427,7 @@ impl Constant {
 
     pub fn get_name(&self, context: &Scope) -> String {
         let registry = &*context.registry.borrow();
-        let (ref op, _) = registry[&self.ident].data_origin;
-        op.name().unwrap()
+        registry[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
     pub fn get_shape(&self, shape: &Scope) -> Shape {
@@ -369,6 +452,26 @@ impl Into<Tensor> for Constant {
             initializer: None,
             origin_op: Some(origin_op),
         }
+    }
+}
+
+impl GetOp for Constant {
+    fn get_op(&self) -> &NodeIdent {
+        &self.origin_op
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        Some(0)
+    }
+}
+
+impl<'a> GetOp for &'a Constant {
+    fn get_op(&self) -> &NodeIdent {
+        &self.origin_op
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        Some(0)
     }
 }
 
@@ -398,8 +501,7 @@ impl Variable {
 
     pub fn get_name(&self, context: &Scope) -> String {
         let registry = &*context.registry.borrow();
-        let (ref op, _) = registry[&self.ident].data_origin;
-        op.name().unwrap()
+        registry[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
     pub fn get_shape(&self, scope: &Scope) -> Shape {
@@ -448,6 +550,26 @@ impl Into<Tensor> for Variable {
     }
 }
 
+impl GetOp for Variable {
+    fn get_op(&self) -> &NodeIdent {
+        &self.initializer
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        Some(self.idx)
+    }
+}
+
+impl<'a> GetOp for &'a Variable {
+    fn get_op(&self) -> &NodeIdent {
+        &self.initializer
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        Some(self.idx)
+    }
+}
+
 impl_identity_traits!(Variable);
 
 #[doc(hidden)]
@@ -470,12 +592,6 @@ impl TensorArray {
     }
 
     pub fn gather(&self, scope: &Scope, indices: Tensor) -> Tensor {
-        unimplemented!()
-    }
-}
-
-impl Into<NodeIdent> for TensorArray {
-    fn into(self) -> NodeIdent {
         unimplemented!()
     }
 }
@@ -757,9 +873,7 @@ attr_from_ty!(Bool, bool);
 attr_from_ty!(Type, DataType);
 attr_from_ty!(Shape, Shape);
 
-pub(crate) struct Function {
-    inner_func: tf::Function,
-}
+pub(crate) struct Function;
 
 pub(crate) type GradFunc = Box<FnMut(&mut Scope, &[Option<Tensor>]) -> Result<Vec<Option<Tensor>>>>;
 
@@ -773,6 +887,7 @@ impl Function {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) enum FuncAttr {
     S(String),
     B(bool),

@@ -304,12 +304,12 @@ impl Scope {
         op.digest(self, new_op)
     }
 
-    #[allow(dead_code)]
-    pub(crate) fn get_src_op<Op: Into<NodeIdent>>(&self, op: Op) -> (OperationData, i32) {
+    #[cfg(test)]
+    pub(crate) fn get_src_op<Op: GetOp>(&self, op: Op) -> (OperationData, i32) {
         let &TensorData {
             data_origin: (ref op, idx),
             ..
-        } = &self.registry.borrow()[&op.into()];
+        } = &self.registry.borrow()[op.get_op()];
         (op.clone(), idx)
     }
 
@@ -656,19 +656,19 @@ impl Scope {
     }
 
     /// Create a new_variable with the given initializer.
-    pub fn get_variable_with_initializer<S, T>(
+    pub fn get_variable_with_initializer<S, Op>(
         &mut self,
-        initializer: T,
+        initializer: Op,
         validate_shape: bool,
         name: S,
     ) -> Result<Variable>
     where
         S: AsRef<Path>,
-        T: Into<NodeIdent>,
+        Op: GetOp,
     {
         self.allow_writes();
         let new_var = self.resolve_tensor_name(Some(name.as_ref()), IdType::Variable, false)?;
-        let initializer = initializer.into();
+        //let initializer = initializer.get_op();
 
         let var = if self.not_variable_scope {
             // use scopes/root
@@ -700,13 +700,31 @@ impl Scope {
                 let ops = &mut self.ops.borrow_mut();
 
                 let initializer = {
-                    let initializer = registry.get(&initializer).unwrap();
-                    rank_info = graph.tensor_shape(Output {
-                        operation: initializer.data_origin.0.clone(),
-                        index: initializer.data_origin.1,
-                    })?;
-                    dtype = initializer.dtype;
-                    initializer.data_origin.clone()
+                    if let Some(index) = initializer.source_index() {
+                        // is an op output tensor ident
+                        let initializer = registry
+                            .get(&initializer.get_op())
+                            .ok_or(Error::from(ErrorKind::OpNotFound))?;
+                        rank_info = graph.tensor_shape(Output {
+                            operation: initializer.data_origin.0.clone(),
+                            index,
+                        })?;
+                        dtype = initializer.dtype;
+                        initializer.data_origin.clone()
+                    } else {
+                        // is an op ident, try find its output
+                        let initializer = ops.get(&initializer.get_op())
+                            .ok_or(Error::from(ErrorKind::OpNotFound))?;
+                        if initializer.num_outputs() != 1 {
+                            return Err(Error::from(ErrorKind::from("var initializer op has more than one output and index is unspecified")));
+                        }
+                        rank_info = graph.tensor_shape(Output {
+                            operation: initializer.clone(),
+                            index: 0,
+                        })?;
+                        dtype = initializer.output_type(0);
+                        (initializer.clone(), 0)
+                    }
                 };
 
                 // variable op, not initialized!
@@ -737,7 +755,7 @@ impl Scope {
                 let var_op_id = NodeIdent::new();
                 ops.insert(var_op_id.clone(), var.clone());
 
-                // initializer
+                // assign op
                 init = {
                     let init = &[
                         init_ops::assign_(
@@ -780,7 +798,7 @@ impl Scope {
                         kind: ControlOpKind::VarInitializer,
                     });
             }
-            Ok(self._make_var_handle(ident, initializer, new_var, dtype))
+            Ok(self._make_var_handle(ident, *initializer.get_op(), new_var, dtype))
         } else {
             Err(Error::from(ErrorKind::Stub))
         }
@@ -946,7 +964,7 @@ impl Scope {
     pub fn control_dependencies<'a, I, T: 'a>(&mut self, control_inputs: I) -> Scope
     where
         I: IntoIterator<Item = &'a T>,
-        T: GetIdent,
+        T: GetOp,
     {
         self.allow_writes();
         let name = self.own_scope.name.clone();
@@ -960,11 +978,11 @@ impl Scope {
 
         let mut ops = vec![];
         for control_input in control_inputs.into_iter() {
-            let ident = control_input.get_ident();
-            let ctrl = if let Some(op) = existing_ops.get(&ident) {
+            let ident = control_input.get_op();
+            let ctrl = if let Some(op) = existing_ops.get(ident) {
                 ops.push(op);
                 ControlOp {
-                    ident,
+                    ident: *ident,
                     finished: op.clone(),
                     kind: ControlOpKind::Ops,
                 }
@@ -972,7 +990,7 @@ impl Scope {
                 let finished = &registry[&ident].data_origin.0;
                 ops.push(finished);
                 ControlOp {
-                    ident,
+                    ident: *ident,
                     finished: finished.clone(),
                     kind: ControlOpKind::Other,
                 }
@@ -1004,11 +1022,11 @@ impl Scope {
         context
     }
 
-    /// Returns a copy of the variable, with the same shape and content.
+    /// Returns a copy of the tensor, with the same shape and content.
     pub fn identity<S, Tx>(&mut self, tensor: Tx, name: S) -> Result<Tensor>
     where
         S: AsRef<Path>,
-        Tx: GetIdent,
+        Tx: GetOp,
     {
         self.allow_writes();
 
@@ -1018,7 +1036,14 @@ impl Scope {
         let global = &self.scopes.borrow().control_dependencies;
 
         let (dtype, idtype, data_origin, full_name) = {
-            let src = &registry[&tensor.get_ident()];
+            if tensor.source_index().is_none() {
+                return Err(Error::from(ErrorKind::from(
+                    "provided type for `identity` op is not from a tensor",
+                )));
+            }
+            let src = registry
+                .get(&tensor.get_op())
+                .ok_or(Error::from(ErrorKind::TensorNotFound))?;
             let full_name = self.resolve_tensor_name(Some(name.as_ref()), src.idtype, false)?;
             let data_origin = (
                 array_ops::identity(
@@ -1110,14 +1135,14 @@ impl Scope {
 
     #[doc(hidden)]
     /// Marks the given op as unfetchable in this graph.
-    pub fn prevent_fetching<Op: Into<NodeIdent>>(&mut self, op: Op) {
-        self.scopes.borrow_mut().unfetchable.insert(op.into());
+    pub fn prevent_fetching<Op: GetOp>(&mut self, op: Op) {
+        self.scopes.borrow_mut().unfetchable.insert(*op.get_op());
     }
 
     #[doc(hidden)]
-    /// Marks the given tensor as unfeedable in this graph.
-    pub fn prevent_feeding<Op: Into<NodeIdent>>(&mut self, op: Op) {
-        self.scopes.borrow_mut().unfeedable.insert(op.into());
+    /// Marks the given op as unfeedable in this graph.
+    pub fn prevent_feeding<Op: GetOp>(&mut self, op: Op) {
+        self.scopes.borrow_mut().unfeedable.insert(*op.get_op());
     }
 
     /// Consumes self and returns underlying graph if it's a unique reference, otherwise
@@ -1144,7 +1169,7 @@ impl Scope {
         unimplemented!()
     }
 
-    pub(crate) fn get_gradient_function<N: GetIdent>(&self, func: N) -> Option<GradFunc> {
+    pub(crate) fn get_gradient_function<N: GetOp>(&self, func: N) -> Option<GradFunc> {
         unimplemented!()
     }
 }

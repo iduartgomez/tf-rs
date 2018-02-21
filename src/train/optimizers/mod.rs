@@ -45,18 +45,18 @@ macro_rules! impl_util_methods {
             ))
         }
 
-        fn get_or_make_slot_with_initializer<Ti, Ts>(
+        fn get_or_make_slot_with_initializer<Op, Ts>(
             &mut self,
             scope: &mut Scope,
             var: &Variable,
-            initializer: Ti,
+            initializer: Op,
             shape: Ts,
             dtype: DataType,
             slot_name: &str,
             op_name: &str,
         ) -> Result<Variable>
         where
-            Ti: Into<NodeIdent>,
+            Op: ::framework::GetOp,
             Ts: ShapeOps,
         {
             use train::create_slot_with_initializer;
@@ -495,18 +495,18 @@ pub trait Optimizer: Sized {
     ) -> Result<Variable>;
 
     /// Find or create a slot for a variable, using an Initializer.
-    fn get_or_make_slot_with_initializer<Ti, Ts>(
+    fn get_or_make_slot_with_initializer<Op, Ts>(
         &mut self,
         scope: &mut Scope,
         var: &Variable,
-        initializer: Ti,
+        initializer: Op,
         shape: Ts,
         dtype: DataType,
         slot_name: &str,
         op_name: &str,
     ) -> Result<Variable>
     where
-        Ti: Into<NodeIdent>,
+        Op: ::framework::GetOp,
         Ts: ShapeOps;
 
     /// Find or create a slot initialized with 0.0.

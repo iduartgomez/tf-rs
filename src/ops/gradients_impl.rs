@@ -156,7 +156,7 @@ where
     for op in to_ops {
         // 'ready' handles the case where one output gradient relies on
         // another output's gradient.
-        let id = op.get_ident();
+        let id = *op.get_op();
         let ready = pending_count[&id] == 0;
         if ready && to_ops_set.contains(&id) {
             to_ops_set.insert(id);
@@ -169,7 +169,7 @@ where
         for y in &loop_exits {
             if is_trainable(scope, y) {
                 set_grad(scope, &mut grads, y, &loop_state.zeros_like_for_exit(y)?)?;
-                queue.push_back(y.get_ident());
+                queue.push_back(*y.get_op());
             }
         }
     }
@@ -225,7 +225,7 @@ where
                     }
                 }
             }
-            let name = op.get_name(scope);
+            let name = op.get_name(scope)?;
             let scope = &mut scope.name_scope(name + "_grad", None);
             if let Some(grad_fn) = grad_fn {
                 // If grad_fn was found, do not use SymbolicGradient even for
@@ -300,7 +300,7 @@ fn set_grad(
     t: &Tensor,
     grad: &Tensor,
 ) -> Result<()> {
-    let op = t.get_op(scope);
+    let op = *t.get_op();
     let op_grads;
     if !grads.contains_key(&op) {
         grads.insert(
@@ -332,7 +332,7 @@ fn get_grad(
     grads: &HashMap<NodeIdent, Vec<Vec<Tensor>>>,
     t: Tensor,
 ) -> Result<Option<Vec<Tensor>>> {
-    let op = t.get_op(scope);
+    let op = t.get_op();
     if let Some(op_grads) = grads.get(&op) {
         Ok(Some(op_grads[t.idx as usize].clone()))
     } else {
@@ -421,11 +421,11 @@ fn maybe_compile(
     // _XlaScope name that is based on the name_scope of the gradients.  Otherwise
     // they just inherit the existing _XlaScope name, which lets them be merged
     // together with the non-gradient computation.
-    let xla_grad_scope;
+    let _xla_grad_scope;
     if xla_separate_compiled_gradients {
-        xla_grad_scope = format!("{}_grad_{}", xla_scope, scope);
+        _xla_grad_scope = format!("{}_grad_{}", xla_scope, scope);
     } else {
-        xla_grad_scope = xla_scope;
+        _xla_grad_scope = xla_scope;
     }
 
     /* FIXME:

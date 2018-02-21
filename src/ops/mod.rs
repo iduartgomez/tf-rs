@@ -60,6 +60,7 @@ macro_rules! generate_name {
 
 macro_rules! impl_into_ident {
     ($name:ident) => {
+        /*
         impl<'a> Into<NodeIdent> for $name<'a> {
             fn into(self) -> NodeIdent {
                 self.ident
@@ -71,10 +72,15 @@ macro_rules! impl_into_ident {
                 self.ident
             }
         }
+        */
 
-        impl<'a> GetIdent for $name<'a> {
-            fn get_ident(&self) -> NodeIdent {
-                self.ident
+        impl<'a> GetOp for $name<'a> {
+            fn get_op(&self) -> &NodeIdent {
+                &self.ident
+            }
+
+            fn source_index(&self) -> Option<i32> {
+                None
             }
         }
     }

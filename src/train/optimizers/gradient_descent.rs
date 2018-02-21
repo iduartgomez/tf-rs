@@ -2,6 +2,7 @@
 
 use super::{math_ops, DataType, HashMap, NodeIdent, Optimizer, Result, Scope, ShapeOps, SlotDict,
             Tensor, TensorOps, Variable};
+use framework::GetOp;
 use ops::training_ops;
 use ops::resource_variable_ops;
 
@@ -71,12 +72,12 @@ impl Optimizer for GradientDescentOptimizer {
         handle: &Variable,
         indices: &Tensor,
     ) -> Result<NodeIdent> {
-        Ok(resource_variable_ops::resource_scatter_add(
+        Ok(*resource_variable_ops::resource_scatter_add(
             scope,
             (*handle).into(),
             *indices,
             *grad,
             "",
-        )?.into())
+        )?.get_op())
     }
 }

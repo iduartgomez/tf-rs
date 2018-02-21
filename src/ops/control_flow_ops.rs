@@ -987,13 +987,13 @@ pub fn tuple<'a, S, I, T: 'a>(
 where
     S: AsRef<Path>,
     I: IntoIterator<Item = &'a T>,
-    T: GetIdent,
+    T: GetOp,
 {
     let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("tuple"));
-    let mut gating_ops: Vec<_> = tensors.iter().map(|x| x.get_ident()).collect();
+    let mut gating_ops: Vec<_> = tensors.iter().map(|x| *x.get_op()).collect();
     if let Some(control_inputs) = control_inputs {
         for c in control_inputs.into_iter() {
-            gating_ops.push(c.get_ident())
+            gating_ops.push(*c.get_op())
         }
     }
     // Note that in order to ensure ordering in the pbtxt, we must take care to
@@ -1023,25 +1023,32 @@ impl Group {
     pub fn new<'a, I, T: 'a, S>(scope: &mut Scope, ops: I, name: S) -> Result<Group>
     where
         I: IntoIterator<Item = &'a T>,
-        T: GetIdent,
+        T: GetOp,
         S: AsRef<Path>,
     {
         let graph = &mut *scope.graph.borrow_mut();
         let registry = &*scope.registry.borrow();
-        let mut ctrl_ops = Vec::new();
-        for x in ops {
-            let ident: NodeIdent = x.get_ident();
-            let r = &registry[&ident].data_origin.0;
-            ctrl_ops.push(r);
-        }
-
-        const OP: IdType = IdType::Operation("Group");
-        let name = scope.resolve_tensor_name(Some(name.as_ref()), OP, false)?;
-        let finished = no_op_(graph, name.to_str().unwrap(), ctrl_ops)?;
-
-        let ident = NodeIdent::new();
         let ops_reg = &mut *scope.ops.borrow_mut();
-        ops_reg.insert(ident, finished.clone());
+
+        let finished = {
+            let mut ctrl_ops = Vec::new();
+            for x in ops {
+                let op = if let Some(tensor) = registry.get(x.get_op()) {
+                    &tensor.data_origin.0
+                } else {
+                    ops_reg
+                        .get(x.get_op())
+                        .ok_or(Error::from(ErrorKind::OpNotFound))?
+                };
+                ctrl_ops.push(op);
+            }
+
+            const OP: IdType = IdType::Operation("Group");
+            let name = scope.resolve_tensor_name(Some(name.as_ref()), OP, false)?;
+            no_op_(graph, name.to_str().unwrap(), ctrl_ops)?
+        };
+        let ident = NodeIdent::new();
+        ops_reg.insert(ident, finished);
 
         Ok(Group(ident))
     }
@@ -1053,9 +1060,13 @@ impl Into<NodeIdent> for Group {
     }
 }
 
-impl GetIdent for Group {
-    fn get_ident(&self) -> NodeIdent {
-        self.0
+impl GetOp for Group {
+    fn get_op(&self) -> &NodeIdent {
+        &self.0
+    }
+
+    fn source_index(&self) -> Option<i32> {
+        None
     }
 }
 
@@ -1083,7 +1094,7 @@ pub fn with_dependencies<'a, I, T: 'a, S>(
 ) -> Result<Tensor>
 where
     I: IntoIterator<Item = &'a T>,
-    T: GetIdent,
+    T: GetOp,
     S: AsRef<Path>,
 {
     let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("control_dependency"));
@@ -1095,7 +1106,7 @@ where
 
 pub(crate) fn zeros_like_outside_loop<Op>(scope: &mut Scope, op: Op, index: usize) -> Result<Tensor>
 where
-    Op: GetIdent,
+    Op: GetOp,
 {
     unimplemented!()
 }

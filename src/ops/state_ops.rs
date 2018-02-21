@@ -2,8 +2,6 @@
 
 use super::*;
 
-// FIXME: op+assign on variables has no deterministic behaviour, marked as private for now
-
 ///// Assign /////
 
 /// Update 'ref' by assigning 'value' to it.

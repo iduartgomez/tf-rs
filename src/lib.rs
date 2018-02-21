@@ -26,8 +26,8 @@ use tf::{BFloat16, QInt16, QInt32, QUInt16, QUInt8};
 use num_complex::{Complex32, Complex64};
 
 pub mod prelude {
-    pub use super::framework::{Attribute, Constant, GetIdent, NodeIdent, Operation, Scope,
-                               ShapeOps, Tensor, TensorArray, TensorContent, TensorOps, Variable};
+    pub use super::framework::{Attribute, Constant, GetOp, NodeIdent, Operation, Scope, ShapeOps,
+                               Tensor, TensorArray, TensorContent, TensorOps, Variable};
     pub use super::client::ClientSession;
     pub use super::{OperationData, TypedTensor};
     pub use super::errors::Error as TFError;

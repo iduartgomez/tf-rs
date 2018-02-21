@@ -104,10 +104,10 @@ where
 ///
 ///  ### Returns:
 ///    A `Variable` object.
-pub fn create_slot_with_initializer<Tp, Ti, Sh, S>(
+pub fn create_slot_with_initializer<Tp, Op, Sh, S>(
     scope: &mut Scope,
     primary: Tp,
-    initializer: Ti,
+    initializer: Op,
     shape: Sh,
     dtype: DataType,
     name: S,
@@ -115,7 +115,7 @@ pub fn create_slot_with_initializer<Tp, Ti, Sh, S>(
 ) -> Result<Variable>
 where
     Tp: TensorOps,
-    Ti: Into<NodeIdent>,
+    Op: GetOp,
     Sh: ShapeOps,
     S: AsRef<str>,
 {

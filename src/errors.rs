@@ -9,11 +9,13 @@ error_chain! {
         UndefinedGrad
         UndefinedTensorShape
         OpNotFound
+        TensorNotFound
         UnimplTraitMethod
     }
 
     foreign_links {
         FFINulError(::std::ffi::NulError);
+        Utf8Error(::std::str::Utf8Error);
     }
 }
 

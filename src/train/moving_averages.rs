@@ -158,9 +158,7 @@ impl ExponentialMovingAverage {
         }
         let mut updates = vec![];
         for var in var_list {
-            let zero_debias = zero_debias_true
-                .get(&self.averages[var].get_ident())
-                .is_some();
+            let zero_debias = zero_debias_true.get(&self.averages[var].get_op()).is_some();
             updates.push(assign_moving_average(
                 scope,
                 &self.averages[var],
