@@ -171,10 +171,10 @@ macro_rules! add_new_op {
             context: &mut Scope,
             op: OperationData,
         ) -> Result<Self::Outputs> {
-            let origin_op = add_new_op!(REGISTER_AS_OP: (self, context, op.clone()); $name);
+            let (origin_op, op_name) = add_new_op!(REGISTER_AS_OP: (self, context, op.clone()); $name);
 
             let (ident, idtype, dtype) = add_new_op!(
-                REGISTER_TENSOR: (self, context, (op, 0, origin_op.clone().unwrap())); $name, $infer_dtype);
+                REGISTER_TENSOR: (self, context, (op, op_name, 0, origin_op.clone().unwrap())); $name, $infer_dtype);
             let tensor = Tensor {
                 ident,
                 idtype,
@@ -205,11 +205,11 @@ macro_rules! add_new_op {
         )
             -> Result<Self::Outputs>
         {
-            let origin_op = add_new_op!(REGISTER_AS_OP: (self, context, op.clone()); $name);
+            let (origin_op, op_name) = add_new_op!(REGISTER_AS_OP: (self, context, op.clone()); $name);
 
             let op0 = op.clone();
             let (ident0, idtype0, dtype0) = add_new_op!(
-                REGISTER_TENSOR: (self, context, (op0, 0, origin_op.clone().unwrap())); $name, $infer_dtype_0);
+                REGISTER_TENSOR: (self, context, (op0, op_name.clone(), 0, origin_op.clone().unwrap())); $name, $infer_dtype_0);
             let tensor0 = Tensor {
                 ident: ident0,
                 idtype: idtype0,
@@ -220,7 +220,7 @@ macro_rules! add_new_op {
             };
 
             let (ident1, idtype1, dtype1) = add_new_op!(
-                REGISTER_TENSOR: (self, context, (op, 1, origin_op.clone().unwrap())); $name, $infer_dtype_1);
+                REGISTER_TENSOR: (self, context, (op, op_name, 1, origin_op.clone().unwrap())); $name, $infer_dtype_1);
             let tensor1 = Tensor {
                 ident: ident1,
                 idtype: idtype1,
@@ -251,11 +251,14 @@ macro_rules! add_new_op {
     };
     (DIGEST: $($digest:tt)*) => { $($digest)* };
 
-    (REGISTER_TENSOR: ($SELF:ident, $context:ident, ($op:ident, $idx:expr, $op_id:expr)); $name:tt, $infer_dtype:tt) => {{
+    (REGISTER_TENSOR: (
+        $SELF:ident, $context:ident,
+        ($op:ident, $op_name:expr, $idx:expr, $op_id:expr));
+        $name:tt, $infer_dtype:tt) =>
+    {{
         let ident = NodeIdent::new();
         let dtype = add_new_op!($infer_dtype $SELF);
         let idtype = IdType::Operation(stringify!($name));
-        let full_name = $context.resolve_tensor_name($SELF.get_op_name(), idtype, false)?;
         let shape = {
             let g = &*$context.graph.borrow();
             g.tensor_shape(
@@ -267,17 +270,18 @@ macro_rules! add_new_op {
         };
         {
             let reg = &mut *$context.registry.borrow_mut();
-            $context.own_scope.ops.push((full_name.clone(), ident));
+            let data = TensorData::new(
+                $op_name,
+                dtype,
+                idtype,
+                ($op, $idx),
+                $op_id,
+                shape,
+            );
+            $context.own_scope.ops.push((data.get_name(), ident));
             reg.insert(
                 ident,
-                TensorData {
-                    full_name,
-                    dtype,
-                    idtype,
-                    data_origin: ($op, $idx),
-                    data_origin_id: $op_id,
-                    shape,
-                },
+                data,
             );
         }
         (ident, idtype, dtype)
@@ -285,13 +289,13 @@ macro_rules! add_new_op {
 
     (REGISTER_AS_OP: ($SELF:ident, $context:ident, $op:expr); $name:tt) => {{
         let idtype = IdType::Operation(stringify!($name));
-        let full_name = $context.resolve_tensor_name($SELF.get_op_name(), idtype, false)?;
+        let full_name = $context.resolve_name($SELF.get_op_name(), idtype, false)?;
         {
             let reg = &mut *$context.ops.borrow_mut();
             $context.own_scope.ops.push((full_name.clone(), $SELF.ident));
             reg.insert($SELF.ident, $op);
         }
-        Some($SELF.ident)
+        (Some($SELF.ident), full_name)
     }};
 
     // extra funcs:

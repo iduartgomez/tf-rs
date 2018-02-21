@@ -1044,7 +1044,7 @@ impl Group {
             }
 
             const OP: IdType = IdType::Operation("Group");
-            let name = scope.resolve_tensor_name(Some(name.as_ref()), OP, false)?;
+            let name = scope.resolve_name(Some(name.as_ref()), OP, false)?;
             no_op_(graph, name.to_str().unwrap(), ctrl_ops)?
         };
         let ident = NodeIdent::new();

@@ -76,7 +76,7 @@ add_new_op!(DynamicPartition,
         ) 
             -> Result<Self::Outputs> 
         {
-            let data_origin_id = add_new_op!(REGISTER_AS_OP: (self, context, op.clone()); DynamicPartition);
+            let (data_origin_id, op_name) = add_new_op!(REGISTER_AS_OP: (self, context, op.clone()); DynamicPartition);
 
             let idtype = IdType::Operation("DynamicPartition");
             let dtype = add_new_op!(INPUT0 self);
@@ -89,15 +89,14 @@ add_new_op!(DynamicPartition,
             for output_num in 0..(output_len as i32) {
                 let shape0 = {
                 g.tensor_shape(
-                            Output {
-                                operation: op.clone(),
-                                index: output_num,
-                            },
-                        )?
+                        Output {
+                            operation: op.clone(),
+                            index: output_num,
+                        },
+                    )?
                 };
             
                 let ident0 = NodeIdent::new();
-                let full_name0 = context.resolve_tensor_name(self.get_op_name(), idtype, false)?;
                 let tensor0 = Tensor {
                     ident: ident0,
                     idtype,
@@ -120,17 +119,16 @@ add_new_op!(DynamicPartition,
                     ControlFlow::None => {}
                 }
 
-                context.own_scope.ops.push((full_name0.clone(), ident0));
                 reg.insert(
                     ident0,
-                    TensorData {
-                        full_name: full_name0,
+                    TensorData::new(
+                        op_name.clone(),
                         dtype,
                         idtype,
-                        data_origin: (op.clone(), output_num),
-                        data_origin_id: data_origin_id.unwrap(),
-                        shape: shape0,
-                    },
+                        (op.clone(), output_num),
+                        data_origin_id.unwrap(),
+                        shape0,
+                    ),
                 );
             }
             

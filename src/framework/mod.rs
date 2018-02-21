@@ -196,13 +196,48 @@ pub trait GetOp {
 #[derive(Debug, Clone)]
 pub(crate) struct TensorData {
     /// fully qualified name, including the scope path
-    pub full_name: PathBuf,
+    full_name: PathBuf,
     pub dtype: DataType,
-    pub idtype: IdType,
+    idtype: IdType,
     /// operation & operation's output index
     pub data_origin: (OperationData, i32),
-    pub data_origin_id: NodeIdent,
-    pub shape: Shape,
+    data_origin_id: NodeIdent,
+    shape: Shape,
+}
+
+impl TensorData {
+    pub fn new(
+        full_name: PathBuf,
+        dtype: DataType,
+        idtype: IdType,
+        data_origin: (OperationData, i32),
+        data_origin_id: NodeIdent,
+        shape: Shape,
+    ) -> TensorData {
+        TensorData {
+            full_name: TensorData::name_builder(full_name, data_origin.1),
+            dtype,
+            idtype,
+            data_origin,
+            data_origin_id,
+            shape,
+        }
+    }
+
+    pub fn get_name(&self) -> PathBuf {
+        self.full_name.clone()
+    }
+
+    pub fn name_builder(mut op_name: PathBuf, idx: i32) -> PathBuf {
+        let mut tn = op_name.file_name().unwrap().to_str().unwrap().to_owned();
+        if tn.contains(":") {
+            op_name
+        } else {
+            tn += &format!(":{}", idx);
+            op_name.set_file_name(tn);
+            op_name
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -419,9 +454,7 @@ impl Constant {
         T: tf::TensorType,
         Sh: ShapeOps,
     {
-        let name = context
-            .resolve_tensor_name(None, IdType::Constant, false)
-            .unwrap();
+        let name = context.resolve_name(None, IdType::Constant, false).unwrap();
         context.constant(value, shape, name).unwrap()
     }
 

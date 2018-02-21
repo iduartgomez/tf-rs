@@ -50,7 +50,7 @@ impl Scope {
     }
 
     /// If `reuse`, don't return error on name collision with an existing identifier.
-    pub(crate) fn resolve_tensor_name(
+    pub(crate) fn resolve_name(
         &self,
         name: Option<&Path>,
         kind: IdType,
@@ -58,7 +58,7 @@ impl Scope {
     ) -> Result<PathBuf> {
         let name = if let Some(given_name) = name {
             if given_name.to_str().unwrap() == "" {
-                return self.resolve_tensor_name(None, kind, reuse);
+                return self.resolve_name(None, kind, reuse);
             }
             let mut name = self.own_scope.name.join(given_name);
             if !reuse {
@@ -232,9 +232,9 @@ impl Scope {
 
             let op_name = IdType::Operation(op.get_op_type_name());
             let name = if let Some(name) = op.get_op_name() {
-                self.resolve_tensor_name(Some(name), op_name, false)?
+                self.resolve_name(Some(name), op_name, false)?
             } else {
-                self.resolve_tensor_name(None, op_name, false)?
+                self.resolve_name(None, op_name, false)?
             };
             let mut new_op = graph.new_operation(op.get_op_type_name(), name.to_str().unwrap())?;
 
@@ -513,7 +513,7 @@ impl Scope {
         }
 
         self.allow_writes();
-        let new_var = self.resolve_tensor_name(Some(name.as_ref()), IdType::Variable, false)?;
+        let new_var = self.resolve_name(Some(name.as_ref()), IdType::Variable, false)?;
 
         let var = if self.not_variable_scope {
             // use scopes/root
@@ -600,14 +600,14 @@ impl Scope {
                     init_ident = NodeIdent::new();
                     registry.insert(
                         init_ident.clone(),
-                        TensorData {
-                            full_name: new_var.join("init_value"),
-                            idtype: IdType::Constant,
+                        TensorData::new(
+                            TensorData::name_builder(new_var.join("init_value"), 0),
                             dtype,
-                            data_origin: (initial_value.clone(), 0),
+                            IdType::Constant,
+                            (initial_value.clone(), 0),
                             data_origin_id,
-                            shape: rank_info.clone(),
-                        },
+                            rank_info.clone(),
+                        ),
                     );
 
                     let init = &[
@@ -631,14 +631,14 @@ impl Scope {
                 // Register variable data.
                 registry.insert(
                     ident,
-                    TensorData {
-                        full_name: new_var.clone(),
-                        idtype: IdType::Variable,
+                    TensorData::new(
+                        new_var.clone(),
                         dtype,
-                        data_origin: (var, 0),
-                        data_origin_id: var_op_id,
-                        shape: rank_info,
-                    },
+                        IdType::Variable,
+                        (var, 0),
+                        var_op_id,
+                        rank_info,
+                    ),
                 );
                 self.scopes
                     .borrow_mut()
@@ -649,7 +649,12 @@ impl Scope {
                         kind: ControlOpKind::VarInitializer,
                     });
             }
-            Ok(self._make_var_handle(ident, init_ident, new_var, dtype))
+            Ok(self._make_var_handle(
+                ident,
+                init_ident,
+                TensorData::name_builder(new_var.clone(), 0),
+                dtype,
+            ))
         } else {
             Err(Error::from(ErrorKind::Stub))
         }
@@ -667,7 +672,7 @@ impl Scope {
         Op: GetOp,
     {
         self.allow_writes();
-        let new_var = self.resolve_tensor_name(Some(name.as_ref()), IdType::Variable, false)?;
+        let new_var = self.resolve_name(Some(name.as_ref()), IdType::Variable, false)?;
         //let initializer = initializer.get_op();
 
         let var = if self.not_variable_scope {
@@ -780,14 +785,14 @@ impl Scope {
                 // Register variable data
                 registry.insert(
                     ident,
-                    TensorData {
-                        full_name: new_var.clone(),
-                        idtype: IdType::Variable,
+                    TensorData::new(
+                        new_var.clone(),
                         dtype,
-                        data_origin: (var, 0),
-                        data_origin_id: var_op_id,
-                        shape: rank_info,
-                    },
+                        IdType::Variable,
+                        (var, 0),
+                        var_op_id,
+                        rank_info,
+                    ),
                 );
                 self.scopes
                     .borrow_mut()
@@ -798,7 +803,12 @@ impl Scope {
                         kind: ControlOpKind::VarInitializer,
                     });
             }
-            Ok(self._make_var_handle(ident, *initializer.get_op(), new_var, dtype))
+            Ok(self._make_var_handle(
+                ident,
+                *initializer.get_op(),
+                TensorData::name_builder(new_var, 0),
+                dtype,
+            ))
         } else {
             Err(Error::from(ErrorKind::Stub))
         }
@@ -841,7 +851,7 @@ impl Scope {
         let registry = &mut *self.registry.borrow_mut();
         let ops = &mut *self.ops.borrow_mut();
 
-        let full_name = self.resolve_tensor_name(Some(name.as_ref()), IdType::Constant, false)?;
+        let full_name = self.resolve_name(Some(name.as_ref()), IdType::Constant, false)?;
         let ident = NodeIdent::new();
 
         let shape = &shape
@@ -893,22 +903,21 @@ impl Scope {
         ops.insert(data_origin_id.clone(), data_origin.clone());
 
         let dtype = data_origin.output_type(0);
-        registry.insert(
-            ident,
-            TensorData {
-                full_name: full_name.clone(),
-                dtype: dtype,
-                idtype: IdType::Constant,
-                data_origin: (data_origin.clone(), 0),
-                data_origin_id: data_origin_id.clone(),
-                shape: graph.tensor_shape(Output {
-                    operation: data_origin,
-                    index: 0,
-                })?,
-            },
+        let data = TensorData::new(
+            full_name.clone(),
+            dtype,
+            IdType::Constant,
+            (data_origin.clone(), 0),
+            data_origin_id.clone(),
+            graph.tensor_shape(Output {
+                operation: data_origin,
+                index: 0,
+            })?,
         );
+        let t_name = data.get_name();
+        registry.insert(ident, data);
 
-        self.own_scope.constants.push((full_name, ident));
+        self.own_scope.constants.push((t_name, ident));
         Ok(Constant {
             ident,
             origin_op: data_origin_id,
@@ -924,8 +933,7 @@ impl Scope {
         self.allow_writes();
 
         let ident = NodeIdent::new();
-        let full_name = self.resolve_tensor_name(None, IdType::Placeholder, false)
-            .unwrap();
+        let full_name = self.resolve_name(None, IdType::Placeholder, false).unwrap();
 
         let graph = &mut *self.graph.borrow_mut();
         let registry = &mut *self.registry.borrow_mut();
@@ -940,14 +948,14 @@ impl Scope {
 
         registry.insert(
             ident,
-            TensorData {
-                full_name,
+            TensorData::new(
+                TensorData::name_builder(full_name, 0),
                 dtype,
-                idtype: IdType::Placeholder,
+                IdType::Placeholder,
                 data_origin,
-                data_origin_id: data_origin_id.clone(),
-                shape: Shape::from(None),
-            },
+                data_origin_id.clone(),
+                Shape::from(None),
+            ),
         );
 
         Tensor {
@@ -969,7 +977,7 @@ impl Scope {
         self.allow_writes();
         let name = self.own_scope.name.clone();
         let mut context = self.as_new_child(name);
-        let op_name = self.resolve_tensor_name(None, IdType::Operation("NoOp"), false)
+        let op_name = self.resolve_name(None, IdType::Operation("NoOp"), false)
             .unwrap();
 
         let registry = &*self.registry.borrow();
@@ -1044,7 +1052,7 @@ impl Scope {
             let src = registry
                 .get(&tensor.get_op())
                 .ok_or(Error::from(ErrorKind::TensorNotFound))?;
-            let full_name = self.resolve_tensor_name(Some(name.as_ref()), src.idtype, false)?;
+            let full_name = self.resolve_name(Some(name.as_ref()), src.idtype, false)?;
             let data_origin = (
                 array_ops::identity(
                     graph,
@@ -1062,14 +1070,14 @@ impl Scope {
         let ident = NodeIdent::new();
         registry.insert(
             ident,
-            TensorData {
+            TensorData::new(
                 full_name,
                 dtype,
-                idtype: IdType::Operation("Identity"),
+                IdType::Operation("Identity"),
                 data_origin,
-                data_origin_id: data_origin_id.clone(),
-                shape: Shape::from(None),
-            },
+                data_origin_id.clone(),
+                Shape::from(None),
+            ),
         );
 
         Ok(Tensor {
@@ -1082,7 +1090,8 @@ impl Scope {
         })
     }
 
-    /// Sets the graph-level random seed. Can only be set at root scope context.
+    /// Sets the graph-level random seed. Can only be set at root scope context,
+    /// panics otherwise.
     ///
     /// Operations that rely on a random seed actually derive it from two seeds:
     /// the graph-level and operation-level seeds. This sets the graph-level seed.
