@@ -5,23 +5,25 @@ use std::rc::Rc;
 
 use tf::TensorType;
 
-use super::super::{DataType, Graph, OperationData, Output, Shape, TypedTensor};
-use errors::*;
-use ops::*;
+use {Graph, Output};
+use super::{add_control_input, Attribute, Constant, ControlOp, ControlOpKind, DataType, Error,
+            ErrorKind, Function, GetOp, GradFunc, IdType, NodeIdent, Operation, OperationData,
+            Result, Shape, ShapeOps, Tensor, TensorContent, TensorData, TypedTensor, Variable};
+use ops::{array_ops, control_flow_ops, init_ops, ControlFlow};
 
 const DEFAULT_GRAPH_SEED: i64 = 87_654_321;
 
 /// Master context manager for building TensorFlow graphs and managing session execution.
 #[derive(Debug)]
 pub struct Scope {
-    /// registry of tensor ops
-    pub(crate) registry: Rc<RefCell<HashMap<NodeIdent, TensorData>>>,
+    /// tensors of tensors and ops
+    pub(crate) tensors: Rc<RefCell<HashMap<NodeIdent, TensorData>>>,
+    pub(crate) ops: Rc<RefCell<HashMap<NodeIdent, OperationData>>>,
     /// owned graph for building
     pub(crate) graph: Rc<RefCell<Graph>>,
     pub(crate) scopes: Rc<RefCell<InternScope>>,
     pub(crate) own_scope: InternScope,
     pub(crate) control_context: ControlFlow,
-    pub(crate) ops: Rc<RefCell<HashMap<NodeIdent, OperationData>>>,
     reuse_variable: bool,
     not_variable_scope: bool,
     ignore_deps: bool,
@@ -36,7 +38,8 @@ impl Scope {
         Scope {
             scopes: Rc::new(RefCell::new(own_scope.clone())),
             own_scope,
-            registry: Rc::new(RefCell::new(HashMap::new())),
+            tensors: Rc::new(RefCell::new(HashMap::new())),
+            ops: Rc::new(RefCell::new(HashMap::new())),
             graph: Rc::new(RefCell::new(Graph::new())),
             control_context: ControlFlow::None,
             reuse_variable: false,
@@ -44,7 +47,6 @@ impl Scope {
             ignore_deps: false,
             locked: Rc::new(RefCell::new(false)),
             parent_lock: None,
-            ops: Rc::new(RefCell::new(HashMap::new())),
             seed: None,
         }
     }
@@ -71,7 +73,7 @@ impl Scope {
                         }
                     }
                     IdType::Placeholder => {
-                        if self.registry
+                        if self.tensors
                             .borrow()
                             .values()
                             .find(|x| &x.full_name == &name)
@@ -101,7 +103,7 @@ impl Scope {
             let name = match kind {
                 IdType::Constant => format!("Constant_{}", self.own_scope.constants.len()),
                 IdType::Operation(name) => format!("{}_{}", name, self.own_scope.ops.len()),
-                IdType::Placeholder => format!("Placeholder_{}", self.registry.borrow().len()),
+                IdType::Placeholder => format!("Placeholder_{}", self.tensors.borrow().len()),
                 IdType::Variable => format!("Variable_{}", self.own_scope.variables.len()),
             };
             self.own_scope.name.join(name)
@@ -109,7 +111,7 @@ impl Scope {
         Ok(name)
     }
 
-    pub(crate) fn resolve_new_scope_name<S: AsRef<Path>>(
+    pub(crate) fn resolve_scope_name<S: AsRef<Path>>(
         &self,
         name: S,
         default_prefix: &str,
@@ -184,7 +186,7 @@ impl Scope {
         Scope {
             scopes: self.scopes.clone(),
             own_scope,
-            registry: self.registry.clone(),
+            tensors: self.tensors.clone(),
             graph: self.graph.clone(),
             control_context: self.control_context.clone(),
             reuse_variable: false,
@@ -218,7 +220,7 @@ impl Scope {
 
     /// Install an operation within the current context.
     ///
-    /// Returns the output of the operations.
+    /// Returns the output of the operation.
     #[doc(hidden)]
     pub fn install<'a, T>(&mut self, op: T) -> Result<T::Outputs>
     where
@@ -309,7 +311,7 @@ impl Scope {
         let &TensorData {
             data_origin: (ref op, idx),
             ..
-        } = &self.registry.borrow()[op.get_op()];
+        } = &self.tensors.borrow()[op.get_op()];
         (op.clone(), idx)
     }
 
@@ -317,7 +319,7 @@ impl Scope {
     where
         T: Operation<'a>,
     {
-        let reg_c = self.registry.clone();
+        let reg_c = self.tensors.clone();
         let mut inputs = vec![];
 
         fn input_ls<'a>(
@@ -421,9 +423,9 @@ impl Scope {
             ));
         }
         let name = if let Some(default_name) = default_name {
-            self.resolve_new_scope_name(name, default_name.as_ref().to_str().unwrap())
+            self.resolve_scope_name(name, default_name.as_ref().to_str().unwrap())
         } else {
-            self.resolve_new_scope_name(name, "")
+            self.resolve_scope_name(name, "")
         };
         let mut scope = self.as_new_child(name);
         if let Some(value) = reuse {
@@ -441,9 +443,9 @@ impl Scope {
     {
         self.allow_writes();
         let name = if let Some(default) = default {
-            self.resolve_new_scope_name(name, default.as_ref().to_str().unwrap())
+            self.resolve_scope_name(name, default.as_ref().to_str().unwrap())
         } else {
-            self.resolve_new_scope_name(name, "op_scope")
+            self.resolve_scope_name(name, "op_scope")
         };
         let mut scope = self.as_new_child(name);
         scope.not_variable_scope = true;
@@ -552,25 +554,25 @@ impl Scope {
             let var;
             {
                 let graph = &mut *self.graph.borrow_mut();
-                let registry = &mut *self.registry.borrow_mut();
+                let tensors = &mut *self.tensors.borrow_mut();
                 let ops = &mut self.ops.borrow_mut();
 
                 // variable op, not initialized!
                 var = {
                     let deps = match self.control_context {
                         ControlFlow::CondContext(ref cond) => {
-                            vec![&registry[&cond.pivot.ident].data_origin.0]
+                            vec![&tensors[&cond.pivot.ident].data_origin.0]
                         }
                         ControlFlow::WhileContext(ref cond) => {
                             if cond.pivot_for_body.is_some() {
                                 vec![
-                                    &registry[&cond.pivot_for_body.as_ref().unwrap().ident]
+                                    &tensors[&cond.pivot_for_body.as_ref().unwrap().ident]
                                         .data_origin
                                         .0,
                                 ]
                             } else {
                                 vec![
-                                    &registry[&cond.pivot_for_pred.as_ref().unwrap().ident]
+                                    &tensors[&cond.pivot_for_pred.as_ref().unwrap().ident]
                                         .data_origin
                                         .0,
                                 ]
@@ -598,7 +600,7 @@ impl Scope {
                     ops.insert(data_origin_id.clone(), initial_value.clone());
 
                     init_ident = NodeIdent::new();
-                    registry.insert(
+                    tensors.insert(
                         init_ident.clone(),
                         TensorData::new(
                             TensorData::name_builder(new_var.join("init_value"), 0),
@@ -629,7 +631,7 @@ impl Scope {
                     )?
                 };
                 // Register variable data.
-                registry.insert(
+                tensors.insert(
                     ident,
                     TensorData::new(
                         new_var.clone(),
@@ -701,13 +703,13 @@ impl Scope {
             let rank_info;
             {
                 let graph = &mut *self.graph.borrow_mut();
-                let registry = &mut *self.registry.borrow_mut();
+                let tensors = &mut *self.tensors.borrow_mut();
                 let ops = &mut self.ops.borrow_mut();
 
                 let initializer = {
                     if let Some(index) = initializer.source_index() {
                         // is an op output tensor ident
-                        let initializer = registry
+                        let initializer = tensors
                             .get(&initializer.get_op())
                             .ok_or(Error::from(ErrorKind::OpNotFound))?;
                         rank_info = graph.tensor_shape(Output {
@@ -736,18 +738,18 @@ impl Scope {
                 var = {
                     let deps = match self.control_context {
                         ControlFlow::CondContext(ref cond) => {
-                            vec![&registry[&cond.pivot.ident].data_origin.0]
+                            vec![&tensors[&cond.pivot.ident].data_origin.0]
                         }
                         ControlFlow::WhileContext(ref cond) => {
                             if cond.pivot_for_body.is_some() {
                                 vec![
-                                    &registry[&cond.pivot_for_body.as_ref().unwrap().ident]
+                                    &tensors[&cond.pivot_for_body.as_ref().unwrap().ident]
                                         .data_origin
                                         .0,
                                 ]
                             } else {
                                 vec![
-                                    &registry[&cond.pivot_for_pred.as_ref().unwrap().ident]
+                                    &tensors[&cond.pivot_for_pred.as_ref().unwrap().ident]
                                         .data_origin
                                         .0,
                                 ]
@@ -783,7 +785,7 @@ impl Scope {
                 };
 
                 // Register variable data
-                registry.insert(
+                tensors.insert(
                     ident,
                     TensorData::new(
                         new_var.clone(),
@@ -848,7 +850,7 @@ impl Scope {
     {
         self.allow_writes();
         let graph = &mut *self.graph.borrow_mut();
-        let registry = &mut *self.registry.borrow_mut();
+        let tensors = &mut *self.tensors.borrow_mut();
         let ops = &mut *self.ops.borrow_mut();
 
         let full_name = self.resolve_name(Some(name.as_ref()), IdType::Constant, false)?;
@@ -862,7 +864,7 @@ impl Scope {
             let cd = &self.scopes.borrow().control_dependencies;
             match self.control_context {
                 ControlFlow::CondContext(ref cond) => {
-                    let pivot = vec![&registry[&cond.pivot.ident].data_origin.0];
+                    let pivot = vec![&tensors[&cond.pivot.ident].data_origin.0];
                     array_ops::constant(
                         graph,
                         full_name.to_str().unwrap(),
@@ -873,13 +875,13 @@ impl Scope {
                 ControlFlow::WhileContext(ref cond) => {
                     let pivot = if cond.pivot_for_body.is_some() {
                         vec![
-                            &registry[&cond.pivot_for_body.as_ref().unwrap().ident]
+                            &tensors[&cond.pivot_for_body.as_ref().unwrap().ident]
                                 .data_origin
                                 .0,
                         ]
                     } else {
                         vec![
-                            &registry[&cond.pivot_for_pred.as_ref().unwrap().ident]
+                            &tensors[&cond.pivot_for_pred.as_ref().unwrap().ident]
                                 .data_origin
                                 .0,
                         ]
@@ -915,7 +917,7 @@ impl Scope {
             })?,
         );
         let t_name = data.get_name();
-        registry.insert(ident, data);
+        tensors.insert(ident, data);
 
         self.own_scope.constants.push((t_name, ident));
         Ok(Constant {
@@ -936,7 +938,7 @@ impl Scope {
         let full_name = self.resolve_name(None, IdType::Placeholder, false).unwrap();
 
         let graph = &mut *self.graph.borrow_mut();
-        let registry = &mut *self.registry.borrow_mut();
+        let tensors = &mut *self.tensors.borrow_mut();
         let ops = &mut *self.ops.borrow_mut();
 
         let data_origin = (
@@ -946,7 +948,7 @@ impl Scope {
         let data_origin_id = NodeIdent::new();
         ops.insert(data_origin_id.clone(), data_origin.0.clone());
 
-        registry.insert(
+        tensors.insert(
             ident,
             TensorData::new(
                 TensorData::name_builder(full_name, 0),
@@ -980,7 +982,7 @@ impl Scope {
         let op_name = self.resolve_name(None, IdType::Operation("NoOp"), false)
             .unwrap();
 
-        let registry = &*self.registry.borrow();
+        let tensors = &*self.tensors.borrow();
         let existing_ops = &*self.ops.borrow();
         let global = &mut self.scopes.borrow_mut().control_dependencies;
 
@@ -995,7 +997,7 @@ impl Scope {
                     kind: ControlOpKind::Ops,
                 }
             } else {
-                let finished = &registry[&ident].data_origin.0;
+                let finished = &tensors[&ident].data_origin.0;
                 ops.push(finished);
                 ControlOp {
                     ident: *ident,
@@ -1039,7 +1041,7 @@ impl Scope {
         self.allow_writes();
 
         let graph = &mut *self.graph.borrow_mut();
-        let registry = &mut *self.registry.borrow_mut();
+        let tensors = &mut *self.tensors.borrow_mut();
         let ops = &mut *self.ops.borrow_mut();
         let global = &self.scopes.borrow().control_dependencies;
 
@@ -1049,7 +1051,7 @@ impl Scope {
                     "provided type for `identity` op is not from a tensor",
                 )));
             }
-            let src = registry
+            let src = tensors
                 .get(&tensor.get_op())
                 .ok_or(Error::from(ErrorKind::TensorNotFound))?;
             let full_name = self.resolve_name(Some(name.as_ref()), src.idtype, false)?;
@@ -1068,7 +1070,7 @@ impl Scope {
         ops.insert(data_origin_id.clone(), data_origin.0.clone());
 
         let ident = NodeIdent::new();
-        registry.insert(
+        tensors.insert(
             ident,
             TensorData::new(
                 full_name,
@@ -1227,17 +1229,17 @@ enum OpInput {
 #[derive(Debug, Clone)]
 pub(crate) struct InternScope {
     /// Full path for this scope.
-    pub(crate) name: PathBuf,
+    pub name: PathBuf,
     /// Variables only available in this scope.
     variables: Vec<(PathBuf, Variable)>,
     /// Constants only available in this scope.
     constants: Vec<(PathBuf, NodeIdent)>,
     /// Ops declared in this scope.
-    pub(crate) ops: Vec<(PathBuf, NodeIdent)>,
+    pub ops: Vec<(PathBuf, NodeIdent)>,
     /// Children scopes.
     inner_scopes: Vec<Box<InternScope>>,
     /// Control dependencies in this scope
-    pub(crate) control_dependencies: VecDeque<ControlOp>,
+    pub control_dependencies: VecDeque<ControlOp>,
     /// Unfetchable tensors.
     unfetchable: HashSet<NodeIdent>,
     /// Unfeedable tensors.

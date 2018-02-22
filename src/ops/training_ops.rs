@@ -16,7 +16,7 @@ use super::*;
 ///  ### Returns:
 ///    A mutable `Tensor`. Has the same type as `var`. Same as "var".
 pub fn apply_gradient_descent<Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     var: Variable,
     alpha: Tx,
     beta: Ty,
@@ -28,9 +28,9 @@ where
     Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let alpha = alpha.into_tensor(scope);
-    let beta = beta.into_tensor(scope);
-    scope.install(
+    let alpha = alpha.into_tensor(context);
+    let beta = beta.into_tensor(context);
+    context.install(
         ApplyGradientDescent::new(var.into(), alpha, beta, name)?.use_locking(&[use_locking]),
     )
 }
@@ -68,7 +68,6 @@ add_new_op!(ApplyGradientDescent,
     output: [Tensor],
 );
 
-
 ///  Update '*var' by subtracting 'alpha' * 'delta' from it.
 ///
 ///  ### Args:
@@ -85,7 +84,7 @@ add_new_op!(ApplyGradientDescent,
 ///  ### Returns:
 ///    A mutable `Tensor`. Has the same type as `var`. Same as "var".
 pub fn resource_apply_gradient_descent<Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     var: Variable,
     alpha: Tx,
     beta: Ty,
@@ -97,12 +96,11 @@ where
     Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let alpha = alpha.into_tensor(scope);
-    let beta = beta.into_tensor(scope);
-    scope.install(
-        ResourceApplyGradientDescent::new(var.into(), alpha, beta, name)?.use_locking(
-            &[use_locking],
-        ),
+    let alpha = alpha.into_tensor(context);
+    let beta = beta.into_tensor(context);
+    context.install(
+        ResourceApplyGradientDescent::new(var.into(), alpha, beta, name)?
+            .use_locking(&[use_locking]),
     )
 }
 

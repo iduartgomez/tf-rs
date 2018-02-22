@@ -1,9 +1,6 @@
 //! Array Operations.
 
-use super::{range, sub, Attribute, ControlFlow, DataType, Error, ErrorKind, GetOp, Graph, IdType,
-            NodeIdent, Operation, OperationData, Output, Path, PathBuf, Result, Scope, ShapeOps,
-            ShapeSize, Tensor, TensorData, TensorOps, TensorType, TypedTensor};
-
+use super::*;
 #[allow(unused_imports)]
 use framework::TensorContent;
 
@@ -39,12 +36,6 @@ add_new_op!(ConcatV2,
     constructor: [
         fn new<S: AsRef<Path>>(values: Vec<Tensor>, axis: Tensor, name: S,) -> Result<Concat<'a>> {
             let output_type = values[0].dtype;
-            for x in &values {
-                if &x.dtype != &output_type {
-                    return Err(Error::from(ErrorKind::Stub));
-                }
-            }
-
             Ok(
                 Concat {
                     ident: NodeIdent::new(),
@@ -182,12 +173,12 @@ add_new_op!(ExpandDims,
 pub fn fill<Tx, Ty, S>(context: &mut Scope, dims: Tx, value: Ty, name: S) -> Result<Tensor>
 where
     Tx: TensorOps,
-    Ty: TensorType,
+    Ty: TensorOps,
     S: AsRef<Path>,
 {
     let dims = dims.into_tensor(context);
-    let val = context.constant(&[value], &[] as &[i32], "")?;
-    context.install(Fill::new(dims.into(), val.into(), name)?)
+    let val = value.into_tensor(context);
+    context.install(Fill::new(dims, val, name)?)
 }
 
 add_new_op!(Fill,
@@ -525,21 +516,26 @@ fn test_size() {
 /// ### Returns:
 /// * A Tensor with the same type as input. Contains the same data as input,
 ///   but has one or more dimensions of size 1 removed.
-pub fn squeeze<Tx, Sh, S>(scope: &mut Scope, input: Tx, axis: Option<Sh>, name: S) -> Result<Tensor>
+pub fn squeeze<Tx, Sh, S>(
+    context: &mut Scope,
+    input: Tx,
+    axis: Option<Sh>,
+    name: S,
+) -> Result<Tensor>
 where
     Tx: TensorOps,
     S: AsRef<Path>,
     Sh: ShapeOps,
 {
     let dims: Vec<i64>;
-    let input = input.into_tensor(scope);
+    let input = input.into_tensor(context);
     let mut squeeze = Squeeze::new(input, name)?;
     if let Some(axis) = axis {
         dims = axis.definition_i64()
             .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
         squeeze = squeeze.squeeze_dims(&dims);
     }
-    scope.install(squeeze)
+    context.install(squeeze)
 }
 
 add_new_op!(Squeeze,
@@ -679,16 +675,16 @@ add_new_op!(Slice,
 ///
 ///  ### Returns:
 ///    * output: A stacked `Tensor` with the same type as `values`.
-pub fn stack<Tx, TeS, S>(scope: &mut Scope, input: Vec<Tx>, axis: TeS, name: S) -> Result<Tensor>
+pub fn stack<Tx, TeS, S>(context: &mut Scope, input: Vec<Tx>, axis: TeS, name: S) -> Result<Tensor>
 where
     Tx: TensorOps,
     TeS: ShapeSize,
     S: AsRef<Path>,
 {
-    let input: Vec<_> = input.into_iter().map(|x| x.into_tensor(scope)).collect();
+    let input: Vec<_> = input.into_iter().map(|x| x.into_tensor(context)).collect();
     let n = input.len() as i64;
     let axis = axis.as_i64();
-    scope.install(Pack::new(input, name)?.axis(&[axis]).input_len(&[n]))
+    context.install(Pack::new(input, name)?.axis(&[axis]).input_len(&[n]))
 }
 
 add_new_op!(
@@ -696,12 +692,6 @@ add_new_op!(
     constructor: [
         fn new<S: AsRef<Path>>(values: Vec<Tensor>, name: S,) -> Result<Pack<'a>> {
             let output_type = values[0].dtype;
-            for x in &values {
-                if &x.dtype != &output_type {
-                    return Err(Error::from(ErrorKind::Stub));
-                }
-            }
-
             Ok(
                 Pack {
                     ident: NodeIdent::new(),
@@ -773,19 +763,17 @@ fn test_stack() {
 ///
 ///  ### Returns:
 ///    A `Tensor`. Has the same type as `input`.
-pub fn stop_gradient<Tx, S>(scope: &mut Scope, input: Tx, name: S) -> Result<Tensor>
+pub fn stop_gradient<Tx, S>(context: &mut Scope, input: Tx, name: S) -> Result<Tensor>
 where
     Tx: TensorOps,
     S: AsRef<Path>,
 {
-    let input = input.into_tensor(scope);
-    scope.install(StopGradient::new(input, name)?)
+    let input = input.into_tensor(context);
+    context.install(StopGradient::new(input, name)?)
 }
 
 add_new_op!(StopGradient,
-    constructor: [
-        add_new_op!(UNARY CONSTRUCTOR: StopGradient, Init: []);
-    ],
+    constructor: [add_new_op!(UNARY CONSTRUCTOR: StopGradient, Init: []);],
     digest: [DEFAULT_DIGEST: StopGradient, INPUT0],
     extra_funcs: [], 
     extra_attr: [],
@@ -872,7 +860,7 @@ add_new_op!(StopGradient,
 ///  ### Returns:
 ///    * A `Tensor` the same type as `input`.
 pub fn strided_slice<Ti, Tb, Te, Ts, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     input: Ti,
     begin: Tb,
     end: Te,
@@ -891,10 +879,10 @@ where
     Ts: TensorOps,
     S: AsRef<Path>,
 {
-    let input = input.into_tensor(scope);
-    let begin = begin.into_tensor(scope);
-    let end = end.into_tensor(scope);
-    let strides = strides.into_tensor(scope);
+    let input = input.into_tensor(context);
+    let begin = begin.into_tensor(context);
+    let end = end.into_tensor(context);
+    let strides = strides.into_tensor(context);
     let begin_mask = if let Some(val) = begin_mask { val } else { 0 };
     let end_mask = if let Some(val) = end_mask { val } else { 0 };
     let ellipsis_mask = if let Some(val) = ellipsis_mask {
@@ -912,7 +900,7 @@ where
     } else {
         0
     };
-    scope.install(StridedSlice::new(input, begin, end, strides, name)?)
+    context.install(StridedSlice::new(input, begin, end, strides, name)?)
 }
 
 add_new_op!(StridedSlice,
@@ -1040,9 +1028,7 @@ where
 }
 
 add_new_op!(Transpose,
-    constructor: [
-        add_new_op!(BIN CONSTRUCTOR: Transpose, Init: []);
-    ],
+    constructor: [add_new_op!(BIN CONSTRUCTOR: Transpose, Init: []);],
     digest: [DEFAULT_DIGEST: Transpose, INPUT0],
     extra_funcs: [], 
     extra_attr: [],
@@ -1164,7 +1150,7 @@ where
     if (x.is_none() && y.is_some()) || (x.is_some() && y.is_none()) {
         return Err(Error::from(ErrorKind::Stub));
     } else if x.is_some() || y.is_some() {
-        unimplemented!()
+        math_ops::select(context, cond, x.unwrap(), y.unwrap(), name)
     } else {
         context.install(Where::new(cond.into(), name)?)
     }

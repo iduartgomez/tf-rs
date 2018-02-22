@@ -36,7 +36,7 @@ use super::ops::init_ops;
 ///   ### Returns:
 ///     A `Variable` object.
 pub fn create_slot<S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     primary: Tensor,
     val: Tensor,
     name: S,
@@ -52,9 +52,9 @@ where
     // optimizer can be shared when reuse is True. Meanwhile when reuse is False
     // and the same name has been previously used, the scope name will add '_N'
     // as suffix for unique identifications.
-    let validate_shape = val.get_shape(scope).is_fully_defined();
-    let primary_op_name = format!("{}/{}", primary.get_name(scope), name.as_ref());
-    let scope = &mut scope.variable_scope("", Some(primary_op_name.as_str()), None)?;
+    let validate_shape = val.get_shape(context).is_fully_defined();
+    let primary_op_name = format!("{}/{}", primary.get_name(context), name.as_ref());
+    let scope = &mut context.variable_scope("", Some(primary_op_name.as_str()), None)?;
     // TODO: if colocate_with_primary:
     //           with ops.colocate_with(primary):
     scope.get_variable_with_initializer(val, validate_shape, "")
@@ -105,7 +105,7 @@ where
 ///  ### Returns:
 ///    A `Variable` object.
 pub fn create_slot_with_initializer<Tp, Op, Sh, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     primary: Tp,
     initializer: Op,
     shape: Sh,
@@ -125,10 +125,10 @@ where
     // and the same name has been previously used, the scope name will add '_N'
     // as suffix for unique identifications.
     let validate_shape = shape.is_fully_defined();
-    let primary = primary.into_tensor(scope);
-    let primary_op_name = format!("{}/{}", primary.get_name(scope), name.as_ref());
-    let scope = &mut scope.variable_scope("", Some(primary_op_name.as_str()), None)?;
+    let primary = primary.into_tensor(context);
+    let primary_op_name = format!("{}/{}", primary.get_name(context), name.as_ref());
+    let scope = &mut context.variable_scope("", Some(primary_op_name.as_str()), None)?;
     // TODO: if colocate_with_primary:
     //           with ops.colocate_with(primary):
-    scope.get_variable_with_initializer(initializer, validate_shape, "")
+    context.get_variable_with_initializer(initializer, validate_shape, "")
 }

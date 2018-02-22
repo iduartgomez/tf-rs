@@ -77,7 +77,7 @@ fn test_assign() {
 ///    Same as "ref".  Returned as a convenience for operations that want
 ///    to use the new value after the variable has been updated.
 pub fn assign_add<Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     ref_tensor: Tx,
     value: Ty,
     use_locking: bool,
@@ -88,9 +88,9 @@ where
     Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let ref_tensor = ref_tensor.into_tensor(scope);
-    let value = value.into_tensor(scope);
-    scope.install(AssignAdd::new(ref_tensor, value, name)?.use_locking(&[use_locking]))
+    let ref_tensor = ref_tensor.into_tensor(context);
+    let value = value.into_tensor(context);
+    context.install(AssignAdd::new(ref_tensor, value, name)?.use_locking(&[use_locking]))
 }
 
 add_new_op!(AssignAdd, 

@@ -7,7 +7,7 @@ use uuid;
 use tf;
 
 use super::{DataType, OperationData, OperationDescription, Shape, TypedTensor};
-use errors::*;
+use errors::{Error, ErrorKind, Result};
 
 // Macros:
 
@@ -30,6 +30,8 @@ pub use self::scope::*;
 
 mod tensor_types;
 pub use self::tensor_types::{ShapeOps, ShapeSize, TensorOps};
+#[allow(unused_imports)]
+pub(crate) use self::tensor_types::DTypeOps;
 
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.
@@ -86,7 +88,7 @@ impl NodeIdent {
     }
 
     pub fn get_outputs(&self, context: &Scope) -> Result<Vec<Tensor>> {
-        let reg = &*context.registry.borrow();
+        let reg = &*context.tensors.borrow();
         if context.ops.borrow().contains_key(self) {
             // first check if it's an operation
             Ok(reg.iter()
@@ -116,7 +118,7 @@ impl NodeIdent {
 
     pub fn get_inputs(&self, context: &Scope) -> Result<Vec<Tensor>> {
         let ops = &*context.ops.borrow();
-        let reg = &*context.registry.borrow();
+        let reg = &*context.tensors.borrow();
         if let Some(op) = ops.get(self) {
             // first check if it's an operation
             let mut inputs = Vec::with_capacity(op.num_inputs());
@@ -156,7 +158,7 @@ impl NodeIdent {
 
     pub fn get_name(&self, context: &Scope) -> Result<String> {
         let ops = &*context.ops.borrow();
-        let reg = &*context.registry.borrow();
+        let reg = &*context.tensors.borrow();
         if let Some(source_op) = ops.get(self) {
             Ok(source_op.name()?)
         } else {
@@ -330,8 +332,8 @@ pub struct Tensor {
 impl Tensor {
     pub fn get_initializer(&self, context: &Scope) -> Result<Tensor> {
         if let Some(ref initializer) = self.initializer {
-            let registry = &*context.registry.borrow();
-            let init_data = &registry[&initializer];
+            let tensors = &*context.tensors.borrow();
+            let init_data = &tensors[&initializer];
             Ok(Tensor {
                 ident: initializer.clone(),
                 idtype: IdType::Constant,
@@ -346,13 +348,13 @@ impl Tensor {
     }
 
     pub fn get_name(&self, context: &Scope) -> String {
-        let registry = &*context.registry.borrow();
-        registry[&self.ident].full_name.to_str().unwrap().to_owned()
+        let tensors = &*context.tensors.borrow();
+        tensors[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
     pub fn get_shape(&self, context: &Scope) -> Shape {
-        let registry = &*context.registry.borrow();
-        registry[&self.ident].shape.clone()
+        let tensors = &*context.tensors.borrow();
+        tensors[&self.ident].shape.clone()
     }
 
     pub fn set_shape<Sh>(self, context: &mut Scope, shape: Sh) -> Result<Tensor>
@@ -459,13 +461,13 @@ impl Constant {
     }
 
     pub fn get_name(&self, context: &Scope) -> String {
-        let registry = &*context.registry.borrow();
-        registry[&self.ident].full_name.to_str().unwrap().to_owned()
+        let tensors = &*context.tensors.borrow();
+        tensors[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
     pub fn get_shape(&self, shape: &Scope) -> Shape {
-        let registry = &*shape.registry.borrow();
-        registry[&self.ident].shape.clone()
+        let tensors = &*shape.tensors.borrow();
+        tensors[&self.ident].shape.clone()
     }
 }
 
@@ -533,19 +535,19 @@ impl Variable {
     }
 
     pub fn get_name(&self, context: &Scope) -> String {
-        let registry = &*context.registry.borrow();
-        registry[&self.ident].full_name.to_str().unwrap().to_owned()
+        let tensors = &*context.tensors.borrow();
+        tensors[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
-    pub fn get_shape(&self, scope: &Scope) -> Shape {
-        let registry = &*scope.registry.borrow();
-        registry[&self.ident].shape.clone()
+    pub fn get_shape(&self, context: &Scope) -> Shape {
+        let tensors = &*context.tensors.borrow();
+        tensors[&self.ident].shape.clone()
     }
 
     /// Returns a Variable type if the Tensor is indeed a Variable, error otherwise.
-    pub fn from_tensor(scope: &Scope, tensor: &Tensor) -> Result<Variable> {
-        let registry = &*scope.registry.borrow();
-        let tensor_data = &registry[&tensor.ident];
+    pub fn from_tensor(context: &Scope, tensor: &Tensor) -> Result<Variable> {
+        let tensors = &*context.tensors.borrow();
+        let tensor_data = &tensors[&tensor.ident];
         if let Some(initializer) = tensor.initializer {
             Ok(Variable {
                 ident: tensor.ident,
@@ -620,11 +622,11 @@ impl TensorArray {
         unimplemented!()
     }
 
-    pub fn from_flow(scope: &Scope, flow: &Tensor) -> Self {
+    pub fn from_flow(context: &Scope, flow: &Tensor) -> Self {
         unimplemented!()
     }
 
-    pub fn gather(&self, scope: &Scope, indices: Tensor) -> Tensor {
+    pub fn gather(&self, context: &Scope, indices: Tensor) -> Tensor {
         unimplemented!()
     }
 }

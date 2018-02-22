@@ -402,7 +402,7 @@ pub(crate) trait CondContextInterface {
 impl CondContextInterface for Scope {
     fn cond_scope<S: AsRef<Path>>(&mut self, mut cond_context: CondContext, name: S) -> Scope {
         self.allow_writes();
-        let name = self.resolve_new_scope_name(name, "cond");
+        let name = self.resolve_scope_name(name, "cond");
         let mut context = self.as_new_child(name);
         match context.control_context {
             ControlFlow::CondContext(ref mut cond) => {
@@ -533,12 +533,6 @@ add_new_op!(Merge,
     constructor: [
         fn new<S: AsRef<Path>>(values: Vec<Tensor>, name: S) -> Result<Merge<'a>> {
             let output_type = values[0].dtype;
-            for x in &values {
-                if &x.dtype != &output_type {
-                    return Err(Error::from(ErrorKind::Stub));
-                }
-            }
-
             Ok(
                 Merge {
                     ident: NodeIdent::new(),
@@ -578,12 +572,6 @@ add_new_op!(RefMerge,
     constructor: [
         fn new<S: AsRef<Path>>(values: Vec<Tensor>, name: S) -> Result<RefMerge<'a>> {
             let output_type = values[0].dtype;
-            for x in &values {
-                if &x.dtype != &output_type {
-                    return Err(Error::from(ErrorKind::Stub));
-                }
-            }
-
             Ok(
                 RefMerge {
                     ident: NodeIdent::new(),
@@ -690,7 +678,7 @@ macro_rules! while_context {
 impl WhileContextInterface for Scope {
     fn loop_scope<S: AsRef<Path>>(&mut self, mut cond_context: WhileContext, name: S) -> Scope {
         self.allow_writes();
-        let name = self.resolve_new_scope_name(name, "cond");
+        let name = self.resolve_scope_name(name, "cond");
         let mut context = self.as_new_child(name);
         match context.control_context {
             ControlFlow::CondContext(ref cond) => cond_context.values.extend(cond.values.iter()),
@@ -979,7 +967,7 @@ add_new_op!(RefNextIteration,
 ///  ### Returns:
 ///    Same as `tensors`.
 pub fn tuple<'a, S, I, T: 'a>(
-    scope: &mut Scope,
+    context: &mut Scope,
     tensors: Vec<Tensor>,
     control_inputs: Option<I>,
     name: S,
@@ -989,7 +977,7 @@ where
     I: IntoIterator<Item = &'a T>,
     T: GetOp,
 {
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("tuple"));
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("tuple"));
     let mut gating_ops: Vec<_> = tensors.iter().map(|x| *x.get_op()).collect();
     if let Some(control_inputs) = control_inputs {
         for c in control_inputs.into_iter() {
@@ -1027,13 +1015,13 @@ impl Group {
         S: AsRef<Path>,
     {
         let graph = &mut *scope.graph.borrow_mut();
-        let registry = &*scope.registry.borrow();
+        let tensors = &*scope.tensors.borrow();
         let ops_reg = &mut *scope.ops.borrow_mut();
 
         let finished = {
             let mut ctrl_ops = Vec::new();
             for x in ops {
-                let op = if let Some(tensor) = registry.get(x.get_op()) {
+                let op = if let Some(tensor) = tensors.get(x.get_op()) {
                     &tensor.data_origin.0
                 } else {
                     ops_reg
@@ -1087,7 +1075,7 @@ impl GetOp for Group {
 ///  ### Returns:
 ///    Same as `output_tensor`.
 pub fn with_dependencies<'a, I, T: 'a, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     dependencies: I,
     output_tensor: Tensor,
     name: S,
@@ -1097,14 +1085,19 @@ where
     T: GetOp,
     S: AsRef<Path>,
 {
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("control_dependency"));
+    let scope =
+        &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("control_dependency"));
     let name = scope.name().to_owned();
     // TODO: with ops.colocate_with(output_tensor)
     let scope = &mut scope.control_dependencies(dependencies);
     scope.identity(output_tensor, name)
 }
 
-pub(crate) fn zeros_like_outside_loop<Op>(scope: &mut Scope, op: Op, index: usize) -> Result<Tensor>
+pub(crate) fn zeros_like_outside_loop<Op>(
+    context: &mut Scope,
+    op: Op,
+    index: usize,
+) -> Result<Tensor>
 where
     Op: GetOp,
 {

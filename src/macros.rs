@@ -1,4 +1,3 @@
-
 macro_rules! name_cmp {
     ($name:ident, $cmp:expr) => ( $name.as_ref().to_str().unwrap() == $cmp )
 }
@@ -27,24 +26,24 @@ macro_rules! tensor_output_op {
 }
 
 macro_rules! dtype_to_const {
-    ($scope:ident; $dtype:expr; $val:expr; $shape:expr; $name:expr) => (
+    ($context:ident; $dtype:expr; $val:expr; $shape:expr; $name:expr) => (
         match $dtype {
-            DataType::Bool => $scope.constant($val, $shape, $name),
-            DataType::Double => $scope.constant($val, $shape, $name),
-            DataType::Float => $scope.constant($val, $shape, $name),
-            DataType::Int32 => $scope.constant($val, $shape, $name),
-            DataType::UInt8 => $scope.constant($val, $shape, $name),
-            DataType::Int16 => $scope.constant($val, $shape, $name),
-            DataType::Int8 => $scope.constant($val, $shape, $name),
-            DataType::Int64 => $scope.constant($val, $shape, $name),
-            DataType::String => $scope.constant($val, $shape, $name),
-            DataType::QUInt8 => $scope.constant($val, $shape, $name),
-            DataType::QInt16 => $scope.constant($val, $shape, $name),
-            DataType::QUInt16 => $scope.constant($val, $shape, $name),
-            DataType::QInt32 => $scope.constant($val, $shape, $name),
-            DataType::BFloat16 => $scope.constant($val, $shape, $name),
-            DataType::Complex64 => $scope.constant($val, $shape, $name),
-            DataType::Complex128 => $scope.constant($val, $shape, $name),
+            DataType::Bool => $context.constant($val, $shape, $name),
+            DataType::Double => $context.constant($val, $shape, $name),
+            DataType::Float => $context.constant($val, $shape, $name),
+            DataType::Int32 => $context.constant($val, $shape, $name),
+            DataType::UInt8 => $context.constant($val, $shape, $name),
+            DataType::Int16 => $context.constant($val, $shape, $name),
+            DataType::Int8 => $context.constant($val, $shape, $name),
+            DataType::Int64 => $context.constant($val, $shape, $name),
+            DataType::String => $context.constant($val, $shape, $name),
+            DataType::QUInt8 => $context.constant($val, $shape, $name),
+            DataType::QInt16 => $context.constant($val, $shape, $name),
+            DataType::QUInt16 => $context.constant($val, $shape, $name),
+            DataType::QInt32 => $context.constant($val, $shape, $name),
+            DataType::BFloat16 => $context.constant($val, $shape, $name),
+            DataType::Complex64 => $context.constant($val, $shape, $name),
+            DataType::Complex128 => $context.constant($val, $shape, $name),
             _ => return Err(Error::from(ErrorKind::Stub)),
         }
     )

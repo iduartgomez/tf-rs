@@ -23,7 +23,7 @@ use super::*;
 /// ### Returns:
 /// * A tensor of the specified shape filled with random uniform values.
 pub fn random_uniform<S, Ts, Tval>(
-    scope: &mut Scope,
+    context: &mut Scope,
     shape: Ts,
     minval: Tval,
     maxval: Tval,
@@ -34,9 +34,9 @@ pub fn random_uniform<S, Ts, Tval>(
 where
     S: AsRef<Path>,
     Ts: TensorOps,
-    Tval: TensorOps
+    Tval: TensorOps,
 {
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("random_uniform"));
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("random_uniform"));
     let shape = shape.into_tensor(scope);
     let minval = minval.into_tensor(scope);
     let maxval = maxval.into_tensor(scope);
@@ -100,19 +100,10 @@ fn test_random_uniform() {
     let results = test_suite!(run_op: [init]; context, input: {});
     test_suite!(results; assert_len: {[0;Int32] == 4});
 
-    let init = random_uniform(
-        &mut context,
-        [2, 2].as_ref(),
-        0.0_f32,
-        1.,
-        None,
-        None,
-        "",
-    ).unwrap();
+    let init = random_uniform(&mut context, [2, 2].as_ref(), 0.0_f32, 1., None, None, "").unwrap();
     let results = test_suite!(run_op: [init]; context, input: {});
     test_suite!(results; assert_len: {[0;Float] == 4});
 }
-
 
 ///  Outputs random values from a uniform distribution.
 ///
@@ -165,7 +156,6 @@ add_new_op!(RandomUniform,
     extra_attr: [output_type: DataType],
     output: [Tensor],
 );
-
 
 ///  Outputs random integers from a uniform distribution.
 ///

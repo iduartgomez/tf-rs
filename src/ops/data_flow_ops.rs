@@ -47,7 +47,7 @@ use super::*;
 ///  ### Returns:
 ///    A list of `num_partitions` `Tensor` objects with the same type as `data`.
 pub fn dynamic_partition<Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     data: Tx,
     partitions: Ty,
     num_partitions: i32,
@@ -58,10 +58,10 @@ where
     Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let data = data.into_tensor(scope);
-    let partitions = partitions.into_tensor(scope);
+    let data = data.into_tensor(context);
+    let partitions = partitions.into_tensor(context);
 
-    scope.install(
+    context.install(
         DynamicPartition::new(data, partitions, name)?.num_partitions(&[num_partitions as i64]),
     )
 }
@@ -82,7 +82,7 @@ add_new_op!(DynamicPartition,
             let dtype = add_new_op!(INPUT0 self);
         
             let g = &*context.graph.borrow();
-            let reg = &mut *context.registry.borrow_mut();
+            let reg = &mut *context.tensors.borrow_mut();
 
             let output_len = op.output_list_length("outputs").unwrap();
             let mut outputs = Vec::with_capacity(output_len);
@@ -214,7 +214,7 @@ fn test_dynamic_partition() {
 ///               [51, 52], [61, 62]]
 /// ```
 pub fn dynamic_stitch<Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     indices: Vec<Ty>,
     mut data: Vec<Tx>,
     name: S,
@@ -227,7 +227,7 @@ where
     let indices = indices
         .into_iter()
         .map(|x| {
-            let x = x.into_tensor(scope);
+            let x = x.into_tensor(context);
             if let DataType::Int32 = x.dtype {
                 Ok(x)
             } else {
@@ -236,13 +236,13 @@ where
         })
         .collect::<Result<Vec<_>>>()?;
     let last = if let Some(last) = data.pop() {
-        last.into_tensor(scope)
+        last.into_tensor(context)
     } else {
         return Err(Error::from(ErrorKind::Stub));
     };
     let mut data = data.into_iter()
         .map(|x| {
-            let x = x.into_tensor(scope);
+            let x = x.into_tensor(context);
             if last.dtype == x.dtype {
                 Ok(x)
             } else {
@@ -253,7 +253,7 @@ where
     data.push(last);
     let input_len = data.len() as i64;
 
-    scope.install(DynamicStitch::new(indices, data, name)?.input_len(&[input_len]))
+    context.install(DynamicStitch::new(indices, data, name)?.input_len(&[input_len]))
 }
 
 add_new_op!(DynamicStitch, 

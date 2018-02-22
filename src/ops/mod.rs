@@ -7,8 +7,8 @@ use tf::TensorType;
 use super::{DataType, Graph, OperationData, Output, TypedTensor};
 use errors::*;
 
-pub(crate) use super::framework::*;
-pub(crate) use self::dtype_traits::*;
+use super::framework::*;
+use self::dtype_traits::*;
 
 pub(crate) mod dtype_traits {
     use tf::TensorType;
@@ -269,7 +269,7 @@ macro_rules! add_new_op {
                 )?
         };
         {
-            let reg = &mut *$context.registry.borrow_mut();
+            let reg = &mut *$context.tensors.borrow_mut();
             let data = TensorData::new(
                 $op_name,
                 dtype,
@@ -401,40 +401,3 @@ pub use self::state_ops::*;
 pub use self::training_ops::*;
 pub use self::resource_variable_ops::*;
 pub use self::gradients_impl::AggregationMethod;
-
-trait DTypeOps {
-    /// Returns whether this is a (non-quantized, real) floating point type.
-    fn is_floating(&self) -> bool;
-    /// Returns whether this is a (non-quantized) integer type.
-    fn is_integer(&self) -> bool;
-    /// Returns whether this is a complex floating point type.
-    fn is_complex(&self) -> bool;
-}
-
-impl DTypeOps for DataType {
-    fn is_floating(&self) -> bool {
-        match *self {
-            DataType::Float | DataType::Double | DataType::BFloat16 => true,
-            _ => false,
-        }
-    }
-
-    fn is_integer(&self) -> bool {
-        match *self {
-            DataType::Int32
-            | DataType::UInt8
-            | DataType::Int16
-            | DataType::Int8
-            | DataType::Int64
-            | DataType::UInt16 => true,
-            _ => false,
-        }
-    }
-
-    fn is_complex(&self) -> bool {
-        match *self {
-            DataType::Complex64 | DataType::Complex128 => true,
-            _ => false,
-        }
-    }
-}

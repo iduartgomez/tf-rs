@@ -69,7 +69,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 ///    A list of `sum(dy/dx)` for each x in `xs`.
 #[doc(hidden)]
 pub fn gradients<Tys, Txs, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     ys: Vec<Tys>,
     xs: Vec<Txs>,
     grad_ys: Option<Vec<Tensor>>,
@@ -100,7 +100,7 @@ where
         vec![None; ys.len()]
     };
 
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("gradients"));
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("gradients"));
     let grad_scope = scope.name().to_owned();
     let mut ys = ys.into_iter()
         .map(|x| x.into_tensor(scope))
@@ -108,7 +108,7 @@ where
     let xs = xs.into_iter()
         .map(|x| x.into_tensor(scope))
         .collect::<Vec<_>>();
-    let grad_ys = default_grad_ys(grad_ys, &ys, colocate_gradients_with_ops)?;
+    let grad_ys = default_grad_ys(scope, grad_ys, &ys, colocate_gradients_with_ops)?;
 
     // The approach we take here is as follows: Create a list of all ops in the
     // subgraph between the ys and xs.  Visit these ops in reverse order of ids
@@ -130,10 +130,11 @@ where
             })
             .collect::<Result<Vec<_>>>()?;
     }
-    //let from_ops = &xs;
-    let to_ops = &ys;
-    let (pending_count, mut loop_state) =
-        pending_count(scope, to_ops, &xs, colocate_gradients_with_ops)?;
+    let to_ops: Vec<_> = ys.iter().map(|x| x.get_op()).collect();
+    let (pending_count, mut loop_state) = {
+        let from_ops = xs.iter().map(|x| x.get_op());
+        pending_count(scope, &to_ops, from_ops, colocate_gradients_with_ops)?
+    };
 
     // Iterate over the collected ops.
     //
@@ -153,28 +154,30 @@ where
     let mut queue = VecDeque::new();
     // Add the ops in 'to_ops' into the queue.
     let mut to_ops_set = HashSet::new();
-    for op in to_ops {
+    for id in to_ops {
         // 'ready' handles the case where one output gradient relies on
         // another output's gradient.
-        let id = *op.get_op();
-        let ready = pending_count[&id] == 0;
-        if ready && to_ops_set.contains(&id) {
-            to_ops_set.insert(id);
-            queue.push_back(id);
+        let ready = pending_count[id] == 0;
+        if ready && to_ops_set.contains(id) {
+            to_ops_set.insert(*id);
+            queue.push_back(*id);
         }
     }
 
     if let Some(ref loop_state) = loop_state {
         let loop_exits = loop_state.process_unused_loop_exits(&pending_count, &to_ops_set)?;
         for y in &loop_exits {
-            if is_trainable(scope, y) {
+            if is_trainable(y) {
                 set_grad(scope, &mut grads, y, &loop_state.zeros_like_for_exit(y)?)?;
                 queue.push_back(*y.get_op());
             }
         }
     }
 
-    let stop_ops = stop_ops(scope, &xs, &stop_gradients, &pending_count)?;
+    let stop_ops = {
+        let from_ops = xs.iter().map(|x| x.get_op());
+        stop_ops(scope, from_ops, &stop_gradients, &pending_count)?
+    };
     while let Some(ref op) = queue.pop_front() {
         // TODO: with _maybe_colocate_with(op, colocate_gradients_with_ops):
         if let Some(ref loop_state) = loop_state {
@@ -214,7 +217,7 @@ where
             for (i, out_grad) in out_grads.iter_mut().enumerate() {
                 if out_grad.is_none()
                     && ((grad_fn.is_none() && is_func_call)
-                        || is_trainable(scope, &(op.get_outputs(scope)?[i])))
+                        || is_trainable(&(op.get_outputs(scope)?[i])))
                 {
                     // Only floating-point outputs get a zero gradient. Gradient
                     // functions should ignore the gradient for other outputs.
@@ -282,15 +285,87 @@ where
     if let Some(ref mut loop_state) = loop_state {
         loop_state.post_processing();
     }
-    xs.into_iter().map(|x| get_grad(scope, &grads, x)).collect()
+    xs.into_iter()
+        .map(|x| get_grad(scope, &mut grads, x))
+        .collect()
 }
 
+///  Fill in default values for grad_ys.
+///
+///  ### Args:
+///    * grad_ys: List of gradients, can contain None.
+///    * ys: List of tensors.
+///    * colocate_gradients_with_ops: If True, try colocating gradients with
+///      the corresponding op.
+///
+///  ### Returns:
+///    A list of gradients to use, without None.
 fn default_grad_ys(
-    grads: Vec<Option<Tensor>>,
+    scope: &mut Scope,
+    grad_ys: Vec<Option<Tensor>>,
     ys: &[Tensor],
     colocate_gradients_with_ops: bool,
 ) -> Result<Vec<Tensor>> {
-    unimplemented!()
+    if grad_ys.len() != ys.len() {
+        return Err(Error::from(format!(
+            "Passed {} grad_ys for {} ys",
+            grad_ys.len(),
+            ys.len()
+        )));
+    }
+    let mut new_grad_ys = vec![];
+    for i in 0..grad_ys.len() {
+        let grad_y = &grad_ys[i];
+        let y = &ys[i];
+        // TODO: with _maybe_colocate_with(y.op, colocate_gradients_with_ops):
+        if grad_y.is_none() {
+            if y.dtype.is_complex() {
+                return Err(Error::from(format!(
+                    "Gradients of complex tensors must set grad_ys (y.dtype = {:?})",
+                    y.dtype
+                )));
+            }
+            let g = {
+                let s = array_ops::shape(scope, y, None, "")?;
+                // ($context:ident; $dtype:expr; $val:expr; $shape:expr; $name:expr)
+                let c =
+                    dtype_to_const!(scope; y.dtype; &[1]; &[] as &[i32]; format!("grad_ys_{}", i))?;
+                array_ops::fill(scope, s, c, "")?
+            };
+            new_grad_ys.push(g);
+            continue;
+        }
+        let grad_y = grad_y.unwrap();
+        if y.dtype.is_floating() || y.dtype.is_integer() {
+            if !grad_y.dtype.is_floating() || !grad_y.dtype.is_integer() {
+                return Err(Error::from(format!(
+                    "Gradient type {:?} generated for real or 
+                    integer-valued tensor {:?} with type {:?} must be 
+                    real or integer",
+                    grad_y.dtype, y, y.dtype
+                )));
+            }
+        } else if y.dtype.is_complex() {
+            if !grad_y.dtype.is_complex() {
+                return Err(Error::from(format!(
+                    "Gradient type {:?} generated for complex-valued
+                    tensor {:?} with type {:?} must be real",
+                    grad_y.dtype, y, y.dtype
+                )));
+            }
+        } else {
+            return Err(Error::from(format!(
+                "Tensor {:?} with type {:?} must be numeric
+                to obtain a default gradient",
+                y, y.dtype
+            )));
+        }
+        // Create a grad_y tensor in the name scope of the gradient.
+        // Required for TensorArrays to identify which gradient call a
+        // grad_y value is coming from.
+        new_grad_ys.push(scope.identity(grad_y, format!("grad_ys_{}", i))?)
+    }
+    Ok(new_grad_ys)
 }
 
 /// Sets gradient `grad` in `grads` for tensor `t`.
@@ -329,39 +404,182 @@ fn set_grad(
 /// Gets gradient for tensor `t`.
 fn get_grad(
     scope: &Scope,
-    grads: &HashMap<NodeIdent, Vec<Vec<Tensor>>>,
+    grads: &mut HashMap<NodeIdent, Vec<Vec<Tensor>>>,
     t: Tensor,
 ) -> Result<Option<Vec<Tensor>>> {
     let op = t.get_op();
-    if let Some(op_grads) = grads.get(&op) {
-        Ok(Some(op_grads[t.idx as usize].clone()))
+    if let Some(mut op_grads) = grads.remove(&op) {
+        Ok(Some(op_grads.remove(t.idx as usize)))
     } else {
         Ok(None)
     }
 }
 
-fn pending_count(
+///  Initialize the pending count for ops between two lists of Operations.
+///
+///  'pending_count[op._id]' indicates the number of backprop inputs
+///  to this operation.
+///
+///  ### Args:
+///    * to_ops: list of Operations.
+///    * from_ops: list of Operations.
+///    * colocate_gradients_with_ops: Python bool.  See docstring of gradients().
+///
+///  ### Returns:
+///    A tuple containing: (1) a list of integers indexed by operation id,
+///    indicating the number of backprop inputs to this operation, and (2)
+///    a ControlFlowState object which is not None if the ops between from_ops
+///    and to_ops contain control flow loops.
+fn pending_count<'a, I: 'a>(
     scope: &mut Scope,
-    to_ops: &[Tensor],
-    from_ops: &[Tensor],
+    to_ops: &[&NodeIdent],
+    from_ops: I,
     colocate_gradients_with_ops: bool,
-) -> Result<(HashMap<NodeIdent, usize>, Option<ControlFlowState>)> {
-    unimplemented!()
+) -> Result<(HashMap<NodeIdent, usize>, Option<ControlFlowState>)>
+where
+    I: Iterator<Item = &'a NodeIdent>,
+{
+    let mut queue = VecDeque::new();
+    // Mark reachable ops from from_ops.
+    let mut reached_ops = HashMap::new();
+    for op in to_ops {
+        reached_ops.insert(**op, true);
+        queue.push_back(**op);
+    }
+    mark_reached_ops(scope, from_ops, &mut reached_ops)?;
+
+    // Mark between ops.
+    let mut between_ops = HashMap::new();
+    let mut between_op_list = Vec::new();
+    while let Some(op) = queue.pop_front() {
+        // We are interested in this op.
+        if let Some(val) = reached_ops.get_mut(&op) {
+            between_ops.insert(op, true);
+            between_op_list.push(op);
+            // Clear the boolean so we won't add the inputs again.
+            *val = false;
+            for inp in op.get_inputs(scope)? {
+                queue.push_back(*inp.get_op());
+            }
+        }
+    }
+
+    // 'loop_state' is None if there are no while loops.
+    let loop_state = ControlFlowState::maybe_create_control_flow_state(
+        scope,
+        &between_op_list,
+        &between_ops,
+        colocate_gradients_with_ops,
+    )?;
+
+    // Initialize pending count for between ops.
+    let mut pending_count = HashMap::new();
+    for op in between_op_list {
+        for x in op.get_inputs(scope)? {
+            if between_ops[x.get_op()] {
+                let val = pending_count.entry(*x.get_op()).or_insert(0);
+                *val += 1
+            }
+        }
+    }
+    Ok((pending_count, loop_state))
 }
 
-fn stop_ops(
+/// Mark all ops reached from "from_ops".
+///
+/// ### Args:
+///   * from_ops: list of Operations.
+///   * reached_ops: list of booleans, indexed by operation id.
+fn mark_reached_ops<'a, I: 'a>(
+    scope: &Scope,
+    from_ops: I,
+    reached_ops: &mut HashMap<NodeIdent, bool>,
+) -> Result<()>
+where
+    I: Iterator<Item = &'a NodeIdent>,
+{
+    let mut queue = VecDeque::<NodeIdent>::new();
+    queue.extend(from_ops);
+    while let Some(ref op) = queue.pop_front() {
+        let val = reached_ops.entry(*op).or_insert(true);
+        *val = true;
+        for output in op.get_outputs(scope)? {
+            queue.extend(output.consumers(scope)?);
+        }
+    }
+    Ok(())
+}
+
+///  The set of ops that terminate the gradient computation.
+///
+///  This computes the frontier of the forward graph *before* which backprop
+///  should stop. Operations in the returned set will not be differentiated.
+///  This set is defined as the subset of `from_ops` containing ops that have
+///  no predecessor in `from_ops`. `pending_count` is the result of
+///  `_PendingCount(g, xs, from_ops)`. An 'op' has predecessors in `from_ops`
+///  iff pending_count[op._id] > 0.
+///
+///  In addition, none of `stop_gradient_ops` will be differentiated.
+///
+///  ### Args:
+///    * from_ops: list of Operations.
+///    * stop_gradient_ops: list of Operations never to backprop through.
+///    * pending_count: List of integers, indexed by operation id.
+///
+///  ### Returns:
+///    The set of operations.
+fn stop_ops<'a, I: 'a>(
     scope: &mut Scope,
-    from_ops: &[Tensor],
+    from_ops: I,
     stop_gradients: &[Tensor],
     pending_count: &HashMap<NodeIdent, usize>,
-) -> Result<HashSet<NodeIdent>> {
-    unimplemented!()
+) -> Result<HashSet<NodeIdent>>
+where
+    I: Iterator<Item = &'a NodeIdent>,
+{
+    let mut stop_ops = HashSet::new();
+    for op in from_ops {
+        let mut is_stop_op = true;
+        for inp in op.get_inputs(scope)? {
+            let inp_op = inp.get_op();
+            if pending_count[inp_op] > 0 {
+                is_stop_op = false;
+                break;
+            }
+        }
+        if is_stop_op {
+            stop_ops.insert(*op);
+        }
+    }
+    Ok(stop_ops)
 }
 
-fn is_trainable(scope: &Scope, tensor: &Tensor) -> bool {
-    unimplemented!()
+fn is_trainable(tensor: &Tensor) -> bool {
+    match tensor.dtype {
+        DataType::BFloat16
+        | DataType::Float
+        | DataType::Double
+        | DataType::Complex64
+        | DataType::Complex128 => true,
+        _ => false,
+    }
 }
 
+///  Get the aggregated gradients for op.
+///
+///  ### Args:
+///    * grads: The map of memoized gradients.
+///    * op: The op to get gradients for.
+///    * loop_state: An object for maintaining the state of the while loops in the
+///                graph. It is of type ControlFlowState. None if the graph
+///                contains no while loops.
+///    * aggregation_method: Specifies the method used to combine gradient terms.
+///      Accepted values are constants defined in the class `AggregationMethod`.
+///
+///  ### Returns:
+///    A list of gradients, one per each output of `op`. If the gradients
+///      for a particular output is a list, this function aggregates it
+///      before returning.
 fn aggregated_grads(
     grads: &HashMap<NodeIdent, Vec<Vec<Tensor>>>,
     op: &NodeIdent,
@@ -451,6 +669,15 @@ fn update_pending_and_enqueue_ready(
 struct ControlFlowState;
 
 impl ControlFlowState {
+    fn maybe_create_control_flow_state(
+        state: &mut Scope,
+        between_op_list: &[NodeIdent],
+        between_ops: &HashMap<NodeIdent, bool>,
+        colocate_gradients_with_ops: bool,
+    ) -> Result<Option<ControlFlowState>> {
+        unimplemented!()
+    }
+
     fn process_unused_loop_exits(
         &self,
         pending_count: &HashMap<NodeIdent, usize>,

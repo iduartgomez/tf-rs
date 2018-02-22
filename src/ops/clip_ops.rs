@@ -32,7 +32,7 @@ use super::*;
 ///  ### Returns:
 ///    A clipped `Tensor`.
 pub fn clip_by_norm<Tz, Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     t: Tx,
     clip_norm: Ty,
     axes: Option<Tz>,
@@ -44,7 +44,7 @@ where
     Tz: TensorOps,
     S: AsRef<Path>,
 {
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("clip_by_norm"));
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("clip_by_norm"));
     let t = t.into_tensor(scope);
     let clip_norm = clip_norm.into_tensor(scope);
     let axes = if let Some(axes) = axes {

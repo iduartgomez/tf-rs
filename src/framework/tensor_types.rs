@@ -6,7 +6,7 @@ use tf::TensorType;
 use super::*;
 
 pub trait TensorOps {
-    fn into_tensor(self, scope: &mut Scope) -> Tensor;
+    fn into_tensor(self, context: &mut Scope) -> Tensor;
 }
 
 //pub type TensorDef<'a, T, TeS> = (&'a [T], &'a [TeS]);
@@ -15,20 +15,20 @@ macro_rules! impl_tensor_ops {
     ($T:ty) => {
         impl TensorOps for $T
         {
-            fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(&[self], &[] as &[i32], "").unwrap().into()
+            fn into_tensor(self, context: &mut Scope) -> Tensor {
+                context.constant(&[self], &[] as &[i32], "").unwrap().into()
             }
         }
 
         impl<'a> TensorOps for &'a [$T] {
-            fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(self, [self.len() as i64].as_ref(), "").unwrap().into()
+            fn into_tensor(self, context: &mut Scope) -> Tensor {
+                context.constant(self, [self.len() as i64].as_ref(), "").unwrap().into()
             }
         }
 
         impl<'a, TeS: ShapeSize> TensorOps for (&'a [$T], &'a [TeS]) {
-            fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(self.0, self.1, "").unwrap().into()
+            fn into_tensor(self, context: &mut Scope) -> Tensor {
+                context.constant(self.0, self.1, "").unwrap().into()
             }
         }
     };
@@ -36,20 +36,20 @@ macro_rules! impl_tensor_ops {
     (Trait: $TR:tt) => {
         impl<T: $TR> TensorOps for T
         {
-            fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(&[self], &[] as &[i32], "").unwrap().into()
+            fn into_tensor(self, context: &mut Scope) -> Tensor {
+                context.constant(&[self], &[] as &[i32], "").unwrap().into()
             }
         }
 
         impl<'a, T: $TR> TensorOps for &'a [T] {
-            fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(self, [self.len() as i64].as_ref(), "").unwrap().into()
+            fn into_tensor(self, context: &mut Scope) -> Tensor {
+                context.constant(self, [self.len() as i64].as_ref(), "").unwrap().into()
             }
         }
 
         impl<'a, T: $TR, TeS: ShapeSize> TensorOps for (&'a [T], &'a [TeS]) {
-            fn into_tensor(self, scope: &mut Scope) -> Tensor {
-                scope.constant(self.0, self.1, "").unwrap().into()
+            fn into_tensor(self, context: &mut Scope) -> Tensor {
+                context.constant(self.0, self.1, "").unwrap().into()
             }
         }
     };
@@ -351,6 +351,43 @@ where
         } else {
             let def = self[start..].iter().map(|x| Some(x.as_i64())).collect();
             Ok(Shape::from(Some(def)))
+        }
+    }
+}
+
+pub trait DTypeOps {
+    /// Returns whether this is a (non-quantized, real) floating point type.
+    fn is_floating(&self) -> bool;
+    /// Returns whether this is a (non-quantized) integer type.
+    fn is_integer(&self) -> bool;
+    /// Returns whether this is a complex floating point type.
+    fn is_complex(&self) -> bool;
+}
+
+impl DTypeOps for DataType {
+    fn is_floating(&self) -> bool {
+        match *self {
+            DataType::Float | DataType::Double | DataType::BFloat16 => true,
+            _ => false,
+        }
+    }
+
+    fn is_integer(&self) -> bool {
+        match *self {
+            DataType::Int32
+            | DataType::UInt8
+            | DataType::Int16
+            | DataType::Int8
+            | DataType::Int64
+            | DataType::UInt16 => true,
+            _ => false,
+        }
+    }
+
+    fn is_complex(&self) -> bool {
+        match *self {
+            DataType::Complex64 | DataType::Complex128 => true,
+            _ => false,
         }
     }
 }

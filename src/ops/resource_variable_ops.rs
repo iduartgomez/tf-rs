@@ -18,7 +18,7 @@ use super::*;
 ///  ### Returns:
 ///    The created Operation.
 pub fn resource_scatter_add<S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     resource: Tensor,
     indices: Tensor,
     updates: Tensor,
@@ -28,7 +28,7 @@ where
     S: AsRef<Path>,
 {
     let op = ResourceScatterAdd::new(resource, indices, updates, name)?;
-    scope.install(op.clone())?;
+    context.install(op.clone())?;
     Ok(op)
 }
 

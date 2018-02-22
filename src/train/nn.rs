@@ -47,7 +47,7 @@ use ops::{array_ops, math_ops, nn_ops, random_ops, ControlFlow};
 ///  ### Returns:
 ///    The normalized, scaled, offset tensor.
 pub fn batch_normalization<Tx, Tm, Tv, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     x: Tx,
     mean: Tm,
     variance: Tv,
@@ -62,7 +62,7 @@ where
     Tv: TensorOps,
     S: AsRef<Path>,
 {
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("batchnorm"));
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("batchnorm"));
     let x = x.into_tensor(scope);
     let mean = mean.into_tensor(scope);
     let variance = variance.into_tensor(scope);
@@ -174,7 +174,7 @@ add_new_op!(BiasAdd,
 ///   ### Returns:
 ///     A Tensor of the same shape of `x`.
 pub fn dropout<Tz, Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     x: Tx,
     keep_prob: Ty,
     noise_shape: Option<Tz>,
@@ -187,7 +187,7 @@ where
     Tz: TensorOps,
     S: AsRef<Path>,
 {
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("dropout"));
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("dropout"));
     let x = x.into_tensor(scope);
     let keep_prob = x.into_tensor(scope);
 
@@ -261,13 +261,13 @@ add_new_op!(LogSoftmax,
 ///
 ///  Returns:
 ///    A `Tensor`. Has the same type as `features`.
-pub fn relu<F, S>(scope: &mut Scope, features: F, name: S) -> Result<Tensor>
+pub fn relu<F, S>(context: &mut Scope, features: F, name: S) -> Result<Tensor>
 where
     F: TensorOps,
     S: AsRef<Path>,
 {
-    let features = features.into_tensor(scope);
-    scope.install(Relu::new(features, name)?)
+    let features = features.into_tensor(context);
+    context.install(Relu::new(features, name)?)
 }
 
 add_new_op!(Relu, 
@@ -407,7 +407,8 @@ fn softmax_helper(
 }
 
 /// Flattens logits' outer dimensions and keep its last dimension.
-fn flatten_outer_dims(scope: &mut Scope, logits: Tensor) -> Result<Tensor> {
+fn flatten_outer_dims(context: &mut Scope, logits: Tensor) -> Result<Tensor> {
+    let scope = &mut context.name_scope("", Some("flatten_outer_dims"));
     let r = array_ops::rank(scope, logits, "")?;
     let last_dim_size = {
         let s0 = array_ops::shape(scope, logits, None, "")?;
@@ -470,7 +471,7 @@ fn flatten_outer_dims(scope: &mut Scope, logits: Tensor) -> Result<Tensor> {
 ///  ### Returns:
 ///    Two `Tensor` objects: `mean` and `variance`.
 pub fn moments<S, Tx, TeS>(
-    scope: &mut Scope,
+    context: &mut Scope,
     x: Tx,
     axes: &[TeS],
     shift: Option<Tensor>,
@@ -482,7 +483,7 @@ where
     Tx: TensorOps,
     TeS: ShapeSize,
 {
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("moments"));
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("moments"));
     let x = x.into_tensor(scope);
     // The dynamic range of fp16 is too limited to support the collection of
     // sufficient statistics. As a workaround we simply perform the operations
@@ -564,7 +565,7 @@ where
 ///    * ValueError: If logits are scalars (need to have rank >= 1) or if the rank
 ///      of the labels is not equal to the rank of the labels minus one.
 pub fn sparse_softmax_cross_entropy_with_logits<Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     labels: Tx,
     logits: Ty,
     name: S,
@@ -575,7 +576,7 @@ where
     S: AsRef<Path>,
 {
     // Reshape logits and labels to rank 2.
-    let scope = &mut scope.name_scope(
+    let scope = &mut context.name_scope(
         name.as_ref().to_str().unwrap(),
         Some("SparseSoftmaxCrossEntropyWithLogits"),
     );
@@ -697,7 +698,7 @@ where
 ///  ### Returns:
 ///    * A `Tensor` of type `bool`. Computed Precision at `k` as a `bool Tensor`.
 pub fn in_top_k<Tx, Ty, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     predictions: Tx,
     targets: Ty,
     k: i32,
@@ -708,10 +709,10 @@ where
     Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let predictions = predictions.into_tensor(scope);
-    let targets = targets.into_tensor(scope);
-    let k = k.into_tensor(scope);
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("in_top_k"));
+    let predictions = predictions.into_tensor(context);
+    let targets = targets.into_tensor(context);
+    let k = k.into_tensor(context);
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("in_top_k"));
     scope.install(nn_ops::InTopKV2::new(predictions, targets, k, name)?)
 }
 
@@ -727,11 +728,11 @@ where
 ///
 ///  ### Returns:
 ///    A `Tensor`. Has the same type as `t`. 0-D.
-pub fn l2_loss<Tx, S>(scope: &mut Scope, t: Tx, name: S) -> Result<Tensor>
+pub fn l2_loss<Tx, S>(context: &mut Scope, t: Tx, name: S) -> Result<Tensor>
 where
     Tx: TensorOps,
     S: AsRef<Path>,
 {
-    let t = t.into_tensor(scope);
-    scope.install(nn_ops::L2Loss::new(t, name)?)
+    let t = t.into_tensor(context);
+    context.install(nn_ops::L2Loss::new(t, name)?)
 }

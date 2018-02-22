@@ -111,7 +111,7 @@ impl<'g> ClientSession<'g> {
         }
 
         let graph = &*self.context.graph.borrow();
-        let registry = &*self.context.registry.borrow();
+        let tensors = &*self.context.tensors.borrow();
 
         let mut session = if let Some(opts) = options {
             Session::new(&opts, graph)
@@ -135,7 +135,7 @@ impl<'g> ClientSession<'g> {
         // take output tokens
         let mut output_tokens = Vec::with_capacity(self.fetch.len());
         for output in &self.fetch {
-            let info = &registry[&output];
+            let info = &tensors[&output];
             output_tokens.push((
                 steep1.request_output(&info.data_origin.0, info.data_origin.1),
                 info.dtype,
@@ -143,7 +143,7 @@ impl<'g> ClientSession<'g> {
         }
         // feed input
         for &(ref token, ref inputs) in &self.feed {
-            let info = &registry[&token];
+            let info = &tensors[&token];
             let op = &info.data_origin.0;
             let idx = info.data_origin.1;
             for input in inputs {

@@ -45,7 +45,7 @@ use super::*;
 ///  ### Returns:
 ///    A `Tensor` with the same type as the tensors in `params`.
 pub fn embedding_lookup<Ty, Tx, S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     params: &[Tensor],
     ids: Tx,
     partition_strategy: &str,
@@ -57,17 +57,17 @@ where
     Ty: TensorOps,
     S: AsRef<Path>,
 {
-    let ids = ids.into_tensor(scope);
+    let ids = ids.into_tensor(context);
     let max_norm = if let Some(max_norm) = max_norm {
-        Some(max_norm.into_tensor(scope))
+        Some(max_norm.into_tensor(context))
     } else {
         None
     };
-    embedding_lookup_and_transform(scope, params, ids, partition_strategy, max_norm, None, name)
+    embedding_lookup_and_transform(context, params, ids, partition_strategy, max_norm, None, name)
 }
 
 fn embedding_lookup_and_transform<S>(
-    scope: &mut Scope,
+    context: &mut Scope,
     params: &[Tensor],
     ids: Tensor,
     partition_strategy: &str,
@@ -82,7 +82,7 @@ where
         return Err(Error::from(ErrorKind::Stub));
     }
 
-    let scope = &mut scope.name_scope(name.as_ref().to_str().unwrap(), Some("embedding_lookup"));
+    let scope = &mut context.name_scope(name.as_ref().to_str().unwrap(), Some("embedding_lookup"));
     let np = params.len() as i32; // Number of partitions
                                   // Preserve the resource variable status to avoid accidental dense reads.
     let dims = if let Some(dims) = ids.get_shape(scope).dims() {
