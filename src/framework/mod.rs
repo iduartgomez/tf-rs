@@ -1,29 +1,32 @@
 //! Built-in helpers and utilities for interfacing with TensorFlow Rust and the C API.
 
+use framework::attr_value_pb::AttrValue;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
 use uuid;
 use tf;
 
-use super::{DataType, OperationData, OperationDescription, Shape, TypedTensor};
+use super::{DataType, OperationData, OperationDescription, TensorData, TensorShape};
 use errors::{Error, ErrorKind, Result};
 
 // Macros:
 
 macro_rules! to_typed_tensor {
     [$val:expr; $shape:expr] => {{
-        TypedTensor::<T>::new($shape).with_values(&$val).unwrap()
+        TensorData::<T>::new($shape).with_values(&$val).unwrap()
     }}
 }
 
 macro_rules! clone_tensor {
     ($val:ident) => {{
-        TypedTensor::new($val.dims()).with_values(&$val).unwrap()
+        TensorData::new($val.dims()).with_values(&$val).unwrap()
     }}
 }
 
 /////////////////////
+
+pub(crate) mod attr_value_pb;
 
 mod scope;
 pub use self::scope::*;
@@ -83,7 +86,7 @@ impl NodeIdent {
         hasher.finish() as usize
     }
 
-    pub(crate) fn get_attr(&self, context: &Scope, name: &str) -> Option<FuncAttr> {
+    pub(crate) fn get_attr(&self, context: &Scope, name: &str) -> Option<AttrValue> {
         unimplemented!()
     }
 
@@ -111,7 +114,6 @@ impl NodeIdent {
                 })
                 .collect())
         } else {
-            // is not an op, is a tensor, return err
             Err(Error::from(ErrorKind::OpNotFound))
         }
     }
@@ -151,7 +153,6 @@ impl NodeIdent {
             }
             Ok(inputs)
         } else {
-            // is not an op, is a tensor, return err
             Err(Error::from(ErrorKind::OpNotFound))
         }
     }
@@ -162,9 +163,17 @@ impl NodeIdent {
         if let Some(source_op) = ops.get(self) {
             Ok(source_op.name()?)
         } else {
-            let tensor = reg.get(self)
-                .ok_or(Error::from(Error::from(ErrorKind::TensorNotFound)))?;
-            Ok(tensor.full_name.to_str().unwrap().to_owned())
+            Err(Error::from(ErrorKind::OpNotFound))
+        }
+    }
+
+    pub fn get_type(&self, context: &Scope) -> Result<String> {
+        let ops = &*context.ops.borrow();
+        let reg = &*context.tensors.borrow();
+        if let Some(source_op) = ops.get(self) {
+            Ok(source_op.op_type()?)
+        } else {
+            Err(Error::from(ErrorKind::OpNotFound))
         }
     }
 }
@@ -196,7 +205,7 @@ pub trait GetOp {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct TensorData {
+pub(crate) struct TensorReg {
     /// fully qualified name, including the scope path
     full_name: PathBuf,
     pub dtype: DataType,
@@ -204,20 +213,20 @@ pub(crate) struct TensorData {
     /// operation & operation's output index
     pub data_origin: (OperationData, i32),
     data_origin_id: NodeIdent,
-    shape: Shape,
+    shape: TensorShape,
 }
 
-impl TensorData {
+impl TensorReg {
     pub fn new(
         full_name: PathBuf,
         dtype: DataType,
         idtype: IdType,
         data_origin: (OperationData, i32),
         data_origin_id: NodeIdent,
-        shape: Shape,
-    ) -> TensorData {
-        TensorData {
-            full_name: TensorData::name_builder(full_name, data_origin.1),
+        shape: TensorShape,
+    ) -> TensorReg {
+        TensorReg {
+            full_name: TensorReg::name_builder(full_name, data_origin.1),
             dtype,
             idtype,
             data_origin,
@@ -352,7 +361,7 @@ impl Tensor {
         tensors[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
-    pub fn get_shape(&self, context: &Scope) -> Shape {
+    pub fn get_shape(&self, context: &Scope) -> TensorShape {
         let tensors = &*context.tensors.borrow();
         tensors[&self.ident].shape.clone()
     }
@@ -465,7 +474,7 @@ impl Constant {
         tensors[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
-    pub fn get_shape(&self, shape: &Scope) -> Shape {
+    pub fn get_shape(&self, shape: &Scope) -> TensorShape {
         let tensors = &*shape.tensors.borrow();
         tensors[&self.ident].shape.clone()
     }
@@ -539,7 +548,7 @@ impl Variable {
         tensors[&self.ident].full_name.to_str().unwrap().to_owned()
     }
 
-    pub fn get_shape(&self, context: &Scope) -> Shape {
+    pub fn get_shape(&self, context: &Scope) -> TensorShape {
         let tensors = &*context.tensors.borrow();
         tensors[&self.ident].shape.clone()
     }
@@ -634,22 +643,22 @@ impl TensorArray {
 /// An enumeration of the the different types of tensors.
 #[derive(Debug)]
 pub enum TensorContent {
-    Bool(TypedTensor<bool>),
-    Float(TypedTensor<f32>),
-    Double(TypedTensor<f64>),
-    UInt8(TypedTensor<u8>),
-    Int8(TypedTensor<i8>),
-    Int16(TypedTensor<i16>),
-    Int32(TypedTensor<i32>),
-    Int64(TypedTensor<i64>),
-    String(TypedTensor<String>),
-    QUInt8(TypedTensor<::QUInt8>),
-    QUInt16(TypedTensor<::QUInt16>),
-    QInt16(TypedTensor<::QInt16>),
-    QInt32(TypedTensor<::QInt32>),
-    BFloat16(TypedTensor<::BFloat16>),
-    Complex64(TypedTensor<::Complex32>),
-    Complex128(TypedTensor<::Complex64>),
+    Bool(TensorData<bool>),
+    Float(TensorData<f32>),
+    Double(TensorData<f64>),
+    UInt8(TensorData<u8>),
+    Int8(TensorData<i8>),
+    Int16(TensorData<i16>),
+    Int32(TensorData<i32>),
+    Int64(TensorData<i64>),
+    String(TensorData<String>),
+    QUInt8(TensorData<::QUInt8>),
+    QUInt16(TensorData<::QUInt16>),
+    QInt16(TensorData<::QInt16>),
+    QInt32(TensorData<::QInt32>),
+    BFloat16(TensorData<::BFloat16>),
+    Complex64(TensorData<::Complex32>),
+    Complex128(TensorData<::Complex64>),
 }
 
 impl Clone for TensorContent {
@@ -677,7 +686,7 @@ impl Clone for TensorContent {
 
 macro_rules! unwrap_tensor_content {
     ($variant:ident, $name:tt, $type:ty) => {
-        pub fn $name(self) -> TypedTensor<$type> {
+        pub fn $name(self) -> TensorData<$type> {
             match self {
                 TensorContent::$variant(val) => val,
                 _ => unreachable!()
@@ -688,8 +697,8 @@ macro_rules! unwrap_tensor_content {
 
 macro_rules! from_tensor_to_content {
     ($type:ty, $id:ident) => {
-        impl From<TypedTensor<$type>> for TensorContent {
-            fn from(tensor: TypedTensor<$type>) -> Self {
+        impl From<TensorData<$type>> for TensorContent {
+            fn from(tensor: TensorData<$type>) -> Self {
                 TensorContent::$id(tensor)
             }
         }
@@ -847,13 +856,13 @@ pub enum Attribute<'a> {
     Float(&'a [f32]),
     Bool(&'a [bool]),
     Type(&'a [DataType]),
-    Shape(&'a [Shape]),
+    TensorShape(&'a [TensorShape]),
     Tensor(Vec<TensorContent>),
 }
 
 macro_rules! collect_tensors {
     ($variant:ident, $name:tt, $type:ty) => {
-        fn $name(tensors: &[TensorContent]) -> Vec<TypedTensor<$type>> {
+        fn $name(tensors: &[TensorContent]) -> Vec<TensorData<$type>> {
             tensors.iter().map(|x| {
                 match *x {
                     TensorContent::$variant(ref val) => clone_tensor!(val),
@@ -881,12 +890,12 @@ collect_tensors!(BFloat16, collect_bfloat16_tensor, ::BFloat16);
 collect_tensors!(Complex64, collect_complex64_tensor, ::Complex32);
 collect_tensors!(Complex128, collect_complex128_tensor, ::Complex64);
 
-impl<'a, T> From<Vec<TypedTensor<T>>> for Attribute<'a>
+impl<'a, T> From<Vec<TensorData<T>>> for Attribute<'a>
 where
     T: tf::TensorType,
-    TensorContent: From<TypedTensor<T>>,
+    TensorContent: From<TensorData<T>>,
 {
-    fn from(src: Vec<TypedTensor<T>>) -> Attribute<'a> {
+    fn from(src: Vec<TensorData<T>>) -> Attribute<'a> {
         Attribute::Tensor(src.into_iter().map(|x| TensorContent::from(x)).collect())
     }
 }
@@ -906,40 +915,19 @@ attr_from_ty!(Int, i64);
 attr_from_ty!(Float, f32);
 attr_from_ty!(Bool, bool);
 attr_from_ty!(Type, DataType);
-attr_from_ty!(Shape, Shape);
+attr_from_ty!(TensorShape, TensorShape);
 
 pub(crate) struct Function;
 
-pub(crate) type GradFunc = Box<FnMut(&mut Scope, &[Option<Tensor>]) -> Result<Vec<Option<Tensor>>>>;
+pub(crate) type GradFunc =
+    Box<FnMut(&mut Scope, &NodeIdent, &[Option<Tensor>]) -> Result<Vec<Option<Tensor>>>>;
 
 impl Function {
     pub fn get_gradient_func(&self) -> Option<GradFunc> {
+        None
+    }
+
+    pub fn get_attr(&self, name: &str) -> Option<AttrValue> {
         unimplemented!()
-    }
-
-    pub fn get_attr(&self, name: &str) -> Option<FuncAttr> {
-        unimplemented!()
-    }
-}
-
-#[allow(dead_code)]
-pub(crate) enum FuncAttr {
-    S(String),
-    B(bool),
-}
-
-impl FuncAttr {
-    pub fn unwrap_b(self) -> bool {
-        match self {
-            FuncAttr::B(b) => b,
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn unwrap_s(self) -> String {
-        match self {
-            FuncAttr::S(s) => s,
-            _ => unreachable!(),
-        }
     }
 }

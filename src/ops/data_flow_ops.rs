@@ -121,7 +121,7 @@ add_new_op!(DynamicPartition,
 
                 reg.insert(
                     ident0,
-                    TensorData::new(
+                    TensorReg::new(
                         op_name.clone(),
                         dtype,
                         idtype,

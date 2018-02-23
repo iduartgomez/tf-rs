@@ -1,6 +1,5 @@
+use TensorShape;
 use super::*;
-
-use tf::Shape;
 
 /// Initializer that generates tensors with constant values.
 ///
@@ -223,7 +222,7 @@ pub(crate) fn variable_<'a, I>(
     graph: &mut Graph,
     name: &str,
     dtype: DataType,
-    shape: &Shape,
+    shape: &TensorShape,
     control_inputs: I,
 ) -> Result<OperationData>
 where

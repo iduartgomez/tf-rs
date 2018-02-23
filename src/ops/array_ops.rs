@@ -1224,7 +1224,7 @@ where
 pub(crate) fn constant<'a, T, I>(
     graph: &mut Graph,
     name: &str,
-    value: TypedTensor<T>,
+    value: TensorData<T>,
     control_inputs: I,
 ) -> Result<OperationData>
 where

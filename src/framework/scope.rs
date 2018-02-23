@@ -8,7 +8,7 @@ use tf::TensorType;
 use {Graph, Output};
 use super::{add_control_input, Attribute, Constant, ControlOp, ControlOpKind, DataType, Error,
             ErrorKind, Function, GetOp, GradFunc, IdType, NodeIdent, Operation, OperationData,
-            Result, Shape, ShapeOps, Tensor, TensorContent, TensorData, TypedTensor, Variable};
+            Result, ShapeOps, Tensor, TensorContent, TensorData, TensorReg, TensorShape, Variable};
 use ops::{array_ops, control_flow_ops, init_ops, ControlFlow};
 
 const DEFAULT_GRAPH_SEED: i64 = 87_654_321;
@@ -17,7 +17,7 @@ const DEFAULT_GRAPH_SEED: i64 = 87_654_321;
 #[derive(Debug)]
 pub struct Scope {
     /// tensors of tensors and ops
-    pub(crate) tensors: Rc<RefCell<HashMap<NodeIdent, TensorData>>>,
+    pub(crate) tensors: Rc<RefCell<HashMap<NodeIdent, TensorReg>>>,
     pub(crate) ops: Rc<RefCell<HashMap<NodeIdent, OperationData>>>,
     /// owned graph for building
     pub(crate) graph: Rc<RefCell<Graph>>,
@@ -277,7 +277,7 @@ impl Scope {
                             new_op.set_attr_type(name, val[0])?;
                         }
                     }
-                    Attribute::Shape(ref val) => {
+                    Attribute::TensorShape(ref val) => {
                         if val.len() > 1 || is_list {
                             new_op.set_attr_shape_list(name, val)?;
                         } else if !val.is_empty() {
@@ -308,7 +308,7 @@ impl Scope {
 
     #[cfg(test)]
     pub(crate) fn get_src_op<Op: GetOp>(&self, op: Op) -> (OperationData, i32) {
-        let &TensorData {
+        let &TensorReg {
             data_origin: (ref op, idx),
             ..
         } = &self.tensors.borrow()[op.get_op()];
@@ -334,7 +334,7 @@ impl Scope {
 
         fn iter_input_ls<'a>(
             input_lists: &mut ::std::slice::Iter<'a, (usize, Vec<Tensor>)>,
-            reg: &HashMap<NodeIdent, TensorData>,
+            reg: &HashMap<NodeIdent, TensorReg>,
             all_inputs: &mut Vec<OpInput>,
             args_index: &mut usize,
             ls_idx: &mut Option<usize>,
@@ -477,37 +477,37 @@ impl Scope {
             shape: &[u64],
         ) -> Result<OperationData> {
             let op_data = match dtype {
-                DataType::Bool => array_ops::constant(g, n, TypedTensor::<bool>::new(shape), &[])?,
-                DataType::Double => array_ops::constant(g, n, TypedTensor::<f64>::new(shape), &[])?,
-                DataType::Float => array_ops::constant(g, n, TypedTensor::<f32>::new(shape), &[])?,
-                DataType::Int32 => array_ops::constant(g, n, TypedTensor::<i32>::new(shape), &[])?,
-                DataType::UInt8 => array_ops::constant(g, n, TypedTensor::<u8>::new(shape), &[])?,
-                DataType::Int16 => array_ops::constant(g, n, TypedTensor::<i16>::new(shape), &[])?,
-                DataType::Int8 => array_ops::constant(g, n, TypedTensor::<i8>::new(shape), &[])?,
-                DataType::Int64 => array_ops::constant(g, n, TypedTensor::<i64>::new(shape), &[])?,
+                DataType::Bool => array_ops::constant(g, n, TensorData::<bool>::new(shape), &[])?,
+                DataType::Double => array_ops::constant(g, n, TensorData::<f64>::new(shape), &[])?,
+                DataType::Float => array_ops::constant(g, n, TensorData::<f32>::new(shape), &[])?,
+                DataType::Int32 => array_ops::constant(g, n, TensorData::<i32>::new(shape), &[])?,
+                DataType::UInt8 => array_ops::constant(g, n, TensorData::<u8>::new(shape), &[])?,
+                DataType::Int16 => array_ops::constant(g, n, TensorData::<i16>::new(shape), &[])?,
+                DataType::Int8 => array_ops::constant(g, n, TensorData::<i8>::new(shape), &[])?,
+                DataType::Int64 => array_ops::constant(g, n, TensorData::<i64>::new(shape), &[])?,
                 DataType::String => {
-                    array_ops::constant(g, n, TypedTensor::<String>::new(shape), &[])?
+                    array_ops::constant(g, n, TensorData::<String>::new(shape), &[])?
                 }
                 DataType::QUInt8 => {
-                    array_ops::constant(g, n, TypedTensor::<::QUInt8>::new(shape), &[])?
+                    array_ops::constant(g, n, TensorData::<::QUInt8>::new(shape), &[])?
                 }
                 DataType::QInt16 => {
-                    array_ops::constant(g, n, TypedTensor::<::QInt16>::new(shape), &[])?
+                    array_ops::constant(g, n, TensorData::<::QInt16>::new(shape), &[])?
                 }
                 DataType::QUInt16 => {
-                    array_ops::constant(g, n, TypedTensor::<::QUInt16>::new(shape), &[])?
+                    array_ops::constant(g, n, TensorData::<::QUInt16>::new(shape), &[])?
                 }
                 DataType::QInt32 => {
-                    array_ops::constant(g, n, TypedTensor::<::QInt32>::new(shape), &[])?
+                    array_ops::constant(g, n, TensorData::<::QInt32>::new(shape), &[])?
                 }
                 DataType::BFloat16 => {
-                    array_ops::constant(g, n, TypedTensor::<::BFloat16>::new(shape), &[])?
+                    array_ops::constant(g, n, TensorData::<::BFloat16>::new(shape), &[])?
                 }
                 DataType::Complex64 => {
-                    array_ops::constant(g, n, TypedTensor::<::Complex32>::new(shape), &[])?
+                    array_ops::constant(g, n, TensorData::<::Complex32>::new(shape), &[])?
                 }
                 DataType::Complex128 => {
-                    array_ops::constant(g, n, TypedTensor::<::Complex64>::new(shape), &[])?
+                    array_ops::constant(g, n, TensorData::<::Complex64>::new(shape), &[])?
                 }
                 _ => return Err(Error::from(ErrorKind::Stub)),
             };
@@ -602,8 +602,8 @@ impl Scope {
                     init_ident = NodeIdent::new();
                     tensors.insert(
                         init_ident.clone(),
-                        TensorData::new(
-                            TensorData::name_builder(new_var.join("init_value"), 0),
+                        TensorReg::new(
+                            TensorReg::name_builder(new_var.join("init_value"), 0),
                             dtype,
                             IdType::Constant,
                             (initial_value.clone(), 0),
@@ -633,7 +633,7 @@ impl Scope {
                 // Register variable data.
                 tensors.insert(
                     ident,
-                    TensorData::new(
+                    TensorReg::new(
                         new_var.clone(),
                         dtype,
                         IdType::Variable,
@@ -654,7 +654,7 @@ impl Scope {
             Ok(self._make_var_handle(
                 ident,
                 init_ident,
-                TensorData::name_builder(new_var.clone(), 0),
+                TensorReg::name_builder(new_var.clone(), 0),
                 dtype,
             ))
         } else {
@@ -787,7 +787,7 @@ impl Scope {
                 // Register variable data
                 tensors.insert(
                     ident,
-                    TensorData::new(
+                    TensorReg::new(
                         new_var.clone(),
                         dtype,
                         IdType::Variable,
@@ -808,7 +808,7 @@ impl Scope {
             Ok(self._make_var_handle(
                 ident,
                 *initializer.get_op(),
-                TensorData::name_builder(new_var, 0),
+                TensorReg::name_builder(new_var, 0),
                 dtype,
             ))
         } else {
@@ -905,7 +905,7 @@ impl Scope {
         ops.insert(data_origin_id.clone(), data_origin.clone());
 
         let dtype = data_origin.output_type(0);
-        let data = TensorData::new(
+        let data = TensorReg::new(
             full_name.clone(),
             dtype,
             IdType::Constant,
@@ -950,13 +950,13 @@ impl Scope {
 
         tensors.insert(
             ident,
-            TensorData::new(
-                TensorData::name_builder(full_name, 0),
+            TensorReg::new(
+                TensorReg::name_builder(full_name, 0),
                 dtype,
                 IdType::Placeholder,
                 data_origin,
                 data_origin_id.clone(),
-                Shape::from(None),
+                TensorShape::from(None),
             ),
         );
 
@@ -1072,13 +1072,13 @@ impl Scope {
         let ident = NodeIdent::new();
         tensors.insert(
             ident,
-            TensorData::new(
+            TensorReg::new(
                 full_name,
                 dtype,
                 IdType::Operation("Identity"),
                 data_origin,
                 data_origin_id.clone(),
-                Shape::from(None),
+                TensorShape::from(None),
             ),
         );
 

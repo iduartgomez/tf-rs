@@ -1,6 +1,9 @@
-use super::*;
-
 use std::collections::{HashMap, HashSet, VecDeque};
+
+use TensorShape;
+use framework::attr_value_pb::NameAttrList;
+use super::{array_ops, control_flow_ops, math_ops, DTypeOps, DataType, Error, ErrorKind, Function,
+            GetOp, GradFunc, NodeIdent, Path, Result, Scope, ShapeOps, Tensor, TensorOps};
 
 ///  Constructs symbolic derivatives of sum of `ys` w.r.t. x in `xs`.
 ///
@@ -183,7 +186,7 @@ where
         if let Some(ref loop_state) = loop_state {
             loop_state.enter_grad_while_context(op, true);
         }
-        let mut out_grads = aggregated_grads(&grads, op, &loop_state, &aggregation_method)?;
+        let mut out_grads = aggregated_grads(scope, &grads, op, &loop_state, &aggregation_method)?;
         if let Some(ref loop_state) = loop_state {
             loop_state.exit_grad_while_context(op, true);
         }
@@ -415,6 +418,22 @@ fn get_grad(
     }
 }
 
+/// Gets all gradients for op.
+fn get_grads(
+    scope: &Scope,
+    grads: &HashMap<NodeIdent, Vec<Vec<Tensor>>>,
+    op: &NodeIdent,
+) -> Result<Vec<Vec<Tensor>>> {
+    use std::iter::FromIterator;
+    if let Some(grads) = grads.get(op) {
+        Ok(grads.clone())
+    } else {
+        Ok(Vec::from_iter(
+            (0..op.get_outputs(scope)?.len()).map(|_| vec![]),
+        ))
+    }
+}
+
 ///  Initialize the pending count for ops between two lists of Operations.
 ///
 ///  'pending_count[op._id]' indicates the number of backprop inputs
@@ -565,6 +584,24 @@ fn is_trainable(tensor: &Tensor) -> bool {
     }
 }
 
+/// Backprop through a function call node op given its outputs' gradients.
+fn sym_grad(
+    scope: &mut Scope,
+    op: &NodeIdent,
+    out_grads: &[Option<Tensor>],
+) -> Result<Vec<Option<Tensor>>> {
+    let mut f_types = vec![];
+    let mut f_in = vec![];
+    for x in op.get_inputs(scope)? {
+        f_types.push(x.dtype);
+        f_in.push(x);
+    }
+    f_in.extend(out_grads.into_iter().filter_map(|x| *x));
+
+    let f = NameAttrList::new(op.get_type(scope)?);
+    functional_ops::symbolic_gradient(scope, f_in, f_types, f.serialize())
+}
+
 ///  Get the aggregated gradients for op.
 ///
 ///  ### Args:
@@ -580,16 +617,97 @@ fn is_trainable(tensor: &Tensor) -> bool {
 ///    A list of gradients, one per each output of `op`. If the gradients
 ///      for a particular output is a list, this function aggregates it
 ///      before returning.
+#[allow(unreachable_patterns)]
 fn aggregated_grads(
+    scope: &mut Scope,
     grads: &HashMap<NodeIdent, Vec<Vec<Tensor>>>,
     op: &NodeIdent,
     loop_state: &Option<ControlFlowState>,
     aggregation_method: &Option<AggregationMethod>,
 ) -> Result<Vec<Option<Tensor>>> {
+    let aggregation_method = if let Some(method) = *aggregation_method {
+        method
+    } else {
+        AggregationMethod::default()
+    };
+    match aggregation_method.clone() {
+        AggregationMethod::AddN
+        | AggregationMethod::ExperimentalTree
+        | AggregationMethod::ExperimentalAccumulateN => {}
+        _ => {
+            return Err(Error::from(format!(
+                "Invalid aggregation_method specified {:?}.",
+                aggregation_method
+            )))
+        }
+    }
+    let mut out_grads = vec![];
+    for out_grad in get_grads(scope, grads, op)? {
+        if loop_state.is_some() {
+            if !control_flow_util::is_loop_switch(op) {
+                return Err(Error::from("operation is not a loop switch"));
+            }
+            continue;
+        }
+        // Aggregate multiple gradients, and convert [] to None.
+        if !out_grad.is_empty() {
+            if out_grad.len() < 2 {
+                out_grads.push(Some(out_grad[0]));
+            } else {
+                let tensor_shape = accumulator_shape(scope, &out_grad);
+                if aggregation_method == AggregationMethod::ExperimentalAccumulateN
+                    && out_grad.len() > 2 && tensor_shape.is_fully_defined()
+                {
+                    // The benefit of using AccumulateN is that its inputs can be combined
+                    // in any order and this can allow the expression to be evaluated with
+                    // a smaller memory footprint.  When used with gpu_allocator_retry,
+                    // it is possible to compute a sum of terms which are much larger than
+                    // total GPU memory.
+                    // AccumulateN can currently only be used if we know the shape for
+                    // an accumulator variable.  If this is not known, or if we only have
+                    // 2 grads then we fall through to the "tree" case below.
+                    out_grads.push(Some(math_ops::accumulate_n(
+                        scope,
+                        out_grad,
+                        None,
+                        None,
+                        "",
+                    )?));
+                } else if aggregation_method == AggregationMethod::ExperimentalAccumulateN
+                    || aggregation_method == AggregationMethod::ExperimentalTree
+                {
+                    //  Aggregate all gradients by doing pairwise sums: this may
+                    //  reduce performance, but it can improve memory because the
+                    //  gradients can be released earlier.
+                    let name = op.get_name(scope)? + "_gradient_sum";
+                    let scope = &mut scope.name_scope(name, None);
+                    let mut running_sum = out_grad[0];
+                    for grad in out_grad.into_iter().skip(1) {
+                        running_sum = math_ops::add_n(scope, vec![running_sum, grad], "")?;
+                    }
+                    out_grads.push(Some(running_sum));
+                } else {
+                    out_grads.push(Some(multi_device_add_n(scope, out_grad)?));
+                }
+                /* TODO:
+                logging.vlog(2, "  _AggregatedGrads %d x %s using %s",
+                    len(out_grad), tensor_shape, used)
+                */
+            }
+        } else {
+            // not out_grad
+            // out_grads[i] is [], thus its aggregation is simply None.
+            out_grads.push(None);
+        }
+    }
+    Ok(out_grads)
+}
+
+fn multi_device_add_n(scope: &mut Scope, t: Vec<Tensor>) -> Result<Tensor> {
     unimplemented!()
 }
 
-fn sym_grad(scope: &mut Scope, out_grads: &[Option<Tensor>]) -> Result<Vec<Option<Tensor>>> {
+fn accumulator_shape(scope: &Scope, inputs: &[Tensor]) -> TensorShape {
     unimplemented!()
 }
 
@@ -623,7 +741,7 @@ fn maybe_compile(
         if xla_compile_2.is_none() | xla_separate_compiled_gradients_2.is_none()
             | xla_scope_2.is_none()
         {
-            return grad_fn(context, inputs);
+            return grad_fn(context, op, inputs);
         } else {
             xla_compile = xla_compile_2.unwrap().unwrap_b();
             xla_separate_compiled_gradients = xla_separate_compiled_gradients_2.unwrap().unwrap_b();
@@ -632,7 +750,7 @@ fn maybe_compile(
     }
 
     if !xla_compile {
-        return grad_fn(context, inputs);
+        return grad_fn(context, op, inputs);
     }
 
     // If the gradients are supposed to be compiled separately, we give them a
@@ -653,7 +771,7 @@ fn maybe_compile(
         }
         with ops.get_default_graph()._attr_scope(attrs):
     */
-    grad_fn(context, inputs)
+    grad_fn(context, op, inputs)
 }
 
 fn update_pending_and_enqueue_ready(
@@ -707,6 +825,7 @@ impl ControlFlowState {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AggregationMethod {
     /// All of the gradient terms are summed as part of one
     /// operation using the "AddN" op. It has the property that all
@@ -721,5 +840,26 @@ pub enum AggregationMethod {
 impl Default for AggregationMethod {
     fn default() -> AggregationMethod {
         AggregationMethod::AddN
+    }
+}
+
+mod control_flow_util {
+    use framework::NodeIdent;
+
+    pub fn is_loop_switch(op: &NodeIdent) -> bool {
+        unimplemented!()
+    }
+}
+
+mod functional_ops {
+    use super::*;
+
+    pub fn symbolic_gradient(
+        scope: &mut Scope,
+        input: Vec<Tensor>,
+        t_out: Vec<DataType>,
+        f: Vec<u8>,
+    ) -> Result<Vec<Option<Tensor>>> {
+        unimplemented!()
     }
 }

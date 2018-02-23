@@ -4,11 +4,12 @@ use std::path::{Path, PathBuf};
 
 use tf::TensorType;
 
-use super::{DataType, Graph, OperationData, Output, TypedTensor};
-use errors::*;
-
-use super::framework::*;
-use self::dtype_traits::*;
+use {DataType, Graph, OperationData, Output, TensorData};
+use errors::{Error, ErrorKind, Result};
+use framework::{add_control_input, Attribute, Constant, DTypeOps, Function, GetOp, GradFunc,
+                IdType, NodeIdent, Operation, Scope, ShapeOps, ShapeSize, Tensor, TensorOps,
+                TensorReg, Variable};
+use self::dtype_traits::Float;
 
 pub(crate) mod dtype_traits {
     use tf::TensorType;
@@ -270,7 +271,7 @@ macro_rules! add_new_op {
         };
         {
             let reg = &mut *$context.tensors.borrow_mut();
-            let data = TensorData::new(
+            let data = TensorReg::new(
                 $op_name,
                 dtype,
                 idtype,

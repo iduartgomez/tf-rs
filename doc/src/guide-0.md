@@ -107,13 +107,7 @@ let add = ops::add(root, a, b, "").unwrap();
 
 let mut session = ClientSession::new(root).unwrap();
 // Feed a <- [[1, 2], [3, 4]]
-let feed_a = {
-    let mut t = TypedTensor::<i32>::new(&[2, 2]);
-    for (i, x) in [1, 2, 3, 4].iter().enumerate() {
-        t[i] = *x;
-    }
-    t
-};
+let feed_a = TensorData::<i32>::new(&[2, 2]).with_values(&[1, 2, 3, 4]).unwrap();
 session.feed(vec![(a, vec![TensorContent::Int32(feed_a)])]);
 let outputs = session.fetch(&[add]).run(None).unwrap();
 let values = match outputs[0] {

@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 
-use tf::Shape;
+use TensorShape;
 
 use super::*;
 
@@ -299,7 +299,7 @@ where
     if pred.dtype != DataType::Bool {
         return Err(Error::from(ErrorKind::Stub));
     }
-    if pred.get_shape(context) != Shape::from(Some(vec![])) {
+    if pred.get_shape(context) != TensorShape::from(Some(vec![])) {
         let msg = format!(
             "tf: expected shape `[]` for pred Tensor on `cond` op call, found shape: `{:?}`",
             pred.get_shape(context)
@@ -804,7 +804,7 @@ fn loop_cond<S: AsRef<Path>>(context: &mut Scope, pred: Tensor, name: S) -> Resu
     if pred.dtype != DataType::Bool {
         return Err(Error::from(ErrorKind::Stub));
     }
-    if pred.get_shape(context) != Shape::from(Some(vec![])) {
+    if pred.get_shape(context) != TensorShape::from(Some(vec![])) {
         let msg = format!(
             "tf: expected shape `[]` for pred Tensor on `cond` op call, found shape: `{:?}`",
             pred.get_shape(context)
