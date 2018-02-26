@@ -11,6 +11,9 @@ use framework::{add_control_input, Attribute, Constant, DTypeOps, Function, GetO
                 TensorReg, Variable};
 use self::dtype_traits::Float;
 
+#[allow(unused_imports)]
+use framework::TensorContent;
+
 pub(crate) mod dtype_traits {
     use tf::TensorType;
 

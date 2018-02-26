@@ -13,7 +13,7 @@ fn main() {
 
     let mut session = ClientSession::new(root).unwrap();
     // Feed a <- [[1, 2], [3, 4]]
-    let feed_a = TypedTensor::<i32>::new(&[2, 2])
+    let feed_a = TensorData::<i32>::new(&[2, 2])
         .with_values(&[1, 2, 3, 4])
         .unwrap();
     session.feed(vec![(a, vec![TensorContent::Int32(feed_a)])]);

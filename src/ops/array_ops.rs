@@ -72,15 +72,15 @@ fn test_concat() {
     let op2 = concat(&mut context, vec![t1, t2], 1, "").unwrap();
     test_suite!(run_op: [op1, op2]; context, input: {});
 
-    let (src_op1, idx1) = context.get_src_op(op1);
-    let (src_op2, idx2) = context.get_src_op(op2);
+    let src_op1 = context.get_src_op(op1);
+    let src_op2 = context.get_src_op(op2);
     let g = context.unwrap_graph().unwrap();
     assert_eq!(
-        g.tensor_shape(test_suite!(out: src_op1, idx1)).unwrap(),
+        g.tensor_shape(test_suite!(out: src_op1, 0)).unwrap(),
         TensorShape::from(Some(vec![Some(4), Some(3)]))
     );
     assert_eq!(
-        g.tensor_shape(test_suite!(out: src_op2, idx2)).unwrap(),
+        g.tensor_shape(test_suite!(out: src_op2, 0)).unwrap(),
         TensorShape::from(Some(vec![Some(2), Some(6)]))
     );
 }
@@ -369,19 +369,19 @@ fn test_reshape() {
 
     let shape = context.constant(&[3, 3], [2].as_ref(), "").unwrap();
     let op1 = reshape(&mut context, x, shape, "").unwrap();
-    let (src_op1, idx1) = context.get_src_op(op1);
+    let src_op1 = context.get_src_op(op1);
 
     let shape = context.constant(&[-1], [1].as_ref(), "").unwrap();
     let op2 = reshape(&mut context, y, shape, "").unwrap();
-    let (src_op2, idx2) = context.get_src_op(op2);
+    let src_op2 = context.get_src_op(op2);
 
     let g = context.unwrap_graph().unwrap();
     assert_eq!(
-        g.tensor_shape(test_suite!(out: src_op1, idx1)).unwrap(),
+        g.tensor_shape(test_suite!(out: src_op1, 0)).unwrap(),
         TensorShape::from(Some(vec![Some(3), Some(3)]))
     );
     assert_eq!(
-        g.tensor_shape(test_suite!(out: src_op2, idx2)).unwrap(),
+        g.tensor_shape(test_suite!(out: src_op2, 0)).unwrap(),
         TensorShape::from(Some(vec![Some(9)]))
     );
 }

@@ -860,9 +860,7 @@ add_new_op!(Less,
     ],
     digest: [DEFAULT_DIGEST: Less, DTYPE_ATTR],
     extra_funcs: [], 
-    extra_attr: [
-        output_type: DataType
-    ],
+    extra_attr: [output_type: DataType],
     output: [Tensor],
 );
 

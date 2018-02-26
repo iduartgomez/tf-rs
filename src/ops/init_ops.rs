@@ -10,7 +10,7 @@ use super::*;
 /// * value: All elements of the initialized variable will be set to the corresponding value
 ///          in the value argument.
 /// * shape: Shape of the initializer.
-pub fn constant_initializer<T, Sh>(context: &mut Scope, value: T, shape: Sh) -> Result<Constant>
+pub fn constant_initializer<T, Sh>(context: &mut Scope, value: T, shape: Sh) -> Result<NodeIdent>
 where
     T: TensorType,
     Sh: ShapeOps,
@@ -20,7 +20,7 @@ where
         .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
     let total = s.iter().fold(1_i64, |acc, &x| acc * x) as usize;
     let values = vec![value; total];
-    context.constant(&values, shape, "")
+    Ok(*context.constant(&values, shape, "")?.get_op())
 }
 
 #[test]

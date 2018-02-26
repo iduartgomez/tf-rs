@@ -8,7 +8,8 @@ use tf::TensorType;
 use {Graph, Output};
 use super::{add_control_input, Attribute, Constant, ControlOp, ControlOpKind, DataType, Error,
             ErrorKind, Function, GetOp, GradFunc, IdType, NodeIdent, Operation, OperationData,
-            Result, ShapeOps, Tensor, TensorContent, TensorData, TensorReg, TensorShape, Variable};
+            Result, ShapeOps, Tensor, TensorContent, TensorData, TensorOps, TensorReg,
+            TensorShape, Variable};
 use ops::{array_ops, control_flow_ops, init_ops, ControlFlow};
 
 const DEFAULT_GRAPH_SEED: i64 = 87_654_321;
@@ -307,12 +308,8 @@ impl Scope {
     }
 
     #[cfg(test)]
-    pub(crate) fn get_src_op<Op: GetOp>(&self, op: Op) -> (OperationData, i32) {
-        let &TensorReg {
-            data_origin: (ref op, idx),
-            ..
-        } = &self.tensors.borrow()[op.get_op()];
-        (op.clone(), idx)
+    pub(crate) fn get_src_op<Op: GetOp>(&self, op: Op) -> OperationData {
+        self.ops.borrow()[op.get_op()].clone()
     }
 
     fn process_op_inputs<'a, T>(&mut self, op: &T) -> Vec<OpInput>
@@ -1036,9 +1033,10 @@ impl Scope {
     pub fn identity<S, Tx>(&mut self, tensor: Tx, name: S) -> Result<Tensor>
     where
         S: AsRef<Path>,
-        Tx: GetOp,
+        Tx: TensorOps,
     {
         self.allow_writes();
+        let tensor = tensor.into_tensor(self);
 
         let graph = &mut *self.graph.borrow_mut();
         let tensors = &mut *self.tensors.borrow_mut();
@@ -1052,7 +1050,7 @@ impl Scope {
                 )));
             }
             let src = tensors
-                .get(&tensor.get_op())
+                .get(&tensor.into())
                 .ok_or(Error::from(ErrorKind::TensorNotFound))?;
             let full_name = self.resolve_name(Some(name.as_ref()), src.idtype, false)?;
             let data_origin = (
