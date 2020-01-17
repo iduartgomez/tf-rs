@@ -146,7 +146,7 @@ where
 {
     let tensor = tensor.into_tensor(context);
     let m = context.constant(&[axis], &[] as &[TeS], "")?;
-    context.install(ExpandDims::new(tensor.into(), m.into(), name)?)
+    context.install(ExpandDims::new(tensor, m.into(), name)?)
 }
 
 add_new_op!(ExpandDims,
@@ -291,7 +291,7 @@ where
 {
     let scope = &mut context.name_scope(name.as_ref(), Some("Rank".as_ref()));
     let input_tensor = input_tensor.into_tensor(context);
-    // optimize: encode the rank as a constant when possible.
+    // OPTIMIZE: encode the rank as a constant when possible.
     if let Some(ndim) = input_tensor.get_shape(scope).dims() {
         Ok(scope.constant(&[ndim as i32], &[] as &[i32], "")?.into())
     } else {
@@ -423,7 +423,7 @@ add_new_op!(Shape,
                     _ => return Err(Error::from(ErrorKind::Stub)),
                 }
                 vec![("out_type", false, Attribute::Type(output_type))]
-            } else if output_type.len() > 0 {
+            } else if !output_type.is_empty() {
                 return Err(Error::from(ErrorKind::Stub));
             } else {
                 out = DataType::Int32;
@@ -532,7 +532,7 @@ where
     let mut squeeze = Squeeze::new(input, name)?;
     if let Some(axis) = axis {
         dims = axis.definition_i64()
-            .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+            .ok_or_else(|| Error::from(ErrorKind::UndefinedTensorShape))?;
         squeeze = squeeze.squeeze_dims(&dims);
     }
     context.install(squeeze)
@@ -1148,11 +1148,11 @@ where
         return Err(Error::from(ErrorKind::Stub));
     }
     if (x.is_none() && y.is_some()) || (x.is_some() && y.is_none()) {
-        return Err(Error::from(ErrorKind::Stub));
+        Err(Error::from(ErrorKind::Stub))
     } else if x.is_some() || y.is_some() {
         math_ops::select(context, cond, x.unwrap(), y.unwrap(), name)
     } else {
-        context.install(Where::new(cond.into(), name)?)
+        context.install(Where::new(cond, name)?)
     }
 }
 
@@ -1195,7 +1195,7 @@ where
     let def = shape
         .to_shape()
         .definition_i64()
-        .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+        .ok_or_else(|| Error::from(ErrorKind::UndefinedTensorShape))?;
     let shape = context.constant(&def, [def.len() as i32].as_ref(), "")?;
     let zero = match dtype {
         DataType::Bool => context.constant(&[false], &[] as &[i32], "")?,

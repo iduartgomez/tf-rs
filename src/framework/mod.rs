@@ -4,8 +4,8 @@ use framework::attr_value_pb::AttrValue;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 
-use uuid;
 use tf;
+use uuid;
 
 use super::{DataType, OperationData, OperationDescription, TensorData, TensorShape};
 use errors::{Error, ErrorKind, Result};
@@ -21,7 +21,7 @@ macro_rules! to_typed_tensor {
 macro_rules! clone_tensor {
     ($val:ident) => {{
         TensorData::new($val.dims()).with_values(&$val).unwrap()
-    }}
+    }};
 }
 
 /////////////////////
@@ -30,11 +30,11 @@ pub(crate) mod attr_value_pb;
 
 mod scope;
 pub use self::scope::*;
-
+//
 mod tensor_types;
-pub use self::tensor_types::{ShapeOps, ShapeSize, TensorOps};
 #[allow(unused_imports)]
 pub(crate) use self::tensor_types::DTypeOps;
+pub use self::tensor_types::{ShapeOps, ShapeSize, TensorOps};
 
 #[doc(hidden)]
 /// An interface to add and manipulate operations in the computation graph.
@@ -100,7 +100,7 @@ impl NodeIdent {
                     let mut input = Tensor {
                         ident: *id,
                         dtype: t.dtype,
-                        idtype: t.idtype.clone(),
+                        idtype: t.idtype,
                         initializer: None,
                         origin_op: None,
                         idx: t.data_origin.1,
@@ -124,12 +124,12 @@ impl NodeIdent {
         if let Some(op) = ops.get(self) {
             // first check if it's an operation
             let mut inputs = Vec::with_capacity(op.num_inputs());
-            for (source_op, idx) in (0..op.num_inputs()).into_iter().map(|i| op.input(i)) {
+            for (source_op, idx) in (0..op.num_inputs()).map(|i| op.input(i)) {
                 let source_op_name = source_op.name().unwrap();
                 let input_op = ops.iter()
                     .find(|&(_, op)| source_op_name == op.name().unwrap())
                     .map(|(id, _)| id)
-                    .ok_or(Error::from(ErrorKind::OpNotFound))?;
+                    .ok_or_else(|| Error::from(ErrorKind::OpNotFound))?;
                 inputs.extend(
                     reg.iter()
                         .filter(|&(_, t)| &t.data_origin_id == input_op)
@@ -137,7 +137,7 @@ impl NodeIdent {
                             let mut input = Tensor {
                                 ident: *id,
                                 dtype: t.dtype,
-                                idtype: t.idtype.clone(),
+                                idtype: t.idtype,
                                 initializer: None,
                                 origin_op: None,
                                 idx: t.data_origin.1,
@@ -241,7 +241,7 @@ impl TensorReg {
 
     pub fn name_builder(mut op_name: PathBuf, idx: i32) -> PathBuf {
         let mut tn = op_name.file_name().unwrap().to_str().unwrap().to_owned();
-        if tn.contains(":") {
+        if tn.contains(':') {
             op_name
         } else {
             tn += &format!(":{}", idx);
@@ -344,7 +344,7 @@ impl Tensor {
             let tensors = &*context.tensors.borrow();
             let init_data = &tensors[&initializer];
             Ok(Tensor {
-                ident: initializer.clone(),
+                ident: *initializer,
                 idtype: IdType::Constant,
                 dtype: init_data.dtype,
                 idx: init_data.data_origin.1,
@@ -374,7 +374,7 @@ impl Tensor {
         let new_shape = current_shape
             .merge_with(&shape.to_shape())?
             .definition_i64()
-            .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+            .ok_or_else(|| Error::from(ErrorKind::UndefinedTensorShape))?;
         ::ops::array_ops::reshape(context, self, new_shape.as_slice(), "")
     }
 
@@ -387,11 +387,7 @@ impl Tensor {
     }
 
     pub fn is_ref(&self) -> bool {
-        if self.idtype == IdType::Variable {
-            true
-        } else {
-            false
-        }
+        self.idtype == IdType::Variable
     }
 
     pub fn op_type(&self, context: &Scope) -> &str {
@@ -415,7 +411,7 @@ impl Tensor {
             consumers.push(ops.iter()
                 .find(|&(k, v)| &v.name().unwrap() == op_name)
                 .map(|(k, v)| *k)
-                .ok_or(Error::from(ErrorKind::Stub))?);
+                .ok_or_else(|| Error::from(ErrorKind::Stub))?);
         }
         Ok(consumers)
     }
@@ -702,7 +698,7 @@ macro_rules! from_tensor_to_content {
                 TensorContent::$id(tensor)
             }
         }
-    }
+    };
 }
 
 from_tensor_to_content!(f32, Float);
@@ -863,14 +859,15 @@ pub enum Attribute<'a> {
 macro_rules! collect_tensors {
     ($variant:ident, $name:tt, $type:ty) => {
         fn $name(tensors: &[TensorContent]) -> Vec<TensorData<$type>> {
-            tensors.iter().map(|x| {
-                match *x {
+            tensors
+                .iter()
+                .map(|x| match *x {
                     TensorContent::$variant(ref val) => clone_tensor!(val),
-                    _ => unreachable!()
-                }
-            }).collect::<Vec<_>>()
+                    _ => unreachable!(),
+                })
+                .collect::<Vec<_>>()
         }
-    }
+    };
 }
 
 collect_tensors!(Float, collect_float_tensor, f32);
@@ -896,7 +893,7 @@ where
     TensorContent: From<TensorData<T>>,
 {
     fn from(src: Vec<TensorData<T>>) -> Attribute<'a> {
-        Attribute::Tensor(src.into_iter().map(|x| TensorContent::from(x)).collect())
+        Attribute::Tensor(src.into_iter().map(TensorContent::from).collect())
     }
 }
 
@@ -920,7 +917,7 @@ attr_from_ty!(TensorShape, TensorShape);
 pub(crate) struct Function;
 
 pub(crate) type GradFunc =
-    Box<FnMut(&mut Scope, &NodeIdent, &[Option<Tensor>]) -> Result<Vec<Option<Tensor>>>>;
+    Box<dyn FnMut(&mut Scope, &NodeIdent, &[Option<Tensor>]) -> Result<Vec<Option<Tensor>>>>;
 
 impl Function {
     pub fn get_gradient_func(&self) -> Option<GradFunc> {

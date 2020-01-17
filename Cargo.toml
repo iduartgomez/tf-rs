@@ -1,6 +1,6 @@
 [package]
 name = "tf-rs"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Ignacio Duart <iduart@gmail.com>"]
 
 description = "High level (Pythonic) API for the TensorFlow framework."
@@ -9,15 +9,15 @@ homepage = "https://github.com/iduartgomez/tf-rs"
 repository = "https://github.com/iduartgomez/tf-rs"
 readme = "README.md"
 keywords = ["tensorflow", "API"]
-categories = ["api-bindings"]
+categories = ["passively-maintained"]
 license = "Apache-2.0/MIT"
 
 [badges]
 travis-ci = { repository = "iduartgomez/tf-rs", branch = "master" }
-maintenance = { status = "actively-developed" }
+maintenance = { status = "as-is" }
 
 [dependencies]
-tensorflow = { version = "0.7.0" }
-uuid = { version = "0.4", features = ["v4"] }
-num-complex = { version = "0.1.40", default-features = false }
-error-chain = "0.11.0"
+tensorflow = { version = "0.14.0" }
+uuid = { version = "0.8", features = ["v4"] }
+num-complex = { version = "0.2.4", default-features = false }
+error-chain = "0.12"

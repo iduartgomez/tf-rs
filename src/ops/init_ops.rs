@@ -17,7 +17,7 @@ where
 {
     let s = shape
         .definition_i64()
-        .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+        .ok_or_else(|| Error::from(ErrorKind::UndefinedTensorShape))?;
     let total = s.iter().fold(1_i64, |acc, &x| acc * x) as usize;
     let values = vec![value; total];
     Ok(*context.constant(&values, shape, "")?.get_op())
@@ -130,7 +130,7 @@ fn test_random_normal_initializer() {
 }
 
 /// Initializer that generates tensors initialized to 0.
-pub fn zeros_initializer<'a, Sh>(
+pub fn zeros_initializer<Sh>(
     context: &mut Scope,
     shape: Sh,
     dtype: DataType,
@@ -141,7 +141,7 @@ where
     // TODO: rewrite this function so it's less inefficient, avoid extra allocation of "vals"
     let def = shape
         .definition_u64()
-        .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+        .ok_or_else(|| Error::from(ErrorKind::UndefinedTensorShape))?;
     let elem_num: u64 = def.into_iter().product();
     let elem_num = elem_num as usize;
     match dtype {

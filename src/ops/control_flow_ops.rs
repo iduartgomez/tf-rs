@@ -7,14 +7,13 @@ use TensorShape;
 
 use super::*;
 
-type CondSubGraph<'a> = Box<FnMut(&mut Scope) -> Result<Vec<Tensor>> + 'a>;
-type WhileCondGraph<'a> = Box<FnMut(&mut Scope, &mut [Tensor]) -> Result<Tensor> + 'a>;
-type WhileBodyGraph<'a> = Box<FnMut(&mut Scope, &mut [Tensor]) -> Result<Vec<Tensor>> + 'a>;
+type CondSubGraph<'a> = Box<dyn FnMut(&mut Scope) -> Result<Vec<Tensor>> + 'a>;
+type WhileCondGraph<'a> = Box<dyn Fn(&mut Scope, &[Tensor]) -> Result<Tensor> + 'a>;
+type WhileBodyGraph<'a> = Box<dyn Fn(&mut Scope, &[Tensor]) -> Result<Vec<Tensor>> + 'a>;
 
 #[derive(Debug, Clone)]
 pub(crate) enum ControlFlow {
     CondContext(CondContext),
-    WhileContext(WhileContext),
     None,
 }
 
@@ -32,20 +31,6 @@ impl ControlFlow {
             _ => None,
         }
     }
-
-    fn get_while_loop(&self) -> Option<&WhileContext> {
-        match *self {
-            ControlFlow::WhileContext(ref while_loop) => Some(while_loop),
-            _ => None,
-        }
-    }
-
-    fn get_mut_while_loop(&mut self) -> Option<&mut WhileContext> {
-        match *self {
-            ControlFlow::WhileContext(ref mut while_loop) => Some(while_loop),
-            _ => None,
-        }
-    }
 }
 
 impl PartialEq for ControlFlow {
@@ -53,13 +38,6 @@ impl PartialEq for ControlFlow {
         match *self {
             ControlFlow::CondContext(_) => {
                 if let ControlFlow::CondContext(_) = *rhs {
-                    true
-                } else {
-                    false
-                }
-            }
-            ControlFlow::WhileContext(_) => {
-                if let ControlFlow::WhileContext(_) = *rhs {
                     true
                 } else {
                     false
@@ -404,15 +382,9 @@ impl CondContextInterface for Scope {
         self.allow_writes();
         let name = self.resolve_scope_name(name, "cond");
         let mut context = self.as_new_child(name);
-        match context.control_context {
-            ControlFlow::CondContext(ref mut cond) => {
-                cond_context.values.extend(cond.values.iter())
-            }
-            ControlFlow::WhileContext(ref whileloop) => {
-                cond_context.values.extend(whileloop.values.iter())
-            }
-            _ => {}
-        }
+        if let ControlFlow::CondContext(ref mut cond) = context.control_context {
+            cond_context.values.extend(cond.values.iter())
+        };
         context.control_context = ControlFlow::CondContext(cond_context);
         context
     }
@@ -471,10 +443,10 @@ where
     context.install(Switch::new(data, pred, name)?)
 }
 
-/// Forwards `data` to the output port determined by `pred`.
-///
-/// If `pred` is true, the `data` input is forwarded to `output_true`. Otherwise,
-/// the data goes to `output_false`.
+// Forwards `data` to the output port determined by `pred`.
+//
+// If `pred` is true, the `data` input is forwarded to `output_true`. Otherwise,
+// the data goes to `output_false`.
 add_new_op!(Switch,
     constructor: [add_new_op!(BIN CONSTRUCTOR: Switch, Init: []);],
     digest: [DIGEST_BIN_OUT: Switch, INPUT0, INPUT0],
@@ -501,10 +473,10 @@ where
     context.install(RefSwitch::new(data, pred, name)?)
 }
 
-/// Forwards `data` to the output port determined by `pred`.
-///
-/// If `pred` is true, the `data` input is forwarded to `output_true`. Otherwise,
-/// the data goes to `output_false`.
+// Forwards `data` to the output port determined by `pred`.
+//
+// If `pred` is true, the `data` input is forwarded to `output_true`. Otherwise,
+// the data goes to `output_false`.
 add_new_op!(RefSwitch,
     constructor: [add_new_op!(BIN CONSTRUCTOR: RefSwitch, Init: []);],
     digest: [DIGEST_BIN_OUT: RefSwitch, INPUT0, INPUT0],
@@ -522,13 +494,13 @@ where
     context.install(Merge::new(values, name)?)
 }
 
-/// Forwards the value of an available tensor from `inputs` to `output`.
-///
-/// `Merge` waits for at least one of the tensors in `inputs` to become available.
-/// It is usually combined with `Switch` to implement branching.
-///
-/// `Merge` forwards the first tensor to become available to `output`, and sets
-/// `value_index` to its index in `inputs`.
+// Forwards the value of an available tensor from `inputs` to `output`.
+//
+// `Merge` waits for at least one of the tensors in `inputs` to become available.
+// It is usually combined with `Switch` to implement branching.
+//
+// `Merge` forwards the first tensor to become available to `output`, and sets
+// `value_index` to its index in `inputs`.
 add_new_op!(Merge,
     constructor: [
         fn new<S: AsRef<Path>>(values: Vec<Tensor>, name: S) -> Result<Merge<'a>> {
@@ -600,185 +572,82 @@ add_new_op!(RefMerge,
 /// as `loop_vars`. `loop_vars` is a list of tensors that is passed to both
 /// `cond` and `body`.
 #[allow(dead_code)]
-fn while_loop<'a, S>(
+fn while_loop<S>(
     context: &mut Scope,
-    pred: WhileCondGraph,
+    cond: WhileCondGraph,
     body: WhileBodyGraph,
-    loop_vars: &mut [Tensor],
+    loop_vars: &[Tensor],
     name: S,
 ) -> Result<Vec<Tensor>>
 where
     S: AsRef<Path>,
 {
-    use self::WhileContextInterface;
-
     let name = if name_cmp!(name, "") {
-        Path::new("while")
+        "while"
     } else {
         name.as_ref()
+            .to_str()
+            .ok_or_else(|| Error::from(ErrorKind::NoneError))?
     };
 
-    let scope = &mut context.loop_scope(WhileContext::new(name.to_str().unwrap().to_owned()), name);
-    scope.build_loop(pred, body, loop_vars)
-}
+    // println!("MAIN GRAPH: {:#?}", context.graph.borrow());
+    let inputs: Vec<_> = loop_vars
+        .iter()
+        .map(|x| Output {
+            operation: context.get_src_op(x),
+            index: x.idx,
+        })
+        .collect();
 
-#[derive(Debug, Clone)]
-pub(crate) struct WhileContext {
-    pub name: String,
-    /// Values considered to have been already seen in this context.
-    pub values: HashSet<NodeIdent>,
-    /// Values referenced by but external to this context.
-    pub external_values: HashMap<NodeIdent, Tensor>,
-    /// The boolean tensor for loop termination condition.
-    pub pivot: Option<Tensor>,
-    /// We use this node to control constants created by the pred lambda.
-    pub pivot_for_pred: Option<Tensor>,
-    /// We use this node to control constants created by the body lambda.
-    pub pivot_for_body: Option<Tensor>,
-    /// The list of exit tensors for loop variables.
-    pub loop_exits: Vec<Tensor>,
-    /// The list of enter tensors for loop variables.
-    pub loop_enters: Vec<Tensor>,
-}
+    let pred_fn = |g: &mut Graph, lv: &[Output]| -> tf::Result<Output> {
+        println!("PRED_LV");
 
-impl WhileContext {
-    #[allow(dead_code)]
-    fn new(name: String) -> WhileContext {
-        WhileContext {
-            name,
-            pivot: None,
-            pivot_for_body: None,
-            pivot_for_pred: None,
-            values: HashSet::new(),
-            external_values: HashMap::new(),
-            loop_exits: vec![],
-            loop_enters: vec![],
-        }
-    }
-}
+        let mut scope = context.clone();
+        // let tensor_names = inputs
+        //     .iter()
+        //     .map(|x| x.operation.name().unwrap())
+        //     .collect::<Vec<_>>();
 
-pub(crate) trait WhileContextInterface {
-    fn loop_scope<S: AsRef<Path>>(&mut self, cond_context: WhileContext, name: S) -> Scope;
-    fn build_loop(
-        &mut self,
-        pred: WhileCondGraph,
-        body: WhileBodyGraph,
-        loop_vars: &mut [Tensor],
-    ) -> Result<Vec<Tensor>>;
+        // let lv: Vec<_> = lv.iter()
+        //     .map(|x| context.get_tensor_from_data(x.index, x.operation.clone()))
+        //     .collect::<Result<Vec<_>>>()?;
+        let result = cond(&mut scope, loop_vars)?;
 
-    fn initialize_values(&mut self, values: &[Tensor]);
-    fn exit_result(&mut self, result: &[Tensor]);
-}
+        Ok(Output {
+            operation: scope.get_src_op(result),
+            index: result.idx,
+        })
+    };
 
-macro_rules! while_context {
-    (mut $ctx:ident) => ($ctx.control_context.get_mut_while_loop().unwrap());
-    ($ctx:ident) => ($ctx.control_context.get_while_loop().unwrap());
-}
+    let body_fn = |g: &mut Graph, lv: &[Output]| -> tf::Result<Vec<Output>> {
+        println!("BODY_LV");
+        let mut scope = context.clone();
+        // let lv: Vec<_> = lv.iter()
+        //     .map(|x| context.get_tensor_from_data(x.index, x.operation.clone()))
+        //     .collect::<Result<Vec<_>>>()?;
+        let result = body(&mut scope, loop_vars)?;
 
-impl WhileContextInterface for Scope {
-    fn loop_scope<S: AsRef<Path>>(&mut self, mut cond_context: WhileContext, name: S) -> Scope {
-        self.allow_writes();
-        let name = self.resolve_scope_name(name, "cond");
-        let mut context = self.as_new_child(name);
-        match context.control_context {
-            ControlFlow::CondContext(ref cond) => cond_context.values.extend(cond.values.iter()),
-            ControlFlow::WhileContext(ref whileloop) => {
-                cond_context.values.extend(whileloop.values.iter())
-            }
-            _ => {}
-        }
-        context.control_context = ControlFlow::WhileContext(cond_context);
-        context
-    }
-
-    fn build_loop(
-        &mut self,
-        mut pred: WhileCondGraph,
-        mut body: WhileBodyGraph,
-        loop_vars: &mut [Tensor],
-    ) -> Result<Vec<Tensor>> {
-        // Let the context know the loop variables so the loop variables
-        // would be added in the outer contexts properly.
-        self.initialize_values(loop_vars);
-        //let real_vars = loop_vars;
-        let enter_vars;
-        {
-            let scope = &mut self.clear_control_dependencies();
-            let name = self.own_scope.name.to_str().unwrap();
-            enter_vars = loop_vars
-                .iter()
-                .map(|x| enter(scope, *x, name, ""))
-                .collect::<Result<Vec<_>>>()?;
-            for x in &enter_vars {
-                scope.prevent_feeding(x);
-            }
-        }
-
-        self.initialize_values(&enter_vars);
-        while_context!(mut self).loop_enters = enter_vars.clone();
-
-        /*
-        let mut merge_vars = Vec::with_capacity(loop_vars.len());
-        for x in loop_vars {
-            merge_vars.push(merge(self, vec![*x, *x], "")?.0);
-        }
-        while_context!(mut self).pivot_for_pred = Some(merge_vars[0]);
-        */
-
-        // Build the graph for pred.
-        let c = pred(self, loop_vars)?;
-        while_context!(mut self).pivot = Some(loop_cond(self, c, "LoopCond")?);
-        let switch_vars = loop_vars
+        Ok(result
             .iter()
-            .map(|x| {
-                let pivot = while_context!(self).pivot.unwrap();
-                switch_ref_or_tensor(self, *x, pivot)
+            .map(|x| Output {
+                operation: scope.get_src_op(x),
+                index: x.idx,
             })
-            .collect::<Result<Vec<_>>>()?;
+            .collect::<Vec<_>>())
+    };
 
-        // Build the graph for the body.
-        let mut vars_for_body = switch_vars
-            .iter()
-            .map(|&(_, x)| self.identity(x, ""))
-            .collect::<Result<Vec<_>>>()?;
-        while_context!(mut self).pivot_for_body = Some(vars_for_body[0]);
-        let body_result = body(self, &mut vars_for_body)?;
-
-        // Add NextIteration and the back edges to complete the loop.
-        let _next_vars = enter_vars
-            .iter()
-            .zip(body_result.iter())
-            .map(|(i, v)| add_next_and_back_edge(self, *i, *v))
-            .collect::<Result<Vec<_>>>()?;
-
-        // Add the exit ops.
-        let exit_vars = switch_vars
-            .iter()
-            .map(|&(x, _)| exit(self, x, ""))
-            .collect::<Result<Vec<_>>>()?;
-        while_context!(mut self).loop_exits = exit_vars.clone();
-
-        // Exit the loop.
-        self.exit_result(&exit_vars);
-        Ok(exit_vars)
-    }
-
-    /// Makes the values known to this context.
-    fn initialize_values(&mut self, values: &[Tensor]) {
-        let outside_values = &mut while_context!(mut self).values;
-        *outside_values = HashSet::new();
-        for x in values {
-            outside_values.insert(x.ident);
-        }
-    }
-
-    /// Make a list of tensors available in the outer context.
-    fn exit_result(&mut self, result: &[Tensor]) {
-        let ctxt = while_context!(mut self);
-        for e in result {
-            ctxt.values.insert(e.ident);
-        }
-    }
+    let graph = unsafe {
+        // Make sure the graph is not borrowed:
+        context.graph.try_borrow_mut()?;
+        // Is safe to get a mutable reference to the graph:
+        &mut *(&mut *context.graph.borrow_mut() as *mut _)
+    };
+    tf::WhileBuilder::new(graph, pred_fn, body_fn, inputs.as_ref())?
+        .name(name)?
+        .finish()?
+        .iter()
+        .map(|x| context.get_tensor_from_data(x.index, x.operation.clone()))
+        .collect()
 }
 
 fn switch_ref_or_tensor(scope: &mut Scope, data: Tensor, pred: Tensor) -> Result<(Tensor, Tensor)> {
@@ -789,159 +658,6 @@ fn switch_ref_or_tensor(scope: &mut Scope, data: Tensor, pred: Tensor) -> Result
         switch(scope, data, pred, "Switch")
     }
 }
-
-fn add_next_and_back_edge(scope: &mut Scope, m: Tensor, v: Tensor) -> Result<(Tensor, Tensor)> {
-    let next_iter = if v.is_ref() {
-        scope.install(RefNextIteration::new(v, "")?)?
-    } else {
-        scope.install(NextIteration::new(v, "")?)?
-    };
-    //m.op._update_input(1, v)
-    merge(scope, vec![m, next_iter], "")
-}
-
-fn loop_cond<S: AsRef<Path>>(context: &mut Scope, pred: Tensor, name: S) -> Result<Tensor> {
-    if pred.dtype != DataType::Bool {
-        return Err(Error::from(ErrorKind::Stub));
-    }
-    if pred.get_shape(context) != TensorShape::from(Some(vec![])) {
-        let msg = format!(
-            "tf: expected shape `[]` for pred Tensor on `cond` op call, found shape: `{:?}`",
-            pred.get_shape(context)
-        );
-        return Err(Error::from(msg));
-    }
-    context.install(LoopCond::new(pred, name)?)
-}
-
-/// Forwards the input to the output.
-///
-/// This operator represents the loop termination condition used by the
-/// "pivot" switches of a loop.
-add_new_op!(LoopCond,
-    constructor: [add_new_op!(UNARY CONSTRUCTOR: LoopCond, Init: []);],
-    digest: [DEFAULT_DIGEST: LoopCond, INPUT0],
-    extra_funcs: [], 
-    extra_attr: [],
-    output: [Tensor],
-);
-
-/// Creates or finds a child frame, and makes `data` available to it.
-///
-/// The unique `frame_name` is used by the `Executor` to identify frames. If
-/// `is_constant` is true, `data` is a constant in the child frame; otherwise
-/// it may be changed in the child frame. At most `parallel_iterations`
-/// iterations are run in parallel in the child frame.
-fn enter<S>(scope: &mut Scope, data: Tensor, frame_name: &str, name: S) -> Result<Tensor>
-where
-    S: AsRef<Path>,
-{
-    if data.is_ref() {
-        let fname = &[frame_name];
-        let enter = RefEnter::new(data, name)?.frame_name(fname);
-        scope.install(enter)
-    } else {
-        let fname = &[frame_name];
-        let enter = Enter::new(data, name)?.frame_name(fname);
-        scope.install(enter)
-    }
-}
-
-add_new_op!(Enter,
-    constructor: [add_new_op!(UNARY CONSTRUCTOR: Enter, Init: []);],
-    digest: [DEFAULT_DIGEST: Enter, INPUT0],
-    extra_funcs: [
-        fn frame_name(mut self, val: &'a [&str]) -> Self {
-            self.attributes.push(("frame_name", false, Attribute::String(val)));
-            self
-        }
-
-        #[allow(dead_code)]
-        fn is_constant(mut self, val: &'a [bool]) -> Self {
-            self.attributes.push(("is_constant", false, Attribute::Bool(val)));
-            self
-        }
-
-        #[allow(dead_code)]
-        fn parallel_iterations(mut self, val: &'a [i64]) -> Self {
-            self.attributes.push(("parallel_iterations", false, Attribute::Int(val)));
-            self
-        }
-    ], 
-    extra_attr: [],
-    output: [Tensor],
-);
-
-add_new_op!(RefEnter,
-    constructor: [add_new_op!(UNARY CONSTRUCTOR: RefEnter, Init: []);],
-    digest: [DEFAULT_DIGEST: RefEnter, INPUT0],
-    extra_funcs: [
-        fn frame_name(mut self, val: &'a [&str]) -> Self {
-            self.attributes.push(("frame_name", false, Attribute::String(val)));
-            self
-        }
-
-        #[allow(dead_code)]
-        fn is_constant(mut self, val: &'a [bool]) -> Self {
-            self.attributes.push(("is_constant", false, Attribute::Bool(val)));
-            self
-        }
-
-        #[allow(dead_code)]
-        fn parallel_iterations(mut self, val: &'a [i64]) -> Self {
-            self.attributes.push(("parallel_iterations", false, Attribute::Int(val)));
-            self
-        }
-    ], 
-    extra_attr: [],
-    output: [Tensor],
-);
-
-/// Exits the current frame to its parent frame.
-///
-/// Exit makes its input `data` available to the parent frame.
-fn exit<S>(scope: &mut Scope, data: Tensor, name: S) -> Result<Tensor>
-where
-    S: AsRef<Path>,
-{
-    if data.is_ref() {
-        scope.install(RefExit::new(data, name)?)
-    } else {
-        scope.install(Exit::new(data, name)?)
-    }
-}
-
-add_new_op!(Exit,
-    constructor: [add_new_op!(UNARY CONSTRUCTOR: Exit, Init: []);],
-    digest: [DEFAULT_DIGEST: Exit, INPUT0],
-    extra_funcs: [], 
-    extra_attr: [],
-    output: [Tensor],
-);
-
-add_new_op!(RefExit,
-    constructor: [add_new_op!(UNARY CONSTRUCTOR: RefExit, Init: []);],
-    digest: [DEFAULT_DIGEST: RefExit, INPUT0],
-    extra_funcs: [], 
-    extra_attr: [],
-    output: [Tensor],
-);
-
-add_new_op!(NextIteration,
-    constructor: [add_new_op!(UNARY CONSTRUCTOR: NextIteration, Init: []);],
-    digest: [DEFAULT_DIGEST: NextIteration, INPUT0],
-    extra_funcs: [], 
-    extra_attr: [],
-    output: [Tensor],
-);
-
-add_new_op!(RefNextIteration,
-    constructor: [add_new_op!(UNARY CONSTRUCTOR: RefNextIteration, Init: []);],
-    digest: [DEFAULT_DIGEST: RefNextIteration, INPUT0],
-    extra_funcs: [], 
-    extra_attr: [],
-    output: [Tensor],
-);
 
 ///// Tuple /////
 
@@ -987,7 +703,7 @@ where
     // Note that in order to ensure ordering in the pbtxt, we must take care to
     // ensure the order here.
     let gating_ops: HashSet<NodeIdent> = HashSet::from_iter(gating_ops.into_iter());
-    if gating_ops.len() == 0 {
+    if gating_ops.is_empty() {
         return Err(Error::from(
             "`tuple` op must have at least one input Tensor or Operation.",
         ));
@@ -1014,7 +730,7 @@ impl Group {
         T: GetOp,
         S: AsRef<Path>,
     {
-        let graph = &mut *scope.graph.borrow_mut();
+        let graph = &mut scope.graph.borrow_mut();
         let tensors = &*scope.tensors.borrow();
         let ops_reg = &mut *scope.ops.borrow_mut();
 
@@ -1026,7 +742,7 @@ impl Group {
                 } else {
                     ops_reg
                         .get(x.get_op())
-                        .ok_or(Error::from(ErrorKind::OpNotFound))?
+                        .ok_or_else(|| Error::from(ErrorKind::OpNotFound))?
                 };
                 ctrl_ops.push(op);
             }
@@ -1151,27 +867,35 @@ mod test {
         test_suite!(r; assert: {[0;Int32] == [40_i32], [1;Int32] == [40_i32]});
     }
 
-    #[ignore]
     #[test]
     fn test_while_loop() {
+        println!("\nTEST WHILE LOOP\n");
         let mut context = Scope::new();
-        let x = context.constant(&[0_i32], &[] as &[i32], "").unwrap();
+        let counter = context
+            .constant(&[0_i32], &[] as &[i32], "Const=0")
+            .unwrap();
 
-        let pred = Box::new(move |scope: &mut Scope, loop_vars: &mut [Tensor]| {
-            let y = scope.constant(&[10_i32], &[] as &[i32], "").unwrap();
+        let pred = Box::new(|scope: &mut Scope, loop_vars: &[Tensor]| {
+            println!("ENTERED PRED FUNC");
+            let y = scope
+                .constant(&[10_i32], &[] as &[i32], "Pred-Const=10")
+                .unwrap();
             let x = loop_vars[0];
             less(scope, x, y, "")
         });
 
         let body = Box::new(
-            move |scope: &mut Scope, loop_vars: &mut [Tensor]| -> Result<Vec<Tensor>> {
-                let y = scope.constant(&[1_i32], &[] as &[i32], "").unwrap();
+            |scope: &mut Scope, loop_vars: &[Tensor]| -> Result<Vec<Tensor>> {
+                println!("ENTERED BODY FUNC");
+                let y = scope
+                    .constant(&[1_i32], &[] as &[i32], "Body-Const=1")
+                    .unwrap();
                 let x = loop_vars[0];
                 Ok(vec![add(scope, x, y, "")?])
             },
         );
 
-        let op = while_loop(&mut context, pred, body, &mut [x.into()], "").unwrap()[0];
+        let op = while_loop(&mut context, pred, body, &[counter.into()], "").unwrap()[0];
         let r = test_suite!(run_op: [op]; context, input: {});
         test_suite!(r; assert_len: {[0;Int32] == 1});
         test_suite!(r; assert: {[0;Int32] == [10_i32]});

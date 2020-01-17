@@ -1,9 +1,10 @@
 //! Types to perform computation sessions and graph evaluations.
-
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use super::{DataType, Graph, Session, SessionOptions, StepWithGraph};
+use tf::SessionRunArgs;
+
+use super::{DataType, Graph, Session, SessionOptions};
 use super::framework::*;
 use errors::*;
 
@@ -91,8 +92,8 @@ impl<'g> ClientSession<'g> {
     /// Returns error if any of the session input was inadequate.
     pub fn run(&mut self, options: Option<SessionOptions>) -> Result<Vec<TensorContent>> {
         fn control_ops<'a, I>(
-            init_steep: &mut StepWithGraph,
-            steep: &mut StepWithGraph,
+            init_steep: &mut SessionRunArgs,
+            steep: &mut SessionRunArgs,
             control_ops: I,
         ) -> bool
         where
@@ -113,7 +114,7 @@ impl<'g> ClientSession<'g> {
         let graph = &*self.context.graph.borrow();
         let tensors = &*self.context.tensors.borrow();
 
-        let mut session = if let Some(opts) = options {
+        let session = if let Some(opts) = options {
             Session::new(&opts, graph)
         } else {
             Session::new(&SessionOptions::new(), graph)
@@ -122,8 +123,8 @@ impl<'g> ClientSession<'g> {
         let root_deps = &self.context.scopes.borrow().control_dependencies;
         let this_deps = self.context.own_scope.control_dependencies.iter();
 
-        let steep0 = &mut StepWithGraph::new();
-        let steep1 = &mut StepWithGraph::new();
+        let steep0 = &mut SessionRunArgs::new();
+        let steep1 = &mut SessionRunArgs::new();
 
         let any_init0 = control_ops(steep0, steep1, this_deps);
         let any_init1 = control_ops(steep0, steep1, root_deps.iter());
@@ -147,7 +148,7 @@ impl<'g> ClientSession<'g> {
             let op = &info.data_origin.0;
             let idx = info.data_origin.1;
             for input in inputs {
-                tensor_output_op!(input; StepWithGraph::add_input[steep1, op, idx,]);
+                tensor_output_op!(input; SessionRunArgs::add_feed[steep1, op, idx,]);
             }
         }
 
@@ -156,25 +157,25 @@ impl<'g> ClientSession<'g> {
         let mut results = Vec::with_capacity(self.fetch.len());
         for (token, dtype) in output_tokens {
             let res = match dtype {
-                DataType::Bool => TensorContent::from(steep1.take_output::<bool>(token)?),
-                DataType::Double => TensorContent::from(steep1.take_output::<f64>(token)?),
-                DataType::Float => TensorContent::from(steep1.take_output::<f32>(token)?),
-                DataType::Int32 => TensorContent::from(steep1.take_output::<i32>(token)?),
-                DataType::UInt8 => TensorContent::from(steep1.take_output::<u8>(token)?),
-                DataType::Int16 => TensorContent::from(steep1.take_output::<i16>(token)?),
-                DataType::Int8 => TensorContent::from(steep1.take_output::<i8>(token)?),
-                DataType::Int64 => TensorContent::from(steep1.take_output::<i64>(token)?),
-                DataType::String => TensorContent::from(steep1.take_output::<String>(token)?),
-                DataType::QUInt8 => TensorContent::from(steep1.take_output::<::QUInt8>(token)?),
-                DataType::QUInt16 => TensorContent::from(steep1.take_output::<::QUInt16>(token)?),
-                DataType::QInt16 => TensorContent::from(steep1.take_output::<::QInt16>(token)?),
-                DataType::QInt32 => TensorContent::from(steep1.take_output::<::QInt32>(token)?),
-                DataType::BFloat16 => TensorContent::from(steep1.take_output::<::BFloat16>(token)?),
+                DataType::Bool => TensorContent::from(steep1.fetch::<bool>(token)?),
+                DataType::Double => TensorContent::from(steep1.fetch::<f64>(token)?),
+                DataType::Float => TensorContent::from(steep1.fetch::<f32>(token)?),
+                DataType::Int32 => TensorContent::from(steep1.fetch::<i32>(token)?),
+                DataType::UInt8 => TensorContent::from(steep1.fetch::<u8>(token)?),
+                DataType::Int16 => TensorContent::from(steep1.fetch::<i16>(token)?),
+                DataType::Int8 => TensorContent::from(steep1.fetch::<i8>(token)?),
+                DataType::Int64 => TensorContent::from(steep1.fetch::<i64>(token)?),
+                DataType::String => TensorContent::from(steep1.fetch::<String>(token)?),
+                DataType::QUInt8 => TensorContent::from(steep1.fetch::<::QUInt8>(token)?),
+                DataType::QUInt16 => TensorContent::from(steep1.fetch::<::QUInt16>(token)?),
+                DataType::QInt16 => TensorContent::from(steep1.fetch::<::QInt16>(token)?),
+                DataType::QInt32 => TensorContent::from(steep1.fetch::<::QInt32>(token)?),
+                DataType::BFloat16 => TensorContent::from(steep1.fetch::<::BFloat16>(token)?),
                 DataType::Complex64 => {
-                    TensorContent::from(steep1.take_output::<::Complex32>(token)?)
+                    TensorContent::from(steep1.fetch::<::Complex32>(token)?)
                 }
                 DataType::Complex128 => {
-                    TensorContent::from(steep1.take_output::<::Complex64>(token)?)
+                    TensorContent::from(steep1.fetch::<::Complex64>(token)?)
                 }
                 _ => return Err(Error::from(ErrorKind::Stub)),
             };

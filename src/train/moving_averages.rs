@@ -122,8 +122,7 @@ impl ExponentialMovingAverage {
 
             if self.averages
                 .keys()
-                .find(|&&x| x.ident == var.ident)
-                .is_some()
+                .any(|&x| x.ident == var.ident)
             {
                 return Err(Error::from(ErrorKind::Stub));
             }
@@ -163,7 +162,7 @@ impl ExponentialMovingAverage {
                 scope,
                 &self.averages[var],
                 var,
-                decay.into(),
+                decay,
                 zero_debias,
                 None,
             )?)
@@ -235,7 +234,7 @@ impl ExponentialMovingAverage {
     ) -> HashMap<String, Tensor> {
         let mut name_map: HashMap<String, Tensor> = HashMap::new();
 
-        if moving_avg_variables.len() == 0 {
+        if moving_avg_variables.is_empty() {
             // Include trainable variables and variables which have been explicitly
             // added to the moving_average_variables collection.
             // TODO: moving_avg_variables = variables.trainable_variables()

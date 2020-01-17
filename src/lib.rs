@@ -21,7 +21,7 @@ pub type OperationData = tf::Operation;
 pub type TensorData<T> = tf::Tensor<T>;
 pub type TensorShape = tf::Shape;
 use tf::{OperationDescription, Output};
-use tf::{DataType, Graph, Session, SessionOptions, StepWithGraph};
+use tf::{DataType, Graph, Session, SessionOptions};
 use tf::{BFloat16, QInt16, QInt32, QUInt16, QUInt8};
 use num_complex::{Complex32, Complex64};
 

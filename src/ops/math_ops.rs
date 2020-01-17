@@ -220,7 +220,7 @@ where
     let x = x.into_tensor(context);
     if x.dtype.is_complex() {
         let scope = &mut context.name_scope(name.as_ref(), Some("Conj".as_ref()));
-        scope.install(Conj::new(x.into(), name)?)
+        scope.install(Conj::new(x, name)?)
     } else if x.dtype.is_floating() || x.dtype.is_integer() {
         Ok(x)
     } else {
@@ -662,15 +662,13 @@ where
         _ => false,
     };
 
-    let mut use_sparse_matmul = sparse_matmul_a && sparse_matmul_b && (a_is_sparse || b_is_sparse);
-    if [a.dtype, b.dtype]
+    let use_sparse_matmul = if [a.dtype, b.dtype]
         .iter()
-        .find(|x| DataType::BFloat16 == **x)
-        .is_some()
-    {
-        // matmul currently doesn't handle bfloat16 inputs.
-        use_sparse_matmul = true;
-    }
+        .any(|x| DataType::BFloat16 == *x) { 
+            true 
+    } else { 
+        sparse_matmul_a && sparse_matmul_b && (a_is_sparse || b_is_sparse) 
+    };
 
     if use_sparse_matmul {
         //sparse_matmul(scope, a, b, transpose_a, transpose_b, a_is_sparse, b_is_sparse, "");
@@ -1139,7 +1137,7 @@ where
     let dims: Vec<i64>;
     let mut result = add(scope, log, my_max, "")?;
     if !keep_dims {
-        let axis = if axis.len() == 0 { None } else { Some(axis) };
+        let axis = if axis.is_empty() { None } else { Some(axis) };
         result = squeeze(scope, result, axis, "")?;
     }
     Ok(result)

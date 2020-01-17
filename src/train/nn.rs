@@ -664,9 +664,9 @@ where
     let labels_static_shape = labels_static_shape.definition_i64().unwrap();
     cost = cost.set_shape(scope, labels_static_shape.as_slice())?;
     if let DataType::BFloat16 = logits.dtype {
-        return math_ops::cast(scope, cost, DataType::BFloat16, "");
+        math_ops::cast(scope, cost, DataType::BFloat16, "")
     } else {
-        return Ok(cost);
+        Ok(cost)
     }
 }
 

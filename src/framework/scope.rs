@@ -5,19 +5,20 @@ use std::rc::Rc;
 
 use tf::TensorType;
 
-use {Graph, Output};
-use super::{add_control_input, Attribute, Constant, ControlOp, ControlOpKind, DataType, Error,
-            ErrorKind, Function, GetOp, GradFunc, IdType, NodeIdent, Operation, OperationData,
-            Result, ShapeOps, Tensor, TensorContent, TensorData, TensorOps, TensorReg,
-            TensorShape, Variable};
+use super::{
+    add_control_input, Attribute, Constant, ControlOp, ControlOpKind, DataType, Error, ErrorKind,
+    Function, GetOp, GradFunc, IdType, NodeIdent, Operation, OperationData, Result, ShapeOps,
+    Tensor, TensorContent, TensorData, TensorOps, TensorReg, TensorShape, Variable,
+};
 use ops::{array_ops, control_flow_ops, init_ops, ControlFlow};
+use {Graph, Output};
 
 const DEFAULT_GRAPH_SEED: i64 = 87_654_321;
 
 /// Master context manager for building TensorFlow graphs and managing session execution.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Scope {
-    /// tensors of tensors and ops
+    /// data of tensors and ops
     pub(crate) tensors: Rc<RefCell<HashMap<NodeIdent, TensorReg>>>,
     pub(crate) ops: Rc<RefCell<HashMap<NodeIdent, OperationData>>>,
     /// owned graph for building
@@ -77,8 +78,7 @@ impl Scope {
                         if self.tensors
                             .borrow()
                             .values()
-                            .find(|x| &x.full_name == &name)
-                            .is_some()
+                            .any(|x| x.full_name == name)
                         {
                             return Err(Error::from(ErrorKind::Stub));
                         }
@@ -87,8 +87,7 @@ impl Scope {
                         if self.own_scope
                             .ops
                             .iter()
-                            .find(|&&(ref x, _)| x == &name)
-                            .is_some()
+                            .any(|(x, _)| x == &name)
                         {
                             name = self.own_scope.name.join(format!(
                                 "{}_{}",
@@ -196,7 +195,7 @@ impl Scope {
             locked: Rc::new(RefCell::new(false)),
             parent_lock: Some(self.locked.clone()),
             ops: self.ops.clone(),
-            seed: self.seed.clone(),
+            seed: self.seed,
         }
     }
 
@@ -205,7 +204,7 @@ impl Scope {
         if *self.locked.borrow() {
             let scope_name = format!("{}", self.own_scope.name.display());
             let scope_name = match scope_name.as_str() {
-                "" => format!("{}", "root"),
+                "" => "root".to_string(),
                 _ => scope_name,
             };
             panic!(format!(
@@ -307,7 +306,6 @@ impl Scope {
         op.digest(self, new_op)
     }
 
-    #[cfg(test)]
     pub(crate) fn get_src_op<Op: GetOp>(&self, op: Op) -> OperationData {
         self.ops.borrow()[op.get_op()].clone()
     }
@@ -357,7 +355,7 @@ impl Scope {
         let mut args_index = 0_usize;
         let input_lists = &mut op.fetch_input_lists().iter();
         let (mut ls_idx, mut current_list) = input_ls(input_lists);
-        for input in op.fetch_inputs().into_iter() {
+        for input in op.fetch_inputs().iter() {
             {
                 iter_input_ls(
                     input_lists,
@@ -380,7 +378,7 @@ impl Scope {
                         (data.data_origin.0.clone(), data.data_origin.1)
                     }
                 }
-                ControlFlow::None | ControlFlow::WhileContext(_) => {
+                ControlFlow::None => {
                     let data = &reg_c.borrow()[&input.ident];
                     (data.data_origin.0.clone(), data.data_origin.1)
                 }
@@ -560,21 +558,6 @@ impl Scope {
                         ControlFlow::CondContext(ref cond) => {
                             vec![&tensors[&cond.pivot.ident].data_origin.0]
                         }
-                        ControlFlow::WhileContext(ref cond) => {
-                            if cond.pivot_for_body.is_some() {
-                                vec![
-                                    &tensors[&cond.pivot_for_body.as_ref().unwrap().ident]
-                                        .data_origin
-                                        .0,
-                                ]
-                            } else {
-                                vec![
-                                    &tensors[&cond.pivot_for_pred.as_ref().unwrap().ident]
-                                        .data_origin
-                                        .0,
-                                ]
-                            }
-                        }
                         ControlFlow::None => vec![],
                     };
                     init_ops::variable_(graph, new_var.to_str().unwrap(), dtype, &rank_info, deps)?
@@ -609,15 +592,13 @@ impl Scope {
                         ),
                     );
 
-                    let init = &[
-                        init_ops::assign_(
-                            graph,
-                            new_var.join("init").to_str().unwrap(),
-                            var.clone(),
-                            (initial_value, 0),
-                            true,
-                        )?,
-                    ];
+                    let init = &[init_ops::assign_(
+                        graph,
+                        new_var.join("init").to_str().unwrap(),
+                        var.clone(),
+                        (initial_value, 0),
+                        true,
+                    )?];
                     // get previous existing control dependencies
                     let cd = &self.scopes.borrow().control_dependencies;
                     let control_inputs = cd.iter().map(|x| &x.finished).chain(init);
@@ -651,7 +632,7 @@ impl Scope {
             Ok(self._make_var_handle(
                 ident,
                 init_ident,
-                TensorReg::name_builder(new_var.clone(), 0),
+                TensorReg::name_builder(new_var, 0),
                 dtype,
             ))
         } else {
@@ -708,7 +689,7 @@ impl Scope {
                         // is an op output tensor ident
                         let initializer = tensors
                             .get(&initializer.get_op())
-                            .ok_or(Error::from(ErrorKind::OpNotFound))?;
+                            .ok_or_else(|| Error::from(ErrorKind::OpNotFound))?;
                         rank_info = graph.tensor_shape(Output {
                             operation: initializer.data_origin.0.clone(),
                             index,
@@ -718,7 +699,7 @@ impl Scope {
                     } else {
                         // is an op ident, try find its output
                         let initializer = ops.get(&initializer.get_op())
-                            .ok_or(Error::from(ErrorKind::OpNotFound))?;
+                            .ok_or_else(|| Error::from(ErrorKind::OpNotFound))?;
                         if initializer.num_outputs() != 1 {
                             return Err(Error::from(ErrorKind::from("var initializer op has more than one output and index is unspecified")));
                         }
@@ -737,21 +718,6 @@ impl Scope {
                         ControlFlow::CondContext(ref cond) => {
                             vec![&tensors[&cond.pivot.ident].data_origin.0]
                         }
-                        ControlFlow::WhileContext(ref cond) => {
-                            if cond.pivot_for_body.is_some() {
-                                vec![
-                                    &tensors[&cond.pivot_for_body.as_ref().unwrap().ident]
-                                        .data_origin
-                                        .0,
-                                ]
-                            } else {
-                                vec![
-                                    &tensors[&cond.pivot_for_pred.as_ref().unwrap().ident]
-                                        .data_origin
-                                        .0,
-                                ]
-                            }
-                        }
                         ControlFlow::None => vec![],
                     };
                     init_ops::variable_(graph, new_var.to_str().unwrap(), dtype, &rank_info, deps)?
@@ -761,15 +727,13 @@ impl Scope {
 
                 // assign op
                 init = {
-                    let init = &[
-                        init_ops::assign_(
-                            graph,
-                            new_var.join("init").to_str().unwrap(),
-                            var.clone(),
-                            initializer,
-                            validate_shape,
-                        )?,
-                    ];
+                    let init = &[init_ops::assign_(
+                        graph,
+                        new_var.join("init").to_str().unwrap(),
+                        var.clone(),
+                        initializer,
+                        validate_shape,
+                    )?];
 
                     // get previous existing control dependencies
                     let cd = &self.scopes.borrow().control_dependencies;
@@ -855,34 +819,13 @@ impl Scope {
 
         let shape = &shape
             .definition_u64()
-            .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+            .ok_or_else(|| Error::from(ErrorKind::UndefinedTensorShape))?;
 
         let data_origin = {
             let cd = &self.scopes.borrow().control_dependencies;
             match self.control_context {
                 ControlFlow::CondContext(ref cond) => {
                     let pivot = vec![&tensors[&cond.pivot.ident].data_origin.0];
-                    array_ops::constant(
-                        graph,
-                        full_name.to_str().unwrap(),
-                        to_typed_tensor![value; shape],
-                        cd.iter().map(|x| &x.finished).chain(pivot),
-                    )?
-                }
-                ControlFlow::WhileContext(ref cond) => {
-                    let pivot = if cond.pivot_for_body.is_some() {
-                        vec![
-                            &tensors[&cond.pivot_for_body.as_ref().unwrap().ident]
-                                .data_origin
-                                .0,
-                        ]
-                    } else {
-                        vec![
-                            &tensors[&cond.pivot_for_pred.as_ref().unwrap().ident]
-                                .data_origin
-                                .0,
-                        ]
-                    };
                     array_ops::constant(
                         graph,
                         full_name.to_str().unwrap(),
@@ -903,11 +846,11 @@ impl Scope {
 
         let dtype = data_origin.output_type(0);
         let data = TensorReg::new(
-            full_name.clone(),
+            full_name,
             dtype,
             IdType::Constant,
             (data_origin.clone(), 0),
-            data_origin_id.clone(),
+            data_origin_id,
             graph.tensor_shape(Output {
                 operation: data_origin,
                 index: 0,
@@ -952,7 +895,7 @@ impl Scope {
                 dtype,
                 IdType::Placeholder,
                 data_origin,
-                data_origin_id.clone(),
+                data_origin_id,
                 TensorShape::from(None),
             ),
         );
@@ -1051,7 +994,7 @@ impl Scope {
             }
             let src = tensors
                 .get(&tensor.into())
-                .ok_or(Error::from(ErrorKind::TensorNotFound))?;
+                .ok_or_else(|| Error::from(ErrorKind::TensorNotFound))?;
             let full_name = self.resolve_name(Some(name.as_ref()), src.idtype, false)?;
             let data_origin = (
                 array_ops::identity(
@@ -1075,15 +1018,15 @@ impl Scope {
                 dtype,
                 IdType::Operation("Identity"),
                 data_origin,
-                data_origin_id.clone(),
+                data_origin_id,
                 TensorShape::from(None),
             ),
         );
 
         Ok(Tensor {
             ident,
-            dtype: dtype,
-            idtype: idtype,
+            dtype,
+            idtype,
             idx: 0,
             initializer: None,
             origin_op: Some(data_origin_id),
@@ -1180,6 +1123,36 @@ impl Scope {
 
     pub(crate) fn get_gradient_function<N: GetOp>(&self, func: N) -> Option<GradFunc> {
         unimplemented!()
+    }
+
+    pub(crate) fn get_tensor_from_data(&self, idx: i32, op: OperationData) -> Result<Tensor> {
+        let tensor_data = &*self.tensors.borrow();
+        println!(
+            "TENSOR_DATA: {:#?}",
+            tensor_data
+                .values()
+                .map(|x| x.data_origin.0.name().unwrap())
+                .collect::<Vec<_>>()
+        );
+        println!("OP_NAME: {}\nOP: {:#?}", &op.name().unwrap(), op);
+
+        let (ident, tensor_info) = tensor_data
+            .iter()
+            .find(|&(key, info)| info.data_origin.0.name().unwrap() == op.name().unwrap())
+            .ok_or_else(|| Error::from(ErrorKind::TensorNotFound))?;
+        let (initializer, origin_op) = if tensor_info.idtype.is_initialized() {
+            (Some(tensor_info.data_origin_id), None)
+        } else {
+            (None, Some(tensor_info.data_origin_id))
+        };
+        Ok(Tensor {
+            ident: *ident,
+            idtype: tensor_info.idtype,
+            dtype: tensor_info.dtype,
+            idx,
+            initializer,
+            origin_op,
+        })
     }
 }
 
@@ -1303,7 +1276,7 @@ fn find_parent_scope<'a>(
             .name
             .iter()
             .enumerate()
-            .skip_while(|&(ref i, _)| i < &comp)
+            .skip_while(|&(i, _)| i < comp)
             .find(|&(_, p)| name.starts_with(p))
         {
             name.strip_prefix(prefix).unwrap().to_owned()

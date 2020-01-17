@@ -1,4 +1,7 @@
+.idea
+.vscode
+target
+
 *~
 *.log
 Cargo.lock
-target

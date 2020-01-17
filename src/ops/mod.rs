@@ -4,12 +4,13 @@ use std::path::{Path, PathBuf};
 
 use tf::TensorType;
 
-use {DataType, Graph, OperationData, Output, TensorData};
-use errors::{Error, ErrorKind, Result};
-use framework::{add_control_input, Attribute, Constant, DTypeOps, Function, GetOp, GradFunc,
-                IdType, NodeIdent, Operation, Scope, ShapeOps, ShapeSize, Tensor, TensorOps,
-                TensorReg, Variable};
 use self::dtype_traits::Float;
+use errors::{Error, ErrorKind, Result};
+use framework::{
+    add_control_input, Attribute, Constant, DTypeOps, Function, GetOp, GradFunc, IdType, NodeIdent,
+    Operation, Scope, ShapeOps, ShapeSize, Tensor, TensorOps, TensorReg, Variable,
+};
+use {DataType, Graph, OperationData, Output, TensorData};
 
 #[allow(unused_imports)]
 use framework::TensorContent;
@@ -46,37 +47,37 @@ pub(crate) mod dtype_traits {
 ////// Macros //////
 
 macro_rules! generate_name {
-    (is_none: $name:ident) => (
+    (is_none: $name:ident) => {
         if name_cmp!($name, "") {
             None
         } else {
             Some($name.as_ref().to_owned())
         }
-    );
-    (ret: $name:expr) => (
+    };
+    (ret: $name:expr) => {
         if let Some(ref name) = *$name {
             Some(name.as_path())
         } else {
             None
         }
-    )
+    };
 }
 
 macro_rules! impl_into_ident {
     ($name:ident) => {
         /*
-        impl<'a> Into<NodeIdent> for $name<'a> {
-            fn into(self) -> NodeIdent {
-                self.ident
-            }
-        }
+                                                impl<'a> Into<NodeIdent> for $name<'a> {
+                                                    fn into(self) -> NodeIdent {
+                                                        self.ident
+                                                    }
+                                                }
 
-        impl<'a> Into<NodeIdent> for &'a $name<'a> {
-            fn into(self) -> NodeIdent {
-                self.ident
-            }
-        }
-        */
+                                                impl<'a> Into<NodeIdent> for &'a $name<'a> {
+                                                    fn into(self) -> NodeIdent {
+                                                        self.ident
+                                                    }
+                                                }
+                                                */
 
         impl<'a> GetOp for $name<'a> {
             fn get_op(&self) -> &NodeIdent {
@@ -87,7 +88,7 @@ macro_rules! impl_into_ident {
                 None
             }
         }
-    }
+    };
 }
 
 /// Macro for creating new operations.
@@ -192,10 +193,6 @@ macro_rules! add_new_op {
                     cond.values.insert(ident);
                     cond.external_values.insert(ident, tensor);
                 }
-                ControlFlow::WhileContext(ref mut cond) => {
-                    cond.values.insert(ident);
-                    cond.external_values.insert(ident, tensor);
-                }
                 ControlFlow::None => {}
             }
             Ok(tensor)
@@ -241,12 +238,6 @@ macro_rules! add_new_op {
                     cond.values.insert(ident1);
                     cond.external_values.insert(ident1, tensor1);
                 }
-                ControlFlow::WhileContext(ref mut cond) => {
-                    cond.values.insert(ident0);
-                    cond.external_values.insert(ident0, tensor0);
-                    cond.values.insert(ident1);
-                    cond.external_values.insert(ident1, tensor1);
-                }
                 ControlFlow::None => {}
             }
 
@@ -264,7 +255,7 @@ macro_rules! add_new_op {
         let dtype = add_new_op!($infer_dtype $SELF);
         let idtype = IdType::Operation(stringify!($name));
         let shape = {
-            let g = &*$context.graph.borrow();
+            let g = &$context.graph.borrow();
             g.tensor_shape(
                     Output {
                         operation: $op.clone(),
@@ -354,7 +345,9 @@ macro_rules! test_suite {
             match $res[$res_idx] {
                 TensorContent::$ty(ref val) => {
                     for (i, n) in (&$cmp).iter().enumerate() {
-                        assert_eq!(val[i], *n);
+                        #[allow(clippy::float_cmp)]{
+                            assert_eq!(val[i], *n);
+                        }
                     }
                 }
                 _ => panic!("wrong type specified for this test")
@@ -380,28 +373,28 @@ macro_rules! test_suite {
 }
 
 pub(crate) mod array_ops;
-pub(crate) mod control_flow_ops;
 pub(crate) mod clip_ops;
+pub(crate) mod control_flow_ops;
 pub(crate) mod data_flow_ops;
 pub(crate) mod embedding_ops;
 pub(crate) mod gradients_impl;
 pub(crate) mod init_ops;
-pub(crate) mod nn_ops;
 pub(crate) mod math_ops;
-pub(crate) mod resource_variable_ops;
+pub(crate) mod nn_ops;
 pub(crate) mod random_ops;
+pub(crate) mod resource_variable_ops;
 pub(crate) mod state_ops;
 pub mod training_ops;
 
 pub use self::array_ops::*;
-pub use self::control_flow_ops::*;
 pub use self::clip_ops::*;
+pub use self::control_flow_ops::*;
 pub use self::data_flow_ops::*;
 pub use self::embedding_ops::*;
+pub use self::gradients_impl::AggregationMethod;
 pub use self::init_ops::*;
 pub use self::math_ops::*;
 pub use self::random_ops::*;
+pub use self::resource_variable_ops::*;
 pub use self::state_ops::*;
 pub use self::training_ops::*;
-pub use self::resource_variable_ops::*;
-pub use self::gradients_impl::AggregationMethod;

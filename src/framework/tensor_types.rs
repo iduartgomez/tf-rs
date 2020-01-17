@@ -180,15 +180,13 @@ impl ShapeOps for TensorShape {
             return false;
         }
 
-        let any_diff = (0..s_def).into_iter().any(|idx| {
+        let any_diff = (0..s_def).any(|idx| {
             let s_dim = self[idx];
             let o_dim = other[idx];
             if s_dim.is_none() || o_dim.is_none() {
                 false
             } else {
-                let s_dim = s_dim.unwrap();
-                let o_dim = o_dim.unwrap();
-                s_dim != o_dim
+                s_dim.unwrap() != o_dim.unwrap()
             }
         });
         !any_diff

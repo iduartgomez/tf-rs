@@ -219,7 +219,7 @@ pub trait Optimizer: Sized {
             scope,
             grads_and_vars
                 .iter()
-                .filter(|&&(g, v)| g.is_some() && !(DataType::Resource == v.dtype))
+                .filter(|&&(g, v)| g.is_some() && DataType::Resource != v.dtype)
                 .map(|&(_, ref v)| v),
         )?;
         Ok(grads_and_vars)

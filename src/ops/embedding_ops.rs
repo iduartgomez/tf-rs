@@ -72,7 +72,7 @@ fn embedding_lookup_and_transform<S>(
     ids: Tensor,
     partition_strategy: &str,
     max_norm: Option<Tensor>,
-    mut transform_fn: Option<Box<FnMut(&mut Scope, Tensor) -> Result<Tensor>>>,
+    mut transform_fn: Option<Box<dyn FnMut(&mut Scope, Tensor) -> Result<Tensor>>>,
     name: S,
 ) -> Result<Tensor>
 where
@@ -86,11 +86,7 @@ where
     let np = params.len() as i32; // Number of partitions
                                   // Preserve the resource variable status to avoid accidental dense reads.
     let dims = if let Some(dims) = ids.get_shape(scope).dims() {
-        if dims == 1 {
-            true
-        } else {
-            false
-        }
+        dims == 1
     } else {
         false
     };
@@ -264,9 +260,9 @@ where
         array_ops::strided_slice(
             scope,
             params_shape,
-            1_32,
+            1_i32,
             ::std::i32::MAX,
-            1_32,
+            1_i32,
             None,
             None,
             None,
@@ -279,9 +275,9 @@ where
         array_ops::strided_slice(
             scope,
             params_shape,
-            1_32,
+            1_i32,
             ::std::i32::MAX,
-            1_32,
+            1_i32,
             None,
             None,
             None,

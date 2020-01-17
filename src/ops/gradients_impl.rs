@@ -71,6 +71,7 @@ use super::{array_ops, control_flow_ops, math_ops, DTypeOps, DataType, Error, Er
 ///  ### Returns:
 ///    A list of `sum(dy/dx)` for each x in `xs`.
 #[doc(hidden)]
+#[allow(clippy::cognitive_complexity)]
 pub fn gradients<Tys, Txs, S>(
     context: &mut Scope,
     ys: Vec<Tys>,
@@ -98,7 +99,7 @@ where
                 "tf-rs: `grad_ys` must be of same length as `ys` in `gradients` function call",
             ));
         }
-        grads.into_iter().map(|x| Some(x)).collect()
+        grads.into_iter().map(Some).collect()
     } else {
         vec![None; ys.len()]
     };
@@ -186,7 +187,7 @@ where
         if let Some(ref loop_state) = loop_state {
             loop_state.enter_grad_while_context(op, true);
         }
-        let mut out_grads = aggregated_grads(scope, &grads, op, &loop_state, &aggregation_method)?;
+        let mut out_grads = aggregated_grads(scope, &grads, op, &loop_state, aggregation_method)?;
         if let Some(ref loop_state) = loop_state {
             loop_state.exit_grad_while_context(op, true);
         }
@@ -199,14 +200,14 @@ where
             if is_func_call {
                 let func = scope.get_function(op)?;
                 grad_fn = Some(func.get_gradient_func()
-                    .ok_or(Error::from(ErrorKind::UndefinedGrad))?);
+                    .ok_or_else(|| Error::from(ErrorKind::UndefinedGrad))?);
                 func_call = Some(func);
             } else {
                 // A grad_fn must be defined, either as a function or as None
                 // for ops that do not have gradients.
                 grad_fn = Some(scope
                     .get_gradient_function(op)
-                    .ok_or(Error::from(ErrorKind::UndefinedGrad))?);
+                    .ok_or_else(|| Error::from(ErrorKind::UndefinedGrad))?);
             }
         }
         if let Some(ref loop_state) = loop_state {
@@ -254,7 +255,7 @@ where
                 let mut some_in_grads = in_grads.into_iter().filter_map(|x| x).collect();
                 some_in_grads =
                     control_flow_ops::tuple(scope, some_in_grads, None as Option<&[Tensor]>, "")?;
-                in_grads = some_in_grads.into_iter().map(|x| Some(x)).collect();
+                in_grads = some_in_grads.into_iter().map(Some).collect();
             }
         // TODO: _LogOpGradients(op, out_grads, in_grads)
         } else {
@@ -262,7 +263,7 @@ where
             // just propagate a list of None backwards.
             in_grads = vec![None; op.get_inputs(scope)?.len()];
         }
-        for (i, (t_in, mut in_grad)) in op.get_inputs(scope)?
+        for (i, (t_in, in_grad)) in op.get_inputs(scope)?
             .into_iter()
             .zip(in_grads.into_iter())
             .enumerate()
@@ -271,7 +272,7 @@ where
                 if t_in.dtype != DataType::Resource {
                     let shape = t_in.get_shape(scope)
                         .definition_i64()
-                        .ok_or(Error::from(ErrorKind::UndefinedTensorShape))?;
+                        .ok_or_else(|| Error::from(ErrorKind::UndefinedTensorShape))?;
                     in_grad_t = in_grad_t.set_shape(scope, shape.as_slice())?;
                 }
                 set_grad(scope, &mut grads, &t_in, &in_grad_t)?;
@@ -379,19 +380,11 @@ fn set_grad(
     grad: &Tensor,
 ) -> Result<()> {
     let op = *t.get_op();
-    let op_grads;
-    if !grads.contains_key(&op) {
-        grads.insert(
-            op,
-            (0..op.get_outputs(scope)?.len())
-                .into_iter()
+    let op_grads = grads.entry(op).or_insert(
+        (0..op.get_outputs(scope)?.len())
                 .map(|_| Vec::<Tensor>::new())
-                .collect::<Vec<_>>(),
-        );
-        op_grads = grads.get_mut(&op).unwrap();
-    } else {
-        op_grads = grads.get_mut(&op).unwrap();
-    }
+                .collect::<Vec<_>>()
+    );
     let t_grads = &mut op_grads[t.idx as usize];
     t_grads.push(*grad);
     /* TODO:
@@ -596,7 +589,7 @@ fn sym_grad(
         f_types.push(x.dtype);
         f_in.push(x);
     }
-    f_in.extend(out_grads.into_iter().filter_map(|x| *x));
+    f_in.extend(out_grads.iter().filter_map(|x| *x));
 
     let f = NameAttrList::new(op.get_type(scope)?);
     functional_ops::symbolic_gradient(scope, f_in, f_types, f.serialize())
@@ -623,14 +616,14 @@ fn aggregated_grads(
     grads: &HashMap<NodeIdent, Vec<Vec<Tensor>>>,
     op: &NodeIdent,
     loop_state: &Option<ControlFlowState>,
-    aggregation_method: &Option<AggregationMethod>,
+    aggregation_method: Option<AggregationMethod>,
 ) -> Result<Vec<Option<Tensor>>> {
-    let aggregation_method = if let Some(method) = *aggregation_method {
+    let aggregation_method = if let Some(method) = aggregation_method {
         method
     } else {
         AggregationMethod::default()
     };
-    match aggregation_method.clone() {
+    match aggregation_method {
         AggregationMethod::AddN
         | AggregationMethod::ExperimentalTree
         | AggregationMethod::ExperimentalAccumulateN => {}
@@ -719,19 +712,19 @@ fn maybe_compile(
     mut grad_fn: GradFunc,
     inputs: &[Option<Tensor>],
 ) -> Result<Vec<Option<Tensor>>> {
-    let scope = scope.trim_right_matches("/").replace("/", "_");
+    let scope = scope.trim_end_matches('/').replace("/", "_");
     let xla_compile;
     let xla_separate_compiled_gradients;
     let xla_scope;
     if let Some(func) = func_call {
         xla_compile = func.get_attr("_XlaCompile")
-            .ok_or(Error::from(ErrorKind::UndefinedFuncAttr))?
+            .ok_or_else(|| Error::from(ErrorKind::UndefinedFuncAttr))?
             .unwrap_b();
         xla_separate_compiled_gradients = func.get_attr("_XlaSeparateCompiledGradients")
-            .ok_or(Error::from(ErrorKind::UndefinedFuncAttr))?
-            .unwrap_b();;
+            .ok_or_else(|| Error::from(ErrorKind::UndefinedFuncAttr))?
+            .unwrap_b();
         xla_scope = func.get_attr("_XlaScope")
-            .ok_or(Error::from(ErrorKind::UndefinedFuncAttr))?
+            .ok_or_else(|| Error::from(ErrorKind::UndefinedFuncAttr))?
             .unwrap_s();
     } else {
         let xla_compile_2 = op.get_attr(context, "_XlaCompile");

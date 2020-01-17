@@ -103,16 +103,12 @@ add_new_op!(DynamicPartition,
                     dtype,
                     idx: output_num,
                     initializer: None,
-                    origin_op: data_origin_id.clone(),
+                    origin_op: data_origin_id,
                 };
                 outputs.push(tensor0);
                 
                 match context.control_context {
                     ControlFlow::CondContext(ref mut cond) => {
-                        cond.values.insert(ident0);
-                        cond.external_values.insert(ident0, tensor0);
-                    }
-                    ControlFlow::WhileContext(ref mut cond) => {
                         cond.values.insert(ident0);
                         cond.external_values.insert(ident0, tensor0);
                     }
@@ -231,7 +227,7 @@ where
             if let DataType::Int32 = x.dtype {
                 Ok(x)
             } else {
-                return Err(Error::from(ErrorKind::Stub));
+                Err(Error::from(ErrorKind::Stub))
             }
         })
         .collect::<Result<Vec<_>>>()?;
@@ -246,7 +242,7 @@ where
             if last.dtype == x.dtype {
                 Ok(x)
             } else {
-                return Err(Error::from(ErrorKind::Stub));
+                Err(Error::from(ErrorKind::Stub))
             }
         })
         .collect::<Result<Vec<_>>>()?;

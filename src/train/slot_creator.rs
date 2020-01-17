@@ -45,8 +45,6 @@ pub fn create_slot<S>(
 where
     S: AsRef<str>,
 {
-    use super::ShapeOps;
-
     // Scope the slot name in the namespace of the primary variable.
     // Set "primary.op.name + '/' + name" as default name, so the scope name of
     // optimizer can be shared when reuse is True. Meanwhile when reuse is False
